@@ -71,3 +71,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .btn--primary { background: var(--brand); border-color: var(--brand); color: #fff; align-self: flex-start; }
 .btn--primary:disabled { opacity: .6; cursor: progress; }
 .form[hidden] { display: none; }
+
+/* O diálogo "md" do host tem conteúdo de 60vw dentro de uma moldura de 680px: o que passa disso some.
+   A tela de configuração se limita à largura visível. */
+.page-config .app { max-width: 660px; }
