@@ -105,7 +105,41 @@
     return 'A Asa não respondeu agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '.';
   }
 
-  var api = { queueList: queueList, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
+  function formatMoney(v) {
+    return typeof v === 'number' && isFinite(v) ? 'R$ ' + v.toFixed(2).replace('.', ',') : '';
+  }
+
+  // Chave de idempotência do agendamento. O iframe do host tem origem opaca: randomUUID pode faltar.
+  function newKey(rand) {
+    var bytes = new Uint8Array(16);
+    (rand || function (b) { return (root.crypto || globalThis.crypto).getRandomValues(b); })(bytes);
+    return Array.prototype.map.call(bytes, function (b) { return (b < 16 ? '0' : '') + b.toString(16); }).join('');
+  }
+
+  // Dados do paciente novo, como o Conector espera. Devolve {ok, value} ou {ok:false, error}.
+  function newPatient(f) {
+    var nome = String(f.nome || '').trim().replace(/\s+/g, ' ');
+    var cpf = cpfDigits(f.cpf);
+    var tel = String(f.telefone || '').replace(/\D/g, '');
+    if (nome.split(' ').length < 2) return { ok: false, error: 'Informe o nome completo do paciente.' };
+    if (!cpf) return { ok: false, error: 'Informe um CPF com 11 dígitos.' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(f.nascimento || ''))) return { ok: false, error: 'Informe a data de nascimento.' };
+    if (tel.length < 10) return { ok: false, error: 'Informe o telefone com DDD.' };
+    return { ok: true, value: { nome: nome, cpf: cpf, nascimento: f.nascimento, telefone: tel } };
+  }
+
+  // Resposta de POST /v1/agendamentos → mensagem para o atendente.
+  function bookingError(status, body) {
+    var erro = body && body.erro;
+    if (erro === 'HORARIO_INDISPONIVEL') return 'Esse horário acabou de ser ocupado. Escolha outro.';
+    if (erro === 'AGENDAMENTO_INCERTO') return 'A Asa não confirmou a tempo e a consulta pode ter sido gravada. Confira na aba Consultas antes de tentar de novo.';
+    if (erro === 'AGENDAMENTO_EM_ANDAMENTO') return 'Este agendamento já está sendo gravado. Aguarde alguns segundos.';
+    if (erro === 'PACIENTE_INVALIDO') return 'Confira nome, CPF, nascimento e telefone do paciente.';
+    if (erro === 'DADOS_INVALIDOS') return 'Faltam dados do agendamento. Escolha de novo convênio e procedimento.';
+    return readError(status, body);
+  }
+
+  var api = { queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, bookingError: bookingError, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;
 })(this);

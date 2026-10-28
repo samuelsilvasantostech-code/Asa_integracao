@@ -116,3 +116,14 @@ L = leitura, **E = grava na Asa**.
 ## Teste de conexão
 
 Rota escolhida: `api-agendamento` — leitura, sem parâmetros, e responde mesmo com agenda vazia.
+
+## Agendamento pelo painel (Conector)
+
+`POST /v1/agendamentos` é a única rota do Conector que grava na Asa. Ela chama `api-agendamento-agendar-instituicao` só para criar: remarcar e cancelar ficam fora.
+
+Como ela se protege:
+- **Idempotência:** o painel gera uma `chave` por confirmação. A tabela `agendamentos` guarda essa chave, e a mesma chave nunca chama a Asa duas vezes.
+- **Horário revalidado:** logo antes de gravar, a rota confere de novo `horarios-atendimento`. Se a vaga sumiu, responde 409 `HORARIO_INDISPONIVEL`.
+- **Sem resposta da Asa:** em timeout ou erro de rede, a chave fica `incerto` e a rota responde 504 `AGENDAMENTO_INCERTO`. Não libera a chave, porque a Asa pode ter gravado.
+- **Paciente novo:** vai com `cpf`, `nome`, `nascimento` e `telefone` no próprio agendamento. Não usa `paciente-create-edit`, que sobrescreveria o cadastro de um CPF existente.
+- **Dados pessoais:** a trilha no banco não guarda nome, CPF nem telefone.

@@ -112,3 +112,17 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 /* O diálogo "md" do host tem conteúdo de 60vw dentro de uma moldura de 680px: o que passa disso some.
    A tela de configuração se limita à largura visível. */
 .page-config .app { max-width: 660px; }
+
+.booking { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; background: var(--surface); }
+.booking[hidden] { display: none; }
+.booking--done { border-color: var(--ok); }
+.booking__slot { margin: 0; font-weight: 600; }
+.booking__who { margin: 0; color: var(--text); font-size: 13px; }
+.booking__new { margin: 0; padding: 8px 10px 10px; border: 1px dashed var(--border); border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
+.booking__new[hidden] { display: none; }
+.booking__new legend { padding: 0 4px; color: var(--muted); font-size: 11.5px; }
+.booking__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.booking__actions .btn { margin-top: 0; }
+.field textarea { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; resize: vertical; }
+.field textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.btn:disabled { opacity: .6; cursor: progress; }

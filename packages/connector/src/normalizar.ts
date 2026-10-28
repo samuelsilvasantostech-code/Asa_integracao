@@ -107,3 +107,60 @@ export function telefoneAsa(raw: string): string | null {
   if ((d.length === 12 || d.length === 13) && d.startsWith("55")) d = d.slice(2);
   return d.length === 10 || d.length === 11 ? d : null;
 }
+
+export interface Convenio {
+  id: string;
+  nome: string;
+}
+
+export interface Procedimento {
+  id: string; // convenio_procedimento_id, o que vai para o agendamento
+  nome: string;
+  valor: number | null;
+}
+
+const numero = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(String(v).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
+
+// api-agendamento-get-convenio-instituicao: registro completo do convênio.
+export function convenios(corpo: any): Convenio[] {
+  return lista(corpo?.convenios ?? corpo)
+    .map((c: any) => ({ id: texto(c?.id ?? c?.convenio_id), nome: texto(c?.nome ?? c?.descricao ?? c?.convenio_nome) }))
+    .filter((c): c is Convenio => !!c.id && !!c.nome);
+}
+
+// api-agendamento-get-procedimentos-instituicao: o id é o convenio_procedimento_id.
+export function procedimentos(corpo: any): Procedimento[] {
+  return lista(corpo?.procedimentos ?? corpo)
+    .map((p: any) => ({
+      id: texto(p?.id),
+      nome: texto(p?.descricao ?? p?.nome ?? p?.procedimento?.descricao ?? p?.procedimento),
+      valor: numero(p?.valor_convenio ?? p?.valor),
+    }))
+    .filter((p): p is Procedimento => !!p.id && !!p.nome);
+}
+
+const nomeOuTexto = (v: any): string | null =>
+  v && typeof v === "object" ? texto(v.nome ?? v.descricao ?? null) : texto(v);
+
+// Resposta de api-agendamento-agendar-instituicao: só o que o painel mostra.
+export function agendamentoFeito(corpo: any) {
+  const a = corpo?.agendamento && typeof corpo.agendamento === "object" ? corpo.agendamento : {};
+  const pac = corpo?.paciente && typeof corpo.paciente === "object" ? corpo.paciente : {};
+  return {
+    agendamento_id: texto(a.id ?? corpo?.agendamento_id ?? (typeof corpo?.agendamento !== "object" ? corpo?.agendamento : null)),
+    paciente_id: texto(pac.id ?? pac.paciente_id ?? corpo?.paciente_id),
+    setor: nomeOuTexto(corpo?.setor),
+    clinica: nomeOuTexto(corpo?.clinica ?? corpo?.["clínica"]),
+    endereco: texto(typeof corpo?.endereco === "object" ? Object.values(corpo.endereco ?? {}).filter(Boolean).join(", ") : corpo?.endereco),
+  };
+}
+
+// YYYY-MM-DD → DD/MM/YYYY, formato de entrada de várias rotas da Asa.
+export function dataBr(iso: string): string {
+  const [a, m, d] = iso.split("-");
+  return `${d}/${m}/${a}`;
+}

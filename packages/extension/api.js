@@ -41,6 +41,13 @@
       schedule: function () { return request('GET', '/v1/agenda'); },
       days: function (providerId) { return request('GET', '/v1/agenda/dias' + query({ prestador_id: providerId })); },
       slots: function (providerId, day) { return request('GET', '/v1/agenda/horarios' + query({ prestador_id: providerId, data: day })); },
+      // slot = {prestador_id, data, horario, agenda_id}
+      insurances: function (slot) { return request('GET', '/v1/agenda/convenios' + query(slot)); },
+      procedures: function (slot, insuranceId) {
+        return request('GET', '/v1/agenda/procedimentos' + query(Object.assign({ convenio_id: insuranceId }, slot)));
+      },
+      // ÚNICA chamada que grava na Asa. `chave` torna o pedido idempotente.
+      book: function (payload) { return request('POST', '/v1/agendamentos', payload); },
       saveCredential: function (token) {
         return request('PUT', '/v1/tenant/credencial', { token: token });
       }

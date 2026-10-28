@@ -5,6 +5,10 @@
   var C = root.AsaCore, B = root.AsaBridge, omni = root.omni;
   var cfg = {}, api = null, chat = null, seq = 0;
   var agenda = null; // especialidades e prestadores: carregados uma vez por painel
+  var patient = null; // paciente identificado na aba Paciente (tem id na Asa)
+  var lastLookup = null; // última busca de paciente, para atualizar depois de agendar
+  var booking = null; // agendamento em montagem: {slot, providerName, key, insurances, procedures}
+  var userLabel = ''; // "id nome" do usuário do Kentro, para a trilha do Conector
 
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) {
@@ -40,6 +44,7 @@
 
   /* ---------- paciente e consultas ---------- */
   function resetPatient() {
+    patient = null;
     $('p-facts').hidden = true;
     $('p-search').hidden = true;
     $('c-list').textContent = '';
@@ -75,11 +80,13 @@
 
   function findPatient(by, s) {
     resetPatient();
+    lastLookup = by;
     status('p-status', 'Buscando o paciente na Asa…');
     api.patient(by).then(function (r) {
       if (s !== seq) return;
       if (r.status === 200 && r.body && r.body.encontrado) {
         status('p-status', '');
+        patient = r.body.paciente;
         renderPatient(r.body.paciente);
         renderConsultas(r.body.consultas);
       } else if (r.status === 200 && r.body) {
@@ -131,7 +138,6 @@
   }
 
   function chip(text, pressed, onClick) {
-    if (!onClick) return el('span', 'chip chip--static', text); // horário: só informação, por enquanto
     var b = el('button', 'chip', text);
     b.type = 'button';
     b.setAttribute('aria-pressed', String(!!pressed));
@@ -142,6 +148,7 @@
   var dayReq = 0;
   function onProvider() {
     var id = $('a-prest').value, box = $('a-dias'), r0 = ++dayReq;
+    closeBooking();
     $('a-horas-wrap').hidden = true;
     box.textContent = '';
     if (!id) { $('a-dias-wrap').hidden = true; return; }
@@ -163,6 +170,7 @@
   function pickDay(providerId, day, btn) {
     var r0 = ++slotReq, box = $('a-horas');
     Array.prototype.forEach.call($('a-dias').children, function (c) { c.setAttribute('aria-pressed', String(c === btn)); });
+    closeBooking();
     box.textContent = '';
     $('a-horas-wrap').hidden = true;
     status('a-status', 'Buscando os horários livres…');
@@ -173,9 +181,178 @@
       $('a-horas-label').textContent = 'Horários livres em ' + C.formatDay(day);
       status('a-status', hs.length ? '' : 'Sem horários livres neste dia.');
       $('a-horas-wrap').hidden = !hs.length;
-      hs.forEach(function (h) { box.appendChild(chip(h.horario)); });
+      hs.forEach(function (h) {
+        box.appendChild(chip(h.horario, false, function (ev) {
+          Array.prototype.forEach.call(box.children, function (c) { c.setAttribute('aria-pressed', String(c === ev.currentTarget)); });
+          openBooking({ prestador_id: providerId, data: day, horario: h.horario, agenda_id: h.agenda_id });
+        }));
+      });
       B.fitHeight();
     });
+  }
+
+  /* ---------- marcar consulta (grava na Asa) ---------- */
+  function providerName(id) {
+    var p = agenda && agenda.prestadores && agenda.prestadores.filter(function (x) { return x.id === id; })[0];
+    return p ? p.nome : '';
+  }
+
+  function closeBooking() {
+    booking = null;
+    ['b-form', 'b-confirm', 'b-done'].forEach(function (id) { $(id).hidden = true; });
+  }
+
+  function fillSelect(sel, items, label, empty) {
+    sel.textContent = '';
+    if (!items.length) { sel.appendChild(option('', empty)); sel.disabled = true; return; }
+    sel.appendChild(option('', 'Escolha…'));
+    items.forEach(function (it) { sel.appendChild(option(it.id, label(it))); });
+    sel.disabled = false;
+  }
+
+  function openBooking(slot) {
+    booking = { slot: slot, providerName: providerName(slot.prestador_id), key: C.newKey(), insurances: [], procedures: [], user: userLabel };
+    var b = booking;
+    $('b-done').hidden = true;
+    $('b-confirm').hidden = true;
+    $('b-form').hidden = false;
+    $('b-slot').textContent = b.providerName + ' · ' + C.formatDay(slot.data) + ' · ' + slot.horario;
+    status('b-status', '');
+    $('b-proc').disabled = true;
+    $('b-proc').textContent = '';
+    $('b-proc').appendChild(option('', 'Escolha o convênio'));
+    $('b-conv').disabled = true;
+    $('b-conv').textContent = '';
+    $('b-conv').appendChild(option('', 'Carregando…'));
+
+    // Paciente: o identificado na aba Paciente, ou um cadastro novo junto com o agendamento.
+    $('b-pac-known').hidden = !patient;
+    $('b-pac-new').hidden = !!patient;
+    if (patient) {
+      $('b-pac-name').textContent = patient.nome + (patient.nascimento ? ' · ' + C.formatBirth(patient.nascimento) : '');
+    } else if (!$('b-tel').value) {
+      $('b-tel').value = $('c-phone').textContent.indexOf('(') === 0 ? $('c-phone').textContent : '';
+      if (!$('b-nome').value && $('c-name').textContent !== 'Contato sem nome') $('b-nome').value = $('c-name').textContent;
+    }
+
+    api.insurances(slot).then(function (r) {
+      if (booking !== b) return;
+      if (r.status !== 200 || !r.body) { fillSelect($('b-conv'), [], null, 'Indisponível'); status('b-status', C.readError(r.status, r.body), 'err'); return; }
+      b.insurances = r.body.convenios;
+      fillSelect($('b-conv'), b.insurances, function (c) { return c.nome; }, 'Nenhum convênio aceito neste horário');
+      B.fitHeight();
+    });
+    B.fitHeight();
+    $('b-form').scrollIntoView({ block: 'nearest' });
+  }
+
+  function onInsurance() {
+    var b = booking, conv = $('b-conv').value, sel = $('b-proc');
+    if (!b) return;
+    b.procedures = [];
+    sel.textContent = '';
+    if (!conv) { sel.disabled = true; sel.appendChild(option('', 'Escolha o convênio')); return; }
+    sel.disabled = true;
+    sel.appendChild(option('', 'Carregando…'));
+    api.procedures(b.slot, conv).then(function (r) {
+      if (booking !== b || $('b-conv').value !== conv) return;
+      if (r.status !== 200 || !r.body) { fillSelect(sel, [], null, 'Indisponível'); status('b-status', C.readError(r.status, r.body), 'err'); return; }
+      b.procedures = r.body.procedimentos;
+      fillSelect(sel, b.procedures, function (p) {
+        return p.nome + (p.valor != null ? ' — ' + C.formatMoney(p.valor) : '');
+      }, 'Nenhum procedimento para este convênio');
+    });
+  }
+
+  function fact(dl, label, value) {
+    var d = el('div');
+    d.appendChild(el('dt', null, label));
+    d.appendChild(el('dd', null, value || '—'));
+    dl.appendChild(d);
+  }
+
+  function find(list, id) { return list.filter(function (x) { return x.id === id; })[0]; }
+
+  function review(ev) {
+    ev.preventDefault();
+    var b = booking;
+    if (!b) return;
+    var conv = find(b.insurances, $('b-conv').value), proc = find(b.procedures, $('b-proc').value);
+    if (!conv || !proc) { status('b-status', 'Escolha o convênio e o procedimento.', 'err'); return; }
+    var who;
+    if (patient) {
+      b.patient = { paciente_id: patient.id };
+      who = patient.nome;
+    } else {
+      var np = C.newPatient({ nome: $('b-nome').value, cpf: $('b-cpf').value, nascimento: $('b-nasc').value, telefone: $('b-tel').value });
+      if (!np.ok) { status('b-status', np.error, 'err'); return; }
+      b.patient = { paciente: np.value };
+      who = np.value.nome + ' (cadastro novo, CPF ' + C.maskCpf(np.value.cpf) + ')';
+    }
+    b.conv = conv;
+    b.proc = proc;
+    b.obs = $('b-obs').value.trim();
+
+    var dl = $('b-summary');
+    dl.textContent = '';
+    fact(dl, 'Paciente', who);
+    fact(dl, 'Profissional', b.providerName);
+    fact(dl, 'Quando', C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario);
+    fact(dl, 'Convênio', conv.nome);
+    fact(dl, 'Procedimento', proc.nome + (proc.valor != null ? ' — ' + C.formatMoney(proc.valor) : ''));
+    if (b.obs) fact(dl, 'Observação', b.obs);
+    status('b-confirm-status', '');
+    $('b-go').disabled = false;
+    $('b-form').hidden = true;
+    $('b-confirm').hidden = false;
+    B.fitHeight();
+  }
+
+  function confirmBooking() {
+    var b = booking;
+    if (!b) return;
+    $('b-go').disabled = true;
+    $('b-back').disabled = true;
+    status('b-confirm-status', 'Gravando na Asa…');
+    var payload = Object.assign({
+      chave: b.key,
+      convenio_id: b.conv.id,
+      convenio_procedimento_id: b.proc.id,
+      obs: b.obs || undefined,
+      usuario: b.user || undefined
+    }, b.slot, b.patient);
+    api.book(payload).then(function (r) {
+      $('b-back').disabled = false;
+      if (booking !== b) return;
+      if (r.status === 200 && r.body && r.body.ok) { bookingDone(b, r.body); return; }
+      var erro = r.body && r.body.erro;
+      status('b-confirm-status', C.bookingError(r.status, r.body), 'err');
+      // Recusa definitiva: um novo pedido precisa de chave nova. Incerto ou em andamento: mantém.
+      if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') b.key = C.newKey();
+      $('b-go').disabled = erro === 'AGENDAMENTO_INCERTO' || erro === 'HORARIO_INDISPONIVEL';
+      if (erro === 'HORARIO_INDISPONIVEL') {
+        var day = Array.prototype.filter.call($('a-dias').children, function (c) { return c.getAttribute('aria-pressed') === 'true'; })[0];
+        if (day) setTimeout(function () { if (booking === b) pickDay(b.slot.prestador_id, b.slot.data, day); }, 1500);
+      }
+    });
+  }
+
+  function bookingDone(b, res) {
+    $('b-confirm').hidden = true;
+    var dl = $('b-done-facts');
+    dl.textContent = '';
+    fact(dl, 'Quando', C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario);
+    fact(dl, 'Profissional', b.providerName);
+    fact(dl, 'Procedimento', b.proc.nome);
+    if (res.agendamento_id) fact(dl, 'Nº na Asa', res.agendamento_id);
+    if (res.clinica || res.endereco) fact(dl, 'Local', [res.clinica, res.endereco].filter(Boolean).join(' — '));
+    $('b-done').hidden = false;
+    booking = null;
+    ['b-nome', 'b-cpf', 'b-nasc', 'b-obs'].forEach(function (id) { $(id).value = ''; });
+    // Atualiza paciente e consultas: o paciente pode ter acabado de ser cadastrado.
+    var by = b.patient.paciente ? { cpf: b.patient.paciente.cpf } : lastLookup;
+    if (by) findPatient(by, seq);
+    B.fitHeight();
   }
 
   /* ---------- conversa ---------- */
@@ -205,6 +382,8 @@
   function loadChat(c) {
     var s = ++seq;
     chat = c || null;
+    closeBooking();
+    ['b-nome', 'b-cpf', 'b-nasc', 'b-tel', 'b-obs'].forEach(function (id) { $(id).value = ''; });
     if (!chat) { pill('idle', 'Pronto'); show('v-empty'); return; }
     if (C.queueList(cfg.queueIds).indexOf(Number(chat.queueId)) < 0) { pill('idle', 'Inativo'); show('v-off'); return; }
     show('v-chat');
@@ -230,6 +409,20 @@
     });
     $('a-esp').addEventListener('change', onSpecialty);
     $('a-prest').addEventListener('change', onProvider);
+    $('b-conv').addEventListener('change', onInsurance);
+    $('b-form').addEventListener('submit', review);
+    $('b-go').addEventListener('click', confirmBooking);
+    $('b-back').addEventListener('click', function () { $('b-confirm').hidden = true; $('b-form').hidden = false; B.fitHeight(); });
+    $('b-new').addEventListener('click', function () {
+      closeBooking();
+      Array.prototype.forEach.call($('a-horas').children, function (c) { c.setAttribute('aria-pressed', 'false'); });
+      B.fitHeight();
+    });
+    if (omni.session && omni.session.getUser) {
+      Promise.resolve(omni.session.getUser()).then(function (u) {
+        if (u) userLabel = [u.id, u.name || u.username].filter(Boolean).join(' ');
+      }).catch(function () { /* sem usuário: a trilha fica sem nome */ });
+    }
     $('p-search').addEventListener('submit', function (ev) {
       ev.preventDefault();
       var cpf = C.cpfDigits($('p-cpf-input').value);

@@ -36,7 +36,10 @@ export async function tenantDaRequisicao(req: FastifyRequest, reply: FastifyRepl
 }
 
 // Clínica + credencial da Asa decifrada, para as rotas que falam com a Asa.
-export async function credencialDaRequisicao(req: FastifyRequest, reply: FastifyReply): Promise<CredencialAsa | null> {
+export async function tenantComCredencial(
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<{ tenant: Tenant; credencial: CredencialAsa } | null> {
   const tenant = await tenantDaRequisicao(req, reply);
   if (!tenant) return null;
   if (!tenant.credencial) {
@@ -44,10 +47,14 @@ export async function credencialDaRequisicao(req: FastifyRequest, reply: Fastify
     return null;
   }
   try {
-    return JSON.parse(decifrar(tenant.credencial));
+    return { tenant, credencial: JSON.parse(decifrar(tenant.credencial)) };
   } catch (err) {
     req.log.error({ err }, "falha ao decifrar credencial");
     reply.code(500).send({ erro: "ERRO_INTERNO" });
     return null;
   }
+}
+
+export async function credencialDaRequisicao(req: FastifyRequest, reply: FastifyReply): Promise<CredencialAsa | null> {
+  return (await tenantComCredencial(req, reply))?.credencial ?? null;
 }

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.6.0">
+<link rel="stylesheet" href="styles.css?v=0.7.0">
 </head>
 <body>
 <div class="app">
@@ -100,15 +100,63 @@
             <div class="chips" id="a-horas"></div>
           </div>
           <p class="muted" id="a-status"></p>
-          <p class="soon">Consulta de horários. Marcar a consulta pelo painel entra na próxima fase.</p>
+
+          <form class="booking" id="b-form" autocomplete="off" hidden>
+            <div class="card__label">Marcar consulta</div>
+            <p class="booking__slot" id="b-slot"></p>
+            <label class="field">
+              <span>Convênio</span>
+              <select id="b-conv" required><option value="">Carregando…</option></select>
+            </label>
+            <label class="field">
+              <span>Procedimento</span>
+              <select id="b-proc" required disabled><option value="">Escolha o convênio</option></select>
+            </label>
+
+            <div class="field" id="b-pac-known" hidden>
+              <span>Paciente</span>
+              <p class="booking__who" id="b-pac-name"></p>
+            </div>
+            <fieldset class="booking__new" id="b-pac-new" hidden>
+              <legend>Paciente novo na Asa</legend>
+              <label class="field"><span>Nome completo</span><input id="b-nome" maxlength="120"></label>
+              <label class="field"><span>CPF</span><input id="b-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></label>
+              <label class="field"><span>Nascimento</span><input id="b-nasc" type="date"></label>
+              <label class="field"><span>Telefone</span><input id="b-tel" inputmode="tel" maxlength="20"></label>
+            </fieldset>
+
+            <label class="field">
+              <span>Observação (opcional)</span>
+              <textarea id="b-obs" rows="2" maxlength="500"></textarea>
+            </label>
+            <button class="btn btn--primary" id="b-review" type="submit">Revisar</button>
+            <p class="muted" id="b-status"></p>
+          </form>
+
+          <div class="booking booking--review" id="b-confirm" hidden>
+            <div class="card__label">Confirme o agendamento</div>
+            <dl class="facts" id="b-summary"></dl>
+            <p class="hint">Ao confirmar, a consulta é gravada na agenda da clínica na Asa.</p>
+            <div class="booking__actions">
+              <button class="btn btn--primary" id="b-go" type="button">Confirmar agendamento</button>
+              <button class="btn" id="b-back" type="button">Voltar</button>
+            </div>
+            <p class="muted" id="b-confirm-status" role="status"></p>
+          </div>
+
+          <div class="booking booking--done" id="b-done" hidden>
+            <div class="card__label">Consulta marcada</div>
+            <dl class="facts" id="b-done-facts"></dl>
+            <button class="btn" id="b-new" type="button">Marcar outra</button>
+          </div>
         </section>
       </div>
     </section>
   </main>
 </div>
-<script src="core.js?v=0.6.0"></script>
-<script src="api.js?v=0.6.0"></script>
-<script src="bridge.js?v=0.6.0"></script>
-<script src="app.js?v=0.6.0"></script>
+<script src="core.js?v=0.7.0"></script>
+<script src="api.js?v=0.7.0"></script>
+<script src="bridge.js?v=0.7.0"></script>
+<script src="app.js?v=0.7.0"></script>
 </body>
 </html>
