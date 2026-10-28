@@ -2,16 +2,57 @@
   "manifestVersion": 1,
   "id": "kentro.asa-saude",
   "name": "Asa Saúde",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pacientes, consultas e agendamentos da Asa Saúde dentro do atendimento.",
-  "author": { "name": "Kentro" },
+  "author": {
+    "name": "Kentro"
+  },
   "icon": "icon.svg",
   "config": [
-    { "key": "queueIds", "label": "Filas atendidas (ids separados por vírgula)", "type": "string", "required": true, "help": "Nas demais filas o painel fica inativo." },
-    { "key": "apiUrl", "label": "Endereço do Conector", "type": "url", "default": "https://asa-integracao-samuels.kentro.com.br" },
-    { "key": "apiKey", "label": "Chave da instalação", "type": "secret", "required": true, "help": "Gerada pela implantação no Conector. Identifica a clínica; a credencial da Asa nunca fica aqui." }
+    {
+      "key": "queueIds",
+      "label": "Filas atendidas (ids separados por vírgula)",
+      "type": "string",
+      "required": true,
+      "help": "Nas demais filas o painel fica inativo."
+    },
+    {
+      "key": "apiUrl",
+      "label": "Endereço do Conector",
+      "type": "url",
+      "default": "https://asa-integracao-samuels.kentro.com.br"
+    },
+    {
+      "key": "apiKey",
+      "label": "Chave da instalação",
+      "type": "secret",
+      "required": false,
+      "help": "Gerada pela implantação no Conector e preenchida na tela de instalação. Identifica a clínica; a credencial da Asa nunca fica aqui."
+    }
   ],
   "contributions": [
-    { "id": "painel", "type": "chatPanel", "title": "Asa Saúde", "icon": "icon.svg", "url": "chat.html" }
+    {
+      "id": "painel",
+      "type": "chatPanel",
+      "title": "Asa Saúde",
+      "icon": "icon.svg",
+      "url": "chat.html"
+    },
+    {
+      "id": "configurar",
+      "type": "topMenu",
+      "title": "Configurar Asa Saúde",
+      "icon": "icon.svg",
+      "url": "config.html",
+      "presentation": {
+        "mode": "dialog",
+        "size": "md"
+      },
+      "visibility": {
+        "userTypes": [
+          0
+        ]
+      }
+    }
   ]
 }

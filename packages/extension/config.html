@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configurar Asa Saúde</title>
+<link rel="stylesheet" href="styles.css?v=0.2.0">
+</head>
+<body>
+<div class="app">
+  <header class="hd">
+    <div class="hd__brand">
+      <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
+      <div>
+        <div class="hd__title">Configurar Asa Saúde</div>
+        <div class="hd__sub">Credencial da clínica</div>
+      </div>
+    </div>
+    <span class="pill" id="pill" data-tone="idle"><i class="dot"></i><span id="pill-text">Carregando</span></span>
+  </header>
+
+  <main class="body">
+    <div class="card">
+      <div class="card__label">Situação</div>
+      <p class="conn" id="conn-text">Verificando…</p>
+    </div>
+
+    <form class="card form" id="form" autocomplete="off" hidden>
+      <div class="card__label">Credencial da Asa</div>
+      <p class="hint">Na Asa, em Admin → editar instituição, copie o ID da instituição e o hash do código de acesso de terceiros. A credencial é validada na Asa, guardada cifrada no Conector e não volta para esta tela.</p>
+      <label class="field">
+        <span>ID da instituição</span>
+        <input id="f-id" inputmode="numeric" pattern="\d+" required>
+      </label>
+      <label class="field">
+        <span>Hash</span>
+        <input id="f-hash" type="password" required spellcheck="false">
+      </label>
+      <button class="btn btn--primary" id="f-save" type="submit">Validar e salvar</button>
+      <p class="conn" id="f-msg" role="status"></p>
+    </form>
+  </main>
+</div>
+<script src="core.js?v=0.2.0"></script>
+<script src="api.js?v=0.2.0"></script>
+<script src="bridge.js?v=0.2.0"></script>
+<script src="config.js?v=0.2.0"></script>
+</body>
+</html>

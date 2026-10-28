@@ -26,7 +26,10 @@
     }
 
     return {
-      testConnection: function () { return request('GET', '/v1/tenant/conexao/teste'); }
+      testConnection: function () { return request('GET', '/v1/tenant/conexao/teste'); },
+      saveCredential: function (instituicaoId, hash) {
+        return request('PUT', '/v1/tenant/credencial', { instituicao_id: instituicaoId, hash: hash });
+      }
     };
   }
 

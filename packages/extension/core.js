@@ -33,15 +33,30 @@
   // status -1 = extensão sem endereço/chave; 0 = rede ou proxy do host.
   function connectionState(status, body) {
     if (status === 200 && body && body.tenant) {
-      return body.asa === 'credencial_cadastrada'
-        ? { tone: 'ok', pill: 'Conectado', text: 'Conectado como ' + body.tenant.nome + '.', retry: false }
-        : { tone: 'warn', pill: 'Sem credencial', text: body.tenant.nome + ': a credencial da Asa ainda não foi cadastrada no Conector.', retry: true };
+      var nome = body.tenant.nome;
+      switch (body.asa) {
+        case 'ok': return { tone: 'ok', pill: 'Conectado', text: nome + ': conectado à Asa (instituição ' + body.instituicao_id + ').', retry: false };
+        case 'credencial_ausente': return { tone: 'warn', pill: 'Sem credencial', text: nome + ': a credencial da Asa ainda não foi cadastrada. Um administrador cadastra em "Configurar Asa Saúde".', retry: true };
+        case 'credencial_invalida': return { tone: 'err', pill: 'Credencial recusada', text: nome + ': a Asa recusou a credencial cadastrada. Um administrador precisa atualizá-la.', retry: true };
+        default: return { tone: 'err', pill: 'Asa fora do ar', text: nome + ': a Asa não respondeu agora.', retry: true };
+      }
     }
     if (status === 401) return { tone: 'err', pill: 'Chave inválida', text: 'A chave da instalação não foi reconhecida pelo Conector.', retry: false };
     if (status === -1) return { tone: 'err', pill: 'Sem chave', text: 'Preencha o endereço do Conector e a chave da instalação na configuração da extensão.', retry: false };
     return { tone: 'err', pill: 'Fora do ar', text: 'Não foi possível falar com o Conector' + (status ? ' (HTTP ' + status + ').' : '.'), retry: true };
   }
 
-  var api = { queueList: queueList, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState };
+  // Resposta de PUT /v1/tenant/credencial → mensagem da tela de configuração.
+  function credentialSaveState(status, body) {
+    if (status === 200 && body && body.ok) return { tone: 'ok', text: 'Credencial validada e salva. A Asa listou ' + body.prestadores + ' prestador(es) com agenda online.' };
+    var erro = body && body.erro;
+    if (erro === 'ASA_CREDENCIAL_INVALIDA') return { tone: 'err', text: 'A Asa recusou esse ID e hash. Confira em Admin → editar instituição.' };
+    if (erro === 'DADOS_INVALIDOS') return { tone: 'err', text: 'Informe o ID (só números) e o hash.' };
+    if (erro === 'CIFRA_NAO_CONFIGURADA') return { tone: 'err', text: 'O Conector ainda não está pronto para guardar credenciais (falta a chave de cifra).' };
+    if (status === 401) return { tone: 'err', text: 'A chave da instalação não foi reconhecida pelo Conector.' };
+    return { tone: 'err', text: 'Não foi possível validar agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '. Tente de novo.' };
+  }
+
+  var api = { queueList: queueList, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;
 })(this);
