@@ -5,7 +5,7 @@ Integração da Asa Saúde com a plataforma Kentro.
 | Pasta | O que é |
 |---|---|
 | `packages/connector` | Conector (API) — único ponto que fala com a Asa. Deploy no Doca. |
-| `packages/extension` | Extensão `kentro.asa-saude` (manifest + estáticos, JS puro). Deploy no Doca como Extensão. |
+| `packages/extension` | Extensão `kentro.asa-saude` (manifest + estáticos, JS puro). Servida pelo Conector em `/extensao/`. |
 
 ## Conector
 
@@ -16,7 +16,7 @@ cp .env.example .env   # ajuste DATABASE_URL
 npm run dev
 ```
 
-No Doca: tipo **API**, pasta `packages/connector`, build **Fastify**, porta `3000`, verificação `/health`.
+No Doca: tipo **API**, pasta `.`, build **Dockerfile do próprio repositório**, porta `3000`, verificação `/health`.
 Na subida o Conector aplica as migrações de `migrations/` em ordem.
 
 ### Cadastrar uma clínica
@@ -29,14 +29,12 @@ A resposta traz `chave_instalacao` uma única vez: é o valor do campo "Chave da
 
 ## Extensão
 
-Sem build: os arquivos são servidos como estão e o host injeta o SDK `omni`.
+Sem build: os arquivos de `packages/extension` são servidos como estão e o host injeta o SDK `omni`.
 
-O host da Kentro busca cada arquivo em `<pasta do manifest>/v/<version>/<caminho>`, e o Doca não reescreve
-caminhos. Por isso só o `manifest.json` fica na raiz e os arquivos ficam em `v/<versão>/`.
+**Quem serve é o Conector**, em `https://asa-integracao-samuels.kentro.com.br/extensao/manifest.json`. O tipo
+"Extensão" do Doca manda `X-Frame-Options: DENY`, e o host da Kentro carrega as telas num iframe, então ali o
+painel fica em branco. O `Dockerfile` da raiz põe Conector e extensão na mesma imagem; no Doca o projeto usa
+pasta `.` e build "Dockerfile do próprio repositório".
 
-Para publicar uma versão nova:
-1. copie `v/<atual>/` para `v/<nova>/` e faça as mudanças lá;
-2. suba `version` no `manifest.json` e o `?v=` dos arquivos nos `.html`;
-3. deploy no Doca e `extension_installs_refresh_manifest` nas instalações.
-
-As pastas antigas ficam: uma instalação que ainda aponta para a versão anterior continua funcionando.
+Para publicar uma versão nova: suba `version` no `manifest.json` e o `?v=` dos arquivos nos `.html`, faça o
+deploy do Conector e rode `extension_installs_refresh_manifest` nas instalações.
