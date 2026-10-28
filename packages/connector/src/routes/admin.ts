@@ -2,10 +2,11 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { config } from "../config.js";
 import { pool } from "../db.js";
+import { gravarCredencial } from "./tenant.js";
 
 const hash = (valor: string) => createHash("sha256").update(valor).digest("hex");
 
-function adminAutorizado(req: FastifyRequest): boolean {
+export function adminAutorizado(req: FastifyRequest): boolean {
   const recebida = req.headers["x-admin-key"];
   if (!config.adminKey || typeof recebida !== "string") return false;
   const a = Buffer.from(hash(recebida));
@@ -52,6 +53,11 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!rows[0]) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
     return rows[0];
   });
+
+  // Troca o token da Asa de uma clínica (validado na Asa antes de gravar).
+  app.put<{ Params: { id: string }; Body: { token?: string } }>("/admin/tenants/:id/credencial", async (req, reply) =>
+    gravarCredencial(req, reply, req.params.id, req.body?.token),
+  );
 
   // Gera uma chave nova e invalida a anterior.
   app.post<{ Params: { id: string } }>("/admin/tenants/:id/rotacionar-chave", async (req, reply) => {

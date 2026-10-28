@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Configurar Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.7.1">
+<link rel="stylesheet" href="styles.css?v=0.8.0">
 </head>
 <body class="page-config">
 <div class="app">
@@ -25,6 +25,11 @@
       <p class="conn" id="conn-text">Verificando…</p>
     </div>
 
+    <div class="card" id="token-locked" hidden>
+      <div class="card__label">Token da Asa</div>
+      <p class="hint">O token desta clínica já está cadastrado e guardado cifrado no Conector. Por segurança, trocar o token é feito pela implantação, com a chave de administrador do Conector.</p>
+    </div>
+
     <div class="card" id="key-help" hidden>
       <div class="card__label">Chave da instalação</div>
       <p class="hint">A chave é gerada pela implantação no Conector, uma por clínica, e vale para todos os atendentes. Ela é cadastrada por um superusuário em Administração de extensões → esta instalação → campo "Chave da instalação".</p>
@@ -42,9 +47,9 @@
     </form>
   </main>
 </div>
-<script src="core.js?v=0.7.1"></script>
-<script src="api.js?v=0.7.1"></script>
-<script src="bridge.js?v=0.7.1"></script>
-<script src="config.js?v=0.7.1"></script>
+<script src="core.js?v=0.8.0"></script>
+<script src="api.js?v=0.8.0"></script>
+<script src="bridge.js?v=0.8.0"></script>
+<script src="config.js?v=0.8.0"></script>
 </body>
 </html>

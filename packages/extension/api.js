@@ -48,6 +48,8 @@
       },
       // ÚNICA chamada que grava na Asa. `chave` torna o pedido idempotente.
       book: function (payload) { return request('POST', '/v1/agendamentos', payload); },
+      // payload = {chave, busca: {telefone|cpf}, usuario}; a busca prova que a consulta é do paciente.
+      cancel: function (id, payload) { return request('POST', '/v1/agendamentos/' + encodeURIComponent(id) + '/cancelar', payload); },
       saveCredential: function (token) {
         return request('PUT', '/v1/tenant/credencial', { token: token });
       }

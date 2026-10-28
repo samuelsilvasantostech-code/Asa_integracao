@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.7.1">
+<link rel="stylesheet" href="styles.css?v=0.8.0">
 </head>
 <body>
 <div class="app">
@@ -83,6 +83,10 @@
         </section>
 
         <section class="pane" id="pane-agendar" role="tabpanel" hidden>
+          <div class="banner" id="a-remarcar" hidden>
+            <span id="a-remarcar-text"></span>
+            <button class="btn" id="a-remarcar-sair" type="button">Desistir</button>
+          </div>
           <label class="field">
             <span>Especialidade</span>
             <select id="a-esp"><option value="">Carregando…</option></select>
@@ -134,9 +138,9 @@
           </form>
 
           <div class="booking booking--review" id="b-confirm" hidden>
-            <div class="card__label">Confirme o agendamento</div>
+            <div class="card__label" id="b-confirm-title">Confirme o agendamento</div>
             <dl class="facts" id="b-summary"></dl>
-            <p class="hint">Ao confirmar, a consulta é gravada na agenda da clínica na Asa.</p>
+            <p class="hint" id="b-confirm-hint">Ao confirmar, a consulta é gravada na agenda da clínica na Asa.</p>
             <div class="booking__actions">
               <button class="btn btn--primary" id="b-go" type="button">Confirmar agendamento</button>
               <button class="btn" id="b-back" type="button">Voltar</button>
@@ -145,7 +149,7 @@
           </div>
 
           <div class="booking booking--done" id="b-done" hidden>
-            <div class="card__label">Consulta marcada</div>
+            <div class="card__label" id="b-done-title">Consulta marcada</div>
             <dl class="facts" id="b-done-facts"></dl>
             <button class="btn" id="b-new" type="button">Marcar outra</button>
           </div>
@@ -154,9 +158,9 @@
     </section>
   </main>
 </div>
-<script src="core.js?v=0.7.1"></script>
-<script src="api.js?v=0.7.1"></script>
-<script src="bridge.js?v=0.7.1"></script>
-<script src="app.js?v=0.7.1"></script>
+<script src="core.js?v=0.8.0"></script>
+<script src="api.js?v=0.8.0"></script>
+<script src="bridge.js?v=0.8.0"></script>
+<script src="app.js?v=0.8.0"></script>
 </body>
 </html>

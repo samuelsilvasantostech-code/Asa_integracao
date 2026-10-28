@@ -10,6 +10,13 @@ import { tenantRoutes } from "./routes/tenant.js";
 
 const app = Fastify({ logger: { level: config.logLevel } });
 
+// Só pelo domínio (HTTPS no proxy do Doca): o acesso direto por IP:porta trafegaria chaves em claro.
+app.addHook("onRequest", async (req, reply) => {
+  if (!config.allowedHosts.length || req.url === "/health") return;
+  const host = String(req.headers.host ?? "").replace(/:\d+$/, "").toLowerCase();
+  if (!config.allowedHosts.includes(host)) return reply.code(421).send({ erro: "HOST_NAO_PERMITIDO" });
+});
+
 await app.register(healthRoutes);
 await app.register(tenantRoutes);
 await app.register(consultaRoutes);

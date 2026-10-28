@@ -20,9 +20,12 @@
       pill(st.tone, st.pill);
       msg($('conn-text'), st.tone, st.text);
       var temClinica = r.status === 200 && r.body && r.body.tenant;
-      // Sem chave reconhecida, explica onde cadastrar; com ela, a credencial da Asa.
+      // Sem chave reconhecida, explica onde cadastrar. Com ela: o formulário do token só no primeiro
+      // cadastro; trocar um token gravado é com a implantação (o Conector recusa sem a chave de admin).
+      var semToken = temClinica && r.body.asa === 'credencial_ausente';
       $('key-help').hidden = !!temClinica;
-      $('form').hidden = !temClinica;
+      $('form').hidden = !semToken;
+      $('token-locked').hidden = !temClinica || semToken;
     });
   }
 

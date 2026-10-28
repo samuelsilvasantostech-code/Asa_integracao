@@ -119,7 +119,12 @@ Rota escolhida: `api-agendamento` — leitura, sem parâmetros, e responde mesmo
 
 ## Agendamento pelo painel (Conector)
 
-`POST /v1/agendamentos` é a única rota do Conector que grava na Asa. Ela chama `api-agendamento-agendar-instituicao` só para criar: remarcar e cancelar ficam fora.
+Três rotas do Conector gravam na Asa, e só elas:
+- `POST /v1/agendamentos` marca consulta (`agendar-instituicao`).
+- A mesma rota, com `remarcar: {agendamento_id, busca}`, remarca: chama `agendar-instituicao` com `agendamento`.
+- `POST /v1/agendamentos/:id/cancelar` cancela (`agendamento-status` com `status=cancelado` e o id **explícito**, nunca pelo telefone).
+
+Remarcar e cancelar só aceitam uma consulta que esteja em `agendamentos-futuros` do paciente da conversa (`busca` = telefone ou CPF).
 
 Como ela se protege:
 - **Idempotência:** o painel gera uma `chave` por confirmação. A tabela `agendamentos` guarda essa chave, e a mesma chave nunca chama a Asa duas vezes.

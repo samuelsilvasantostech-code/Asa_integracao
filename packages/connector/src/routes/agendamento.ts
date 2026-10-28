@@ -1,20 +1,27 @@
-import type { FastifyInstance } from "fastify";
-import { chamarAsa } from "../asa.js";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { chamarAsa, type CredencialAsa, type RespostaAsa } from "../asa.js";
 import { pool } from "../db.js";
 import * as N from "../normalizar.js";
 import { credencialDaRequisicao, tenantComCredencial } from "../tenant-auth.js";
 import { dataValida, falha, idValido, naoEncontrado } from "./consulta.js";
 
-// Marcar consulta pelo painel. Convênios e procedimentos são leitura; POST /v1/agendamentos é a
-// ÚNICA rota do Conector que grava na Asa (api-agendamento-agendar-instituicao, só criação).
+// Marcar, remarcar e cancelar consulta pelo painel. Convênios e procedimentos são leitura; as rotas
+// POST deste arquivo são as ÚNICAS do Conector que gravam na Asa.
 
 const horaValida = (s: unknown): s is string => typeof s === "string" && /^\d{2}:\d{2}$/.test(s);
+const chaveValida = (s: unknown): s is string => typeof s === "string" && /^[A-Za-z0-9-]{16,64}$/.test(s);
 
 interface Vaga {
   prestador_id?: string;
   data?: string; // YYYY-MM-DD
   horario?: string; // HH:MM
   agenda_id?: string;
+}
+
+// Como o painel achou o paciente: serve para conferir que a consulta é dele.
+interface Busca {
+  telefone?: string;
+  cpf?: string;
 }
 
 function vagaValida<T extends Vaga>(q: T): q is T & Required<Vaga> {
@@ -33,6 +40,82 @@ interface PedidoAgendamento extends Vaga {
   paciente?: { nome?: string; cpf?: string; nascimento?: string; telefone?: string };
   obs?: string;
   usuario?: string; // quem pediu no Kentro, só para a trilha
+  remarcar?: { agendamento_id?: string; busca?: Busca }; // presente = remarcar esta consulta
+}
+
+/* ---------- idempotência e trilha (tabela agendamentos) ---------- */
+
+type Reserva = { novo: true } | { novo: false; situacao: string; resposta: any };
+
+// A mesma chave nunca chama a Asa duas vezes.
+async function reservar(
+  tenantId: string,
+  chave: string,
+  c: { tipo: string; usuario?: string; prestador_id?: string; data?: string; horario?: string; paciente_id?: string; agendamento_id?: string },
+): Promise<Reserva> {
+  const ins = await pool!.query(
+    `INSERT INTO agendamentos (tenant_id, chave, situacao, tipo, usuario, prestador_id, data, horario, paciente_id, agendamento_id)
+     VALUES ($1, $2, 'pendente', $3, $4, $5, $6, $7, $8, $9) ON CONFLICT DO NOTHING`,
+    [
+      tenantId, chave, c.tipo, String(c.usuario ?? "").slice(0, 120) || null,
+      c.prestador_id ?? null, c.data ?? null, c.horario ?? null, c.paciente_id ?? null, c.agendamento_id ?? null,
+    ],
+  );
+  if (ins.rowCount) return { novo: true };
+  const { rows } = await pool!.query<{ situacao: string; resposta: any }>(
+    "SELECT situacao, resposta FROM agendamentos WHERE tenant_id = $1 AND chave = $2",
+    [tenantId, chave],
+  );
+  return { novo: false, situacao: rows[0]?.situacao ?? "pendente", resposta: rows[0]?.resposta };
+}
+
+function repetido(reply: FastifyReply, r: Extract<Reserva, { novo: false }>) {
+  if (r.situacao === "ok") return { ok: true, repetido: true, ...r.resposta };
+  return reply.code(409).send({ erro: r.situacao === "incerto" ? "AGENDAMENTO_INCERTO" : "AGENDAMENTO_EM_ANDAMENTO" });
+}
+
+const liberar = (tenantId: string, chave: string) =>
+  pool!.query("DELETE FROM agendamentos WHERE tenant_id = $1 AND chave = $2", [tenantId, chave]);
+
+const concluir = (tenantId: string, chave: string, resposta: object, pacienteId: string | null = null) =>
+  pool!.query(
+    "UPDATE agendamentos SET situacao = 'ok', resposta = $3, paciente_id = COALESCE(paciente_id, $4), atualizado_em = now() WHERE tenant_id = $1 AND chave = $2",
+    [tenantId, chave, resposta, pacienteId],
+  );
+
+// Falha da Asa ao gravar. Sem resposta, a Asa pode ter gravado: a chave fica "incerto" e não é liberada.
+async function falhaAoGravar(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  tenantId: string,
+  chave: string,
+  r: Extract<RespostaAsa<unknown>, { ok: false }>,
+) {
+  if (r.erro === "ASA_FORA_DO_AR" && r.status === 0) {
+    await pool!.query("UPDATE agendamentos SET situacao = 'incerto', atualizado_em = now() WHERE tenant_id = $1 AND chave = $2", [tenantId, chave]);
+    req.log.error({ tenant: tenantId, chave }, "gravação sem resposta da Asa");
+    return reply.code(504).send({ erro: "AGENDAMENTO_INCERTO" });
+  }
+  await liberar(tenantId, chave);
+  req.log.warn({ erro: r.erro, status: r.status, msg: r.msg }, "Asa recusou a gravação");
+  return falha(reply, r);
+}
+
+// Remarcar e cancelar só valem para uma consulta futura DO paciente da conversa. Um id solto não
+// basta: evita mexer na consulta de outra pessoa por engano ou com um id adulterado.
+async function consultaDoPaciente(
+  credencial: CredencialAsa,
+  busca: Busca | undefined,
+  agendamentoId: string,
+): Promise<{ ok: true; consulta: N.Consulta } | { ok: false; erro: string; status: number }> {
+  const cpf = String(busca?.cpf ?? "").replace(/\D/g, "");
+  const telefone = busca?.telefone ? N.telefoneAsa(String(busca.telefone)) : null;
+  if (cpf.length !== 11 && !telefone) return { ok: false, erro: "PACIENTE_INVALIDO", status: 400 };
+  const r = await chamarAsa<any>(credencial, "api-agendamentos-futuros", cpf.length === 11 ? { cpf } : { telefone: telefone! });
+  const consulta = r.ok ? N.consultasFuturas(r.dados).find((c) => c.id === agendamentoId) : undefined;
+  if (consulta) return { ok: true, consulta };
+  if (!r.ok && !naoEncontrado(r)) return { ok: false, erro: r.erro, status: 502 };
+  return { ok: false, erro: "CONSULTA_NAO_ENCONTRADA", status: 409 };
 }
 
 export async function agendamentoRoutes(app: FastifyInstance) {
@@ -73,11 +156,17 @@ export async function agendamentoRoutes(app: FastifyInstance) {
     return { procedimentos };
   });
 
+  // Marcar consulta; com `remarcar`, remarca a consulta indicada.
   app.post<{ Body: PedidoAgendamento }>("/v1/agendamentos", async (req, reply) => {
     const b = req.body ?? {};
-    const chave = String(b.chave ?? "");
-    if (!/^[A-Za-z0-9-]{16,64}$/.test(chave)) return reply.code(400).send({ erro: "CHAVE_IDEMPOTENCIA_INVALIDA" });
+    const chave = b.chave;
+    if (!chaveValida(chave)) return reply.code(400).send({ erro: "CHAVE_IDEMPOTENCIA_INVALIDA" });
     if (!vagaValida(b) || !idValido(b.convenio_id) || !idValido(b.convenio_procedimento_id)) {
+      return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
+    }
+    const remarcar = b.remarcar;
+    const original = remarcar?.agendamento_id;
+    if (remarcar && (!idValido(original) || !idValido(b.paciente_id))) {
       return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
     }
 
@@ -102,22 +191,20 @@ export async function agendamentoRoutes(app: FastifyInstance) {
     if (!ctx) return;
     const { tenant, credencial } = ctx;
 
-    // Idempotência: a mesma chave nunca chama a Asa duas vezes.
-    const ins = await pool!.query(
-      `INSERT INTO agendamentos (tenant_id, chave, situacao, usuario, prestador_id, data, horario, paciente_id)
-       VALUES ($1, $2, 'pendente', $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`,
-      [tenant.id, chave, String(b.usuario ?? "").slice(0, 120) || null, b.prestador_id, b.data, b.horario, b.paciente_id ?? null],
-    );
-    if (ins.rowCount === 0) {
-      const { rows } = await pool!.query<{ situacao: string; resposta: any }>(
-        "SELECT situacao, resposta FROM agendamentos WHERE tenant_id = $1 AND chave = $2",
-        [tenant.id, chave],
-      );
-      const anterior = rows[0];
-      if (anterior?.situacao === "ok") return { ok: true, repetido: true, ...anterior.resposta };
-      return reply.code(409).send({ erro: anterior?.situacao === "incerto" ? "AGENDAMENTO_INCERTO" : "AGENDAMENTO_EM_ANDAMENTO" });
+    const reserva = await reservar(tenant.id, chave, {
+      tipo: remarcar ? "remarcar" : "criar",
+      usuario: b.usuario, prestador_id: b.prestador_id, data: b.data, horario: b.horario,
+      paciente_id: b.paciente_id, agendamento_id: original,
+    });
+    if (!reserva.novo) return repetido(reply, reserva);
+
+    if (remarcar) {
+      const c = await consultaDoPaciente(credencial, remarcar.busca, original!);
+      if (!c.ok) {
+        await liberar(tenant.id, chave);
+        return reply.code(c.status).send({ erro: c.erro });
+      }
     }
-    const liberar = () => pool!.query("DELETE FROM agendamentos WHERE tenant_id = $1 AND chave = $2", [tenant.id, chave]);
 
     // Revalida o horário imediatamente antes: outra pessoa pode ter ocupado a vaga.
     const rh = await chamarAsa<any>(credencial, "api-agendamento-horarios-atendimento", {
@@ -125,44 +212,66 @@ export async function agendamentoRoutes(app: FastifyInstance) {
       data: `${b.data} 00:00:00`,
     });
     if (!rh.ok) {
-      await liberar();
+      await liberar(tenant.id, chave);
       return falha(reply, rh);
     }
     if (!N.horarios(rh.dados).some((h) => h.horario === b.horario && h.agenda_id === b.agenda_id)) {
-      await liberar();
+      await liberar(tenant.id, chave);
       return reply.code(409).send({ erro: "HORARIO_INDISPONIVEL" });
     }
 
+    // Remarcar é o MESMO endpoint de agendar, com `agendamento` = a consulta original.
     const r = await chamarAsa<any>(credencial, "api-agendamento-agendar-instituicao", {
       ...paramsVaga(b),
       convenio_id: b.convenio_id,
       convenio_procedimento_id: b.convenio_procedimento_id,
       ...paciente,
+      ...(remarcar ? { agendamento: original! } : {}),
       ...(obs ? { obs } : {}),
     });
+    if (!r.ok) return falhaAoGravar(req, reply, tenant.id, chave, r);
 
-    if (!r.ok) {
-      // Sem resposta, a Asa pode ter gravado: não libera a chave para não duplicar numa nova tentativa.
-      if (r.erro === "ASA_FORA_DO_AR" && r.status === 0) {
-        await pool!.query("UPDATE agendamentos SET situacao = 'incerto', atualizado_em = now() WHERE tenant_id = $1 AND chave = $2", [tenant.id, chave]);
-        req.log.error({ tenant: tenant.id, prestador: b.prestador_id, data: b.data, horario: b.horario }, "agendamento sem resposta da Asa");
-        return reply.code(504).send({ erro: "AGENDAMENTO_INCERTO" });
-      }
-      await liberar();
-      req.log.warn({ erro: r.erro, status: r.status, msg: r.msg }, "Asa recusou o agendamento");
-      return falha(reply, r);
-    }
-
-    const feito = {
-      ...N.agendamentoFeito(r.dados),
-      data: b.data,
-      horario: b.horario,
-    };
-    await pool!.query(
-      "UPDATE agendamentos SET situacao = 'ok', resposta = $3, paciente_id = COALESCE(paciente_id, $4), atualizado_em = now() WHERE tenant_id = $1 AND chave = $2",
-      [tenant.id, chave, feito, feito.paciente_id],
+    const feito = { ...N.agendamentoFeito(r.dados), data: b.data, horario: b.horario, remarcado: !!remarcar };
+    await concluir(tenant.id, chave, feito, feito.paciente_id);
+    req.log.info(
+      {
+        tenant: tenant.id, tipo: remarcar ? "remarcar" : "criar", agendamento: feito.agendamento_id, original,
+        prestador: b.prestador_id, data: b.data, horario: b.horario, usuario: b.usuario,
+      },
+      "agendamento gravado na Asa",
     );
-    req.log.info({ tenant: tenant.id, agendamento: feito.agendamento_id, prestador: b.prestador_id, data: b.data, horario: b.horario, usuario: b.usuario }, "agendamento gravado na Asa");
     return { ok: true, ...feito };
   });
+
+  // Cancelar consulta, sempre pelo id explícito: o modo "por telefone" da Asa escolhe a consulta sozinho.
+  app.post<{ Params: { id: string }; Body: { chave?: string; busca?: Busca; usuario?: string } }>(
+    "/v1/agendamentos/:id/cancelar",
+    async (req, reply) => {
+      const id = req.params.id;
+      const b = req.body ?? {};
+      if (!idValido(id)) return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
+      if (!chaveValida(b.chave)) return reply.code(400).send({ erro: "CHAVE_IDEMPOTENCIA_INVALIDA" });
+
+      const ctx = await tenantComCredencial(req, reply);
+      if (!ctx) return;
+      const { tenant, credencial } = ctx;
+
+      const reserva = await reservar(tenant.id, b.chave, { tipo: "cancelar", usuario: b.usuario, agendamento_id: id });
+      if (!reserva.novo) return repetido(reply, reserva);
+
+      const c = await consultaDoPaciente(credencial, b.busca, id);
+      if (!c.ok) {
+        await liberar(tenant.id, b.chave);
+        return reply.code(c.status).send({ erro: c.erro });
+      }
+
+      const r = await chamarAsa<any>(credencial, "api-agendamento-status", { status: "cancelado", agendamento: id });
+      if (!r.ok) return falhaAoGravar(req, reply, tenant.id, b.chave, r);
+
+      const feito = { agendamento_id: id, cancelado: true, data: c.consulta.data, horario: c.consulta.hora };
+      await concluir(tenant.id, b.chave, feito);
+      req.log.info({ tenant: tenant.id, tipo: "cancelar", agendamento: id, usuario: b.usuario }, "consulta cancelada na Asa");
+      return { ok: true, ...feito };
+    },
+  );
 }

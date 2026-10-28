@@ -71,14 +71,85 @@
     status('c-status', list.length === 1 ? 'Próxima consulta:' : 'Próximas ' + list.length + ' consultas:');
     list.forEach(function (c) {
       var li = el('li', 'item');
-      li.appendChild(el('div', 'item__when', (C.formatDay(c.data) || 'Data não informada') + (c.hora ? ' · ' + c.hora : '')));
+      li.appendChild(el('div', 'item__when', whenText(c)));
       var who = [c.prestador, c.procedimentos.join(', ')].filter(Boolean).join(' — ');
       if (who) li.appendChild(el('div', 'item__who', who));
+      if (patient && patient.id && c.id) li.appendChild(consultaActions(c));
       ul.appendChild(li);
     });
   }
 
-  function findPatient(by, s) {
+  function whenText(c) {
+    return (C.formatDay(c.data) || 'Data não informada') + (c.hora ? ' · ' + c.hora : '');
+  }
+
+  function button(text, cls, onClick) {
+    var b = el('button', 'btn' + (cls ? ' ' + cls : ''), text);
+    b.type = 'button';
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  // Remarcar / Cancelar. Cancelar pede uma segunda confirmação ali mesmo.
+  function consultaActions(c) {
+    var box = el('div', 'item__actions');
+    function normal() {
+      box.textContent = '';
+      box.appendChild(button('Remarcar', null, function () { startReschedule(c); }));
+      box.appendChild(button('Cancelar', 'btn--danger', ask));
+    }
+    function ask() {
+      box.textContent = '';
+      box.appendChild(el('span', 'item__ask', 'Cancelar esta consulta na Asa?'));
+      box.appendChild(button('Sim, cancelar', 'btn--danger', function (ev) { doCancel(c, box, ev.currentTarget); }));
+      box.appendChild(button('Não', null, normal));
+    }
+    normal();
+    return box;
+  }
+
+  function doCancel(c, box, btn) {
+    Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
+    btn.textContent = 'Cancelando…';
+    var key = c.cancelKey || (c.cancelKey = C.newKey()); // a mesma chave numa nova tentativa
+    api.cancel(c.id, { chave: key, busca: lastLookup, usuario: userLabel || undefined }).then(function (r) {
+      if (r.status === 200 && r.body && r.body.ok) {
+        var notice = 'Consulta de ' + whenText(c) + ' cancelada na Asa.';
+        if (lastLookup) findPatient(lastLookup, seq, notice); else status('c-status', notice);
+        return;
+      }
+      var erro = r.body && r.body.erro;
+      if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') c.cancelKey = null;
+      box.textContent = '';
+      box.appendChild(el('span', 'item__ask', erro === 'CONSULTA_NAO_ENCONTRADA'
+        ? 'Essa consulta não está mais na lista do paciente na Asa. Atualize.'
+        : C.bookingError(r.status, r.body)));
+      box.appendChild(button('Voltar', null, function () { box.parentNode.replaceChild(consultaActions(c), box); }));
+      B.fitHeight();
+    });
+  }
+
+  /* ---------- remarcar ---------- */
+  var rescheduling = null; // consulta original sendo remarcada
+
+  function startReschedule(c) {
+    rescheduling = c;
+    $('a-remarcar-text').textContent = 'Remarcando ' + whenText(c) + (c.prestador ? ' — ' + c.prestador : '');
+    $('a-remarcar').hidden = false;
+    closeBooking();
+    selectTab('agendar');
+    status('a-status', 'Escolha o novo horário.');
+  }
+
+  function stopReschedule() {
+    rescheduling = null;
+    $('a-remarcar').hidden = true;
+    closeBooking();
+    status('a-status', '');
+  }
+
+  // notice: aviso para mostrar acima das consultas depois de recarregar (ex.: "cancelada").
+  function findPatient(by, s, notice) {
     resetPatient();
     lastLookup = by;
     status('p-status', 'Buscando o paciente na Asa…');
@@ -89,6 +160,7 @@
         patient = r.body.paciente;
         renderPatient(r.body.paciente);
         renderConsultas(r.body.consultas);
+        if (notice) status('c-status', notice + ' ' + $('c-status').textContent);
       } else if (r.status === 200 && r.body) {
         status('p-status', by.cpf ? 'Nenhum paciente com esse CPF na Asa.' : 'Nenhum paciente com o telefone deste contato na Asa.');
         $('p-search').hidden = false;
@@ -211,8 +283,9 @@
   }
 
   function openBooking(slot) {
-    booking = { slot: slot, providerName: providerName(slot.prestador_id), key: C.newKey(), insurances: [], procedures: [], user: userLabel };
+    booking = { slot: slot, providerName: providerName(slot.prestador_id), key: C.newKey(), insurances: [], procedures: [], user: userLabel, original: rescheduling };
     var b = booking;
+    $('b-review').textContent = b.original ? 'Revisar remarcação' : 'Revisar';
     $('b-done').hidden = true;
     $('b-confirm').hidden = true;
     $('b-form').hidden = false;
@@ -280,6 +353,7 @@
     var conv = find(b.insurances, $('b-conv').value), proc = find(b.procedures, $('b-proc').value);
     if (!conv || !proc) { status('b-status', 'Escolha o convênio e o procedimento.', 'err'); return; }
     var who;
+    if (b.original && !(patient && patient.id)) { status('b-status', 'Para remarcar, o paciente precisa estar identificado na aba Paciente.', 'err'); return; }
     if (patient) {
       b.patient = { paciente_id: patient.id };
       who = patient.nome;
@@ -296,8 +370,14 @@
     var dl = $('b-summary');
     dl.textContent = '';
     fact(dl, 'Paciente', who);
+    if (b.original) fact(dl, 'Sai de', whenText(b.original) + (b.original.prestador ? ' — ' + b.original.prestador : ''));
     fact(dl, 'Profissional', b.providerName);
-    fact(dl, 'Quando', C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario);
+    fact(dl, b.original ? 'Vai para' : 'Quando', C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario);
+    $('b-confirm-title').textContent = b.original ? 'Confirme a remarcação' : 'Confirme o agendamento';
+    $('b-go').textContent = b.original ? 'Confirmar remarcação' : 'Confirmar agendamento';
+    $('b-confirm-hint').textContent = b.original
+      ? 'Ao confirmar, a consulta original é trocada pelo novo horário na agenda da clínica na Asa.'
+      : 'Ao confirmar, a consulta é gravada na agenda da clínica na Asa.';
     fact(dl, 'Convênio', conv.nome);
     fact(dl, 'Procedimento', proc.nome + (proc.valor > 0 ? ' — ' + C.formatMoney(proc.valor) : ''));
     if (b.obs) fact(dl, 'Observação', b.obs);
@@ -319,7 +399,8 @@
       convenio_id: b.conv.id,
       convenio_procedimento_id: b.proc.id,
       obs: b.obs || undefined,
-      usuario: b.user || undefined
+      usuario: b.user || undefined,
+      remarcar: b.original ? { agendamento_id: b.original.id, busca: lastLookup } : undefined
     }, b.slot, b.patient);
     api.book(payload).then(function (r) {
       $('b-back').disabled = false;
@@ -339,6 +420,8 @@
 
   function bookingDone(b, res) {
     $('b-confirm').hidden = true;
+    $('b-done-title').textContent = b.original ? 'Consulta remarcada' : 'Consulta marcada';
+    if (b.original) { rescheduling = null; $('a-remarcar').hidden = true; }
     var dl = $('b-done-facts');
     dl.textContent = '';
     fact(dl, 'Quando', C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario);
@@ -382,7 +465,7 @@
   function loadChat(c) {
     var s = ++seq;
     chat = c || null;
-    closeBooking();
+    stopReschedule();
     ['b-nome', 'b-cpf', 'b-nasc', 'b-tel', 'b-obs'].forEach(function (id) { $(id).value = ''; });
     if (!chat) { pill('idle', 'Pronto'); show('v-empty'); return; }
     if (C.queueList(cfg.queueIds).indexOf(Number(chat.queueId)) < 0) { pill('idle', 'Inativo'); show('v-off'); return; }
@@ -413,6 +496,7 @@
     $('b-form').addEventListener('submit', review);
     $('b-go').addEventListener('click', confirmBooking);
     $('b-back').addEventListener('click', function () { $('b-confirm').hidden = true; $('b-form').hidden = false; B.fitHeight(); });
+    $('a-remarcar-sair').addEventListener('click', stopReschedule);
     $('b-new').addEventListener('click', function () {
       closeBooking();
       Array.prototype.forEach.call($('a-horas').children, function (c) { c.setAttribute('aria-pressed', 'false'); });
