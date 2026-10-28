@@ -132,13 +132,21 @@ export function convenios(corpo: any): Convenio[] {
     .filter((c): c is Convenio => !!c.id && !!c.nome);
 }
 
-// api-agendamento-get-procedimentos-instituicao: o id é o convenio_procedimento_id.
+// Nome do procedimento: texto solto ou dentro de um objeto (às vezes aninhado em "procedimento").
+function nomeProcedimento(v: any): string | null {
+  if (!v || typeof v !== "object") return texto(v);
+  return texto(v.descricao ?? v.nome ?? null) ?? nomeProcedimento(v.procedimento);
+}
+
+// api-agendamento-get-procedimentos-instituicao. Formato observado em 28/10/2026: cada item traz
+// convenio_procedimento_id (o que vai para o agendamento), valor, valor_convenio e o procedimento
+// em procedimento_instituicao.
 export function procedimentos(corpo: any): Procedimento[] {
   return lista(corpo?.procedimentos ?? corpo)
     .map((p: any) => ({
-      id: texto(p?.id),
-      nome: texto(p?.descricao ?? p?.nome ?? p?.procedimento?.descricao ?? p?.procedimento),
-      valor: numero(p?.valor_convenio ?? p?.valor),
+      id: texto(p?.convenio_procedimento_id ?? p?.id),
+      nome: nomeProcedimento(p?.procedimento_instituicao) ?? nomeProcedimento(p),
+      valor: numero(p?.valor_convenio) ?? numero(p?.valor),
     }))
     .filter((p): p is Procedimento => !!p.id && !!p.nome);
 }

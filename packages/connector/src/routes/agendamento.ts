@@ -64,7 +64,11 @@ export async function agendamentoRoutes(app: FastifyInstance) {
       // Estrutura (só nomes de campos) para ajustar o normalizador quando a Asa muda o formato.
       const lista = r.dados?.procedimentos ?? r.dados;
       const primeiro = N.lista(lista)[0];
-      req.log.warn({ chaves: Object.keys(r.dados ?? {}), item: primeiro && typeof primeiro === "object" ? Object.keys(primeiro) : typeof primeiro }, "procedimentos: resposta sem itens reconhecidos");
+      const chavesDe = (o: any) => (o && typeof o === "object" ? Object.keys(o) : typeof o);
+      req.log.warn(
+        { chaves: chavesDe(r.dados), item: chavesDe(primeiro), procedimento_instituicao: chavesDe(primeiro?.procedimento_instituicao) },
+        "procedimentos: resposta sem itens reconhecidos",
+      );
     }
     return { procedimentos };
   });
