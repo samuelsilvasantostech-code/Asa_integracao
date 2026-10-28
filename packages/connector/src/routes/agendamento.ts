@@ -54,9 +54,19 @@ export async function agendamentoRoutes(app: FastifyInstance) {
       ...paramsVaga(req.query),
       convenio_id: req.query.convenio_id,
     });
-    if (naoEncontrado(r)) return { procedimentos: [] };
+    if (naoEncontrado(r)) {
+      req.log.info({ msg_asa: !r.ok ? r.msg : undefined }, "procedimentos: Asa respondeu não encontrado");
+      return { procedimentos: [] };
+    }
     if (!r.ok) return falha(reply, r);
-    return { procedimentos: N.procedimentos(r.dados) };
+    const procedimentos = N.procedimentos(r.dados);
+    if (!procedimentos.length) {
+      // Estrutura (só nomes de campos) para ajustar o normalizador quando a Asa muda o formato.
+      const lista = r.dados?.procedimentos ?? r.dados;
+      const primeiro = N.lista(lista)[0];
+      req.log.warn({ chaves: Object.keys(r.dados ?? {}), item: primeiro && typeof primeiro === "object" ? Object.keys(primeiro) : typeof primeiro }, "procedimentos: resposta sem itens reconhecidos");
+    }
+    return { procedimentos };
   });
 
   app.post<{ Body: PedidoAgendamento }>("/v1/agendamentos", async (req, reply) => {
