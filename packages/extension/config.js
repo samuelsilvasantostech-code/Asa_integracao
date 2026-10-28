@@ -20,34 +20,9 @@
       pill(st.tone, st.pill);
       msg($('conn-text'), st.tone, st.text);
       var temClinica = r.status === 200 && r.body && r.body.tenant;
-      // Sem chave reconhecida, pede a chave; com ela, a credencial da Asa.
-      $('key-form').hidden = !!temClinica;
+      // Sem chave reconhecida, explica onde cadastrar; com ela, a credencial da Asa.
+      $('key-help').hidden = !!temClinica;
       $('form').hidden = !temClinica;
-    });
-  }
-
-  function saveKey(ev) {
-    ev.preventDefault();
-    var key = $('k-key').value.trim();
-    if (!key) { msg($('k-msg'), 'err', 'Cole a chave da instalação.'); return; }
-    $('k-save').disabled = true;
-    msg($('k-msg'), null, 'Verificando no Conector…');
-    // Confere antes de gravar: uma chave errada não substitui a que funciona.
-    root.AsaApi.create(cfg, key).testConnection().then(function (r) {
-      if (r.status !== 200 || !r.body || !r.body.tenant) {
-        $('k-save').disabled = false;
-        msg($('k-msg'), 'err', C.connectionState(r.status, r.body).text);
-        return;
-      }
-      return root.AsaApi.saveKey(omni, key).then(connect).then(function () {
-        $('k-save').disabled = false;
-        $('k-key').value = '';
-        msg($('k-msg'), 'ok', 'Chave salva para ' + r.body.tenant.nome + '.');
-        return refresh();
-      });
-    }).catch(function () {
-      $('k-save').disabled = false;
-      msg($('k-msg'), 'err', 'Não foi possível salvar a chave agora. Tente de novo.');
     });
   }
 
@@ -70,7 +45,6 @@
     cfg = (ctx && ctx.config) || {};
     B.applyTheme(ctx && ctx.theme);
     omni.on('themeChanged', B.applyTheme);
-    $('key-form').addEventListener('submit', saveKey);
     $('form').addEventListener('submit', saveCredential);
     connect().then(refresh);
   });

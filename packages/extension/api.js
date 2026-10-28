@@ -3,7 +3,6 @@
   'use strict';
 
   var DEFAULT_URL = 'https://asa-integracao-samuels.kentro.com.br';
-  var STORAGE_KEY = 'installKey';
 
   // O host pode entregar o segredo mascarado ("********") a quem não deve vê-lo.
   function usable(v) { return typeof v === 'string' && v.trim() !== '' && !/^\*+$/.test(v); }
@@ -48,17 +47,11 @@
     };
   }
 
-  // A chave vem da configuração da instalação ou, quando o host não oferece o campo, do
-  // armazenamento da instalação (omni.storage), gravado pela tela "Configurar Asa Saúde".
+  // A chave vem só da configuração da instalação (campo secret, igual para todos os usuários).
+  // omni.storage não serve: é por usuário e por navegador.
   function load(omni, cfg) {
-    if (usable(cfg.apiKey)) return Promise.resolve(create(cfg, cfg.apiKey));
-    if (!omni.storage || !omni.storage.get) return Promise.resolve(create(cfg, null));
-    return omni.storage.get(STORAGE_KEY).then(function (k) { return create(cfg, k); }, function () { return create(cfg, null); });
+    return Promise.resolve(create(cfg, usable(cfg.apiKey) ? cfg.apiKey : null));
   }
 
-  function saveKey(omni, key) {
-    return omni.storage.set(STORAGE_KEY, key.trim());
-  }
-
-  root.AsaApi = { create: create, load: load, saveKey: saveKey };
+  root.AsaApi = { create: create, load: load };
 })(this);
