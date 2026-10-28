@@ -29,5 +29,14 @@ A resposta traz `chave_instalacao` uma única vez: é o valor do campo "Chave da
 
 ## Extensão
 
-Sem build: os arquivos de `packages/extension` são servidos como estão e o host injeta o SDK `omni`.
-Ao mudar a extensão, suba `version` no `manifest.json` e o `?v=` dos arquivos em `chat.html`.
+Sem build: os arquivos são servidos como estão e o host injeta o SDK `omni`.
+
+O host da Kentro busca cada arquivo em `<pasta do manifest>/v/<version>/<caminho>`, e o Doca não reescreve
+caminhos. Por isso só o `manifest.json` fica na raiz e os arquivos ficam em `v/<versão>/`.
+
+Para publicar uma versão nova:
+1. copie `v/<atual>/` para `v/<nova>/` e faça as mudanças lá;
+2. suba `version` no `manifest.json` e o `?v=` dos arquivos nos `.html`;
+3. deploy no Doca e `extension_installs_refresh_manifest` nas instalações.
+
+As pastas antigas ficam: uma instalação que ainda aponta para a versão anterior continua funcionando.
