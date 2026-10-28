@@ -57,6 +57,55 @@
     return { tone: 'err', text: 'Não foi possível validar agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '. Tente de novo.' };
   }
 
-  var api = { queueList: queueList, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState };
+  var WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+  // YYYY-MM-DD → "qua, 29/10" (ou "29/10/2027" fora do ano corrente com withYear).
+  function formatDay(iso, withYear) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    if (!m) return '';
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    var s = WEEKDAYS[d.getDay()] + ', ' + m[3] + '/' + m[2];
+    return withYear ? s + '/' + m[1] : s;
+  }
+
+  function formatBirth(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
+  }
+
+  function age(iso, today) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    if (!m) return null;
+    var t = today || new Date();
+    var a = t.getFullYear() - Number(m[1]);
+    if (t.getMonth() + 1 < Number(m[2]) || (t.getMonth() + 1 === Number(m[2]) && t.getDate() < Number(m[3]))) a--;
+    return a >= 0 && a < 130 ? a : null;
+  }
+
+  // Mostra só o meio do CPF: o atendente confere sem o número inteiro ficar na tela.
+  function maskCpf(cpf) {
+    var d = String(cpf || '').replace(/\D/g, '');
+    return d.length === 11 ? '***.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-**' : '';
+  }
+
+  function cpfDigits(raw) {
+    var d = String(raw || '').replace(/\D/g, '');
+    return d.length === 11 ? d : null;
+  }
+
+  // Resposta de leitura do Conector → texto de erro para o atendente.
+  function readError(status, body) {
+    var erro = body && body.erro;
+    if (erro === 'ASA_RECUSOU' && body.msg) return 'A Asa respondeu: ' + body.msg;
+    if (erro === 'CREDENCIAL_AUSENTE') return 'A credencial da Asa ainda não foi cadastrada.';
+    if (erro === 'ASA_CREDENCIAL_INVALIDA') return 'A Asa recusou a credencial cadastrada.';
+    if (erro === 'TELEFONE_INVALIDO') return 'O telefone do contato não está num formato que a Asa aceite.';
+    if (erro === 'CPF_INVALIDO') return 'Informe um CPF com 11 dígitos.';
+    if (status === 401) return 'A chave da instalação não foi reconhecida pelo Conector.';
+    return 'A Asa não respondeu agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '.';
+  }
+
+  var api = { queueList: queueList, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
+    formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;
 })(this);

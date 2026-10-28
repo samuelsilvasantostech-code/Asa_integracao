@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.4.0">
+<link rel="stylesheet" href="styles.css?v=0.5.0">
 </head>
 <body>
 <div class="app">
@@ -52,19 +52,63 @@
         <button class="btn" id="conn-retry" type="button" hidden>Tentar de novo</button>
       </div>
 
-      <nav class="tabs" aria-label="Módulos">
-        <button class="tab" type="button" disabled>Paciente</button>
-        <button class="tab" type="button" disabled>Consultas</button>
-        <button class="tab" type="button" disabled>Agendar</button>
-        <button class="tab" type="button" disabled>Financeiro</button>
-      </nav>
-      <p class="soon">Os módulos são liberados nas próximas fases.</p>
+      <div id="modules" hidden>
+        <nav class="tabs" role="tablist" aria-label="Módulos">
+          <button class="tab" type="button" role="tab" data-tab="paciente" aria-selected="true">Paciente</button>
+          <button class="tab" type="button" role="tab" data-tab="consultas" aria-selected="false">Consultas <span class="count" id="count-consultas" hidden></span></button>
+          <button class="tab" type="button" role="tab" data-tab="agendar" aria-selected="false">Agenda</button>
+          <button class="tab" type="button" role="tab" disabled title="Próxima fase">Financeiro</button>
+        </nav>
+
+        <section class="pane" id="pane-paciente" role="tabpanel">
+          <p class="muted" id="p-status">Buscando o paciente na Asa…</p>
+          <dl class="facts" id="p-facts" hidden>
+            <div><dt>Nome</dt><dd id="p-nome"></dd></div>
+            <div><dt>Nascimento</dt><dd id="p-nasc"></dd></div>
+            <div><dt>Telefone</dt><dd id="p-tel"></dd></div>
+            <div><dt>CPF</dt><dd id="p-cpf"></dd></div>
+          </dl>
+          <form class="inline-form" id="p-search" autocomplete="off" hidden>
+            <label class="field">
+              <span>Buscar por CPF</span>
+              <input id="p-cpf-input" inputmode="numeric" placeholder="000.000.000-00" maxlength="14">
+            </label>
+            <button class="btn" type="submit">Buscar</button>
+          </form>
+        </section>
+
+        <section class="pane" id="pane-consultas" role="tabpanel" hidden>
+          <p class="muted" id="c-status">Identifique o paciente primeiro.</p>
+          <ul class="list" id="c-list"></ul>
+        </section>
+
+        <section class="pane" id="pane-agendar" role="tabpanel" hidden>
+          <label class="field">
+            <span>Especialidade</span>
+            <select id="a-esp"><option value="">Carregando…</option></select>
+          </label>
+          <label class="field">
+            <span>Profissional</span>
+            <select id="a-prest" disabled><option value="">Escolha a especialidade</option></select>
+          </label>
+          <div class="field" id="a-dias-wrap" hidden>
+            <span>Dias com atendimento</span>
+            <div class="chips" id="a-dias"></div>
+          </div>
+          <div class="field" id="a-horas-wrap" hidden>
+            <span id="a-horas-label">Horários livres</span>
+            <div class="chips" id="a-horas"></div>
+          </div>
+          <p class="muted" id="a-status"></p>
+          <p class="soon">Consulta de horários. Marcar a consulta pelo painel entra na próxima fase.</p>
+        </section>
+      </div>
     </section>
   </main>
 </div>
-<script src="core.js?v=0.4.0"></script>
-<script src="api.js?v=0.4.0"></script>
-<script src="bridge.js?v=0.4.0"></script>
-<script src="app.js?v=0.4.0"></script>
+<script src="core.js?v=0.5.0"></script>
+<script src="api.js?v=0.5.0"></script>
+<script src="bridge.js?v=0.5.0"></script>
+<script src="app.js?v=0.5.0"></script>
 </body>
 </html>

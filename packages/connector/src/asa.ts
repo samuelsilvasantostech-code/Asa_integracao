@@ -8,6 +8,7 @@ export type ErroAsa =
   | "ASA_CREDENCIAL_INVALIDA"
   | "ASA_BLOQUEIO_CLOUDFLARE"
   | "ASA_ROTA_INEXISTENTE"
+  | "ASA_RECUSOU"
   | "ASA_FORA_DO_AR"
   | "ASA_RESPOSTA_INVALIDA";
 
@@ -67,8 +68,13 @@ export async function chamarAsa<T>(
   if (resp.status === 403 && corpo === null) {
     return { ok: false, erro: "ASA_BLOQUEIO_CLOUDFLARE", status: 403, msg: texto.slice(0, 120) };
   }
-  if (resp.status === 401 || resp.status === 403) {
+  // A Asa usa 403 também para recusas de negócio (ex.: paciente não encontrado). Só é credencial
+  // quando a mensagem fala de autorização.
+  if (resp.status === 401 || (resp.status === 403 && /autoriza/i.test(String(corpo?.msg ?? "")))) {
     return { ok: false, erro: "ASA_CREDENCIAL_INVALIDA", status: resp.status, msg: corpo?.msg };
+  }
+  if (resp.status === 403 || corpo?.status === "error") {
+    return { ok: false, erro: "ASA_RECUSOU", status: resp.status, msg: String(corpo?.msg ?? corpo?.message ?? "") };
   }
   if (resp.status === 404) return { ok: false, erro: "ASA_ROTA_INEXISTENTE", status: 404 };
   if (resp.status >= 500) return { ok: false, erro: "ASA_FORA_DO_AR", status: resp.status };

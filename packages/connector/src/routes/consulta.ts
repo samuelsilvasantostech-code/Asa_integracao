@@ -10,13 +10,15 @@ const idValido = (s: unknown): s is string => typeof s === "string" && /^\d{1,10
 
 function falha(reply: FastifyReply, r: Extract<RespostaAsa<unknown>, { ok: false }>) {
   const status = r.erro === "ASA_CREDENCIAL_INVALIDA" ? 422 : 502;
-  return reply.code(status).send({ erro: r.erro });
+  // A mensagem da Asa é texto de erro de negócio, sem dados do paciente: ajuda o atendente.
+  return reply.code(status).send({ erro: r.erro, msg: r.erro === "ASA_RECUSOU" ? r.msg : undefined });
 }
 
-// A Asa responde "não achei" de jeitos diferentes: 404 com mensagem ou 200 com status "error".
+// "Não achei" chega como recusa (403/status "error") com mensagem de não encontrado, ou 404.
 function naoEncontrado(r: RespostaAsa<any>): boolean {
-  if (!r.ok) return r.erro === "ASA_ROTA_INEXISTENTE";
-  return r.dados?.status === "error";
+  if (r.ok) return false;
+  if (r.erro === "ASA_ROTA_INEXISTENTE") return true;
+  return r.erro === "ASA_RECUSOU" && /encontrad|n[ãa]o possui|nenhum/i.test(r.msg ?? "");
 }
 
 export async function consultaRoutes(app: FastifyInstance) {

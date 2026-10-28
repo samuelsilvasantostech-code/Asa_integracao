@@ -29,8 +29,19 @@
       });
     }
 
+    function query(params) {
+      var parts = Object.keys(params).filter(function (k) { return params[k]; }).map(function (k) {
+        return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+      });
+      return parts.length ? '?' + parts.join('&') : '';
+    }
+
     return {
       testConnection: function () { return request('GET', '/v1/tenant/conexao/teste'); },
+      patient: function (by) { return request('GET', '/v1/paciente' + query({ telefone: by.telefone, cpf: by.cpf })); },
+      schedule: function () { return request('GET', '/v1/agenda'); },
+      days: function (providerId) { return request('GET', '/v1/agenda/dias' + query({ prestador_id: providerId })); },
+      slots: function (providerId, day) { return request('GET', '/v1/agenda/horarios' + query({ prestador_id: providerId, data: day })); },
       saveCredential: function (token) {
         return request('PUT', '/v1/tenant/credencial', { token: token });
       }
