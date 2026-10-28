@@ -18,7 +18,7 @@ function falha(reply: FastifyReply, r: Extract<RespostaAsa<unknown>, { ok: false
 function naoEncontrado(r: RespostaAsa<any>): boolean {
   if (r.ok) return false;
   if (r.erro === "ASA_ROTA_INEXISTENTE") return true;
-  return r.erro === "ASA_RECUSOU" && /encontrad|n[ãa]o possui|nenhum/i.test(r.msg ?? "");
+  return r.erro === "ASA_RECUSOU" && /encontrad|localizad|n[ãa]o possui|nenhum/i.test(r.msg ?? "");
 }
 
 export async function consultaRoutes(app: FastifyInstance) {
