@@ -28,7 +28,8 @@ export async function extensaoRoutes(app: FastifyInstance) {
     }
     return reply
       .header("Access-Control-Allow-Origin", "*")
-      .header("Cache-Control", caminho.endsWith("manifest.json") ? "no-cache" : "public, max-age=300")
+      // O host busca os arquivos sem versão na URL: com cache, uma versão nova demora a aparecer.
+      .header("Cache-Control", "no-cache")
       .header("X-Content-Type-Options", "nosniff")
       .type(tipo)
       .send(conteudo);
