@@ -14,7 +14,20 @@ as rotas marcadas com ★ aparecem **só** nela.
 | Autenticação | `Authorization: base64("<ID_instituicao>:<hash>")` — sem prefixo `Basic`/`Bearer` |
 | Credencial | ID da instituição + hash do "código de acesso de terceiros" (Admin → editar instituição). Uma por clínica |
 | Visibilidade | Prestador, procedimento e convênio só aparecem com **"Permite agendamento online"** marcado |
-| Erros | Não documentados na coleção. A ser levantado na primeira chamada real |
+| Erros | Ver "Comportamento observado" abaixo |
+| User-Agent | **Obrigatório um UA próprio.** O Cloudflare da Asa devolve `403` texto `error code: 1010` para UAs de biblioteca (ex.: `Python-urllib`) |
+
+### Comportamento observado (chamadas reais em 28/10/2026)
+
+| Situação | HTTP | Corpo |
+|---|---|---|
+| UA de biblioteca bloqueado no Cloudflare | 403 | `error code: 1010` (texto, não JSON) |
+| Sem `Authorization` ou valor que não decodifica em `ID:hash` | 403 | `{"status":"error","msg":"Autorização não foi enviada corretamente, consulte a documentação."}` |
+| `ID:hash` bem formado mas recusado | 403 | `{"status":"error","msg":"Não autorizado."}` |
+| Rota inexistente | 404 | `{"message": "..."}` (formato Laravel) |
+
+A autenticação é checada **antes** dos parâmetros: com credencial recusada, toda rota responde 403 igual.
+A credencial de exemplo publicada na coleção (clínica ID 7) foi **recusada** em produção — está desatualizada.
 
 ### Formatos de data (o motivo dos normalizadores)
 
