@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { listarPrestadores, type CredencialAsa } from "../asa.js";
+import { instituicaoDa, listarPrestadores, type CredencialAsa } from "../asa.js";
 import { cifraDisponivel, cifrar, decifrar } from "../crypto.js";
 import { pool } from "../db.js";
 
@@ -51,24 +51,22 @@ export async function tenantRoutes(app: FastifyInstance) {
       return { ...base, asa: "erro_interno" };
     }
     const r = await listarPrestadores(credencial);
-    if (r.ok) return { ...base, asa: "ok", instituicao_id: credencial.instituicao_id };
+    if (r.ok) return { ...base, asa: "ok", instituicao_id: instituicaoDa(credencial) };
     req.log.warn({ erro: r.erro, status: r.status }, "teste de conexão com a Asa falhou");
     return { ...base, asa: r.erro === "ASA_CREDENCIAL_INVALIDA" ? "credencial_invalida" : "fora_do_ar", erro: r.erro };
   });
 
-  // Grava a credencial da Asa da clínica. Só grava se a Asa aceitar; nunca devolve o hash.
-  app.put<{ Body: { instituicao_id?: string | number; hash?: string } }>("/v1/tenant/credencial", async (req, reply) => {
+  // Grava o token da Asa da clínica. Só grava se a Asa aceitar; nunca devolve o token.
+  app.put<{ Body: { token?: string } }>("/v1/tenant/credencial", async (req, reply) => {
     const tenant = await tenantDaRequisicao(req, reply);
     if (!tenant) return;
     if (!cifraDisponivel()) return reply.code(503).send({ erro: "CIFRA_NAO_CONFIGURADA" });
 
-    const instituicao_id = String(req.body?.instituicao_id ?? "").trim();
-    const hashAsa = String(req.body?.hash ?? "").trim();
-    if (!/^\d+$/.test(instituicao_id) || !hashAsa) {
-      return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
-    }
+    const token = String(req.body?.token ?? "").trim();
+    if (!token || /\s/.test(token)) return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
 
-    const credencial: CredencialAsa = { instituicao_id, hash: hashAsa };
+    const credencial: CredencialAsa = { token };
+    const instituicao_id = instituicaoDa(credencial);
     const r = await listarPrestadores(credencial);
     if (!r.ok) {
       const status = r.erro === "ASA_CREDENCIAL_INVALIDA" ? 422 : 502;

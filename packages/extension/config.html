@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Configurar Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.3.0">
+<link rel="stylesheet" href="styles.css?v=0.4.0">
 </head>
 <body class="page-config">
 <div class="app">
@@ -38,23 +38,19 @@
 
     <form class="card form" id="form" autocomplete="off" hidden>
       <div class="card__label">Credencial da Asa</div>
-      <p class="hint">Na Asa, em Admin → editar instituição, copie o ID da instituição e o hash do código de acesso de terceiros. A credencial é validada na Asa, guardada cifrada no Conector e não volta para esta tela.</p>
+      <p class="hint">Cole o token de acesso da clínica fornecido pela Asa, o mesmo valor usado no header Authorization. Ele é validado na Asa, guardado cifrado no Conector e não volta para esta tela.</p>
       <label class="field">
-        <span>ID da instituição</span>
-        <input id="f-id" inputmode="numeric" pattern="\d+" required>
-      </label>
-      <label class="field">
-        <span>Hash</span>
-        <input id="f-hash" type="password" required spellcheck="false">
+        <span>Token</span>
+        <input id="f-token" type="password" required spellcheck="false">
       </label>
       <button class="btn btn--primary" id="f-save" type="submit">Validar e salvar</button>
       <p class="conn" id="f-msg" role="status"></p>
     </form>
   </main>
 </div>
-<script src="core.js?v=0.3.0"></script>
-<script src="api.js?v=0.3.0"></script>
-<script src="bridge.js?v=0.3.0"></script>
-<script src="config.js?v=0.3.0"></script>
+<script src="core.js?v=0.4.0"></script>
+<script src="api.js?v=0.4.0"></script>
+<script src="bridge.js?v=0.4.0"></script>
+<script src="config.js?v=0.4.0"></script>
 </body>
 </html>

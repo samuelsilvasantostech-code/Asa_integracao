@@ -53,15 +53,15 @@
 
   function saveCredential(ev) {
     ev.preventDefault();
-    var id = $('f-id').value.trim(), hash = $('f-hash').value.trim();
-    if (!/^\d+$/.test(id) || !hash) { msg($('f-msg'), 'err', 'Informe o ID (só números) e o hash.'); return; }
+    var token = $('f-token').value.trim();
+    if (!token) { msg($('f-msg'), 'err', 'Cole o token da Asa.'); return; }
     $('f-save').disabled = true;
     msg($('f-msg'), null, 'Validando na Asa…');
-    api.saveCredential(id, hash).then(function (r) {
+    api.saveCredential(token).then(function (r) {
       $('f-save').disabled = false;
       var st = C.credentialSaveState(r.status, r.body);
       msg($('f-msg'), st.tone, st.text);
-      if (st.tone === 'ok') { $('f-hash').value = ''; refresh(); }
+      if (st.tone === 'ok') { $('f-token').value = ''; refresh(); }
     });
   }
 

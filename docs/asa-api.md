@@ -12,7 +12,7 @@ as rotas marcadas com ★ aparecem **só** nela.
 | Método | Sempre `POST` |
 | Parâmetros | Query string (o corpo é ignorado, salvo `api-gerar-conta-paciente`, que aceita form-data também) |
 | Autenticação | `Authorization: base64("<ID_instituicao>:<hash>")` — sem prefixo `Basic`/`Bearer` |
-| Credencial | ID da instituição + hash do "código de acesso de terceiros" (Admin → editar instituição). Uma por clínica |
+| Credencial | Token da clínica entregue pela Asa (já é o `base64("ID:hash")`), cadastrado em "Configurar Asa Saúde" e enviado como está no `Authorization`. Uma por clínica |
 | Visibilidade | Prestador, procedimento e convênio só aparecem com **"Permite agendamento online"** marcado |
 | Erros | Ver "Comportamento observado" abaixo |
 | User-Agent | **Obrigatório um UA próprio.** O Cloudflare da Asa devolve `403` texto `error code: 1010` para UAs de biblioteca (ex.: `Python-urllib`) |

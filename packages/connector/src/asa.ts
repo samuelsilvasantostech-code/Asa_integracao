@@ -1,9 +1,8 @@
 import { config } from "./config.js";
 
-export interface CredencialAsa {
-  instituicao_id: string;
-  hash: string;
-}
+// O token é o valor do header Authorization, como a Asa entrega: base64("ID:hash").
+// O formato antigo (ID e hash separados) ainda é lido de credenciais já gravadas.
+export type CredencialAsa = { token: string } | { instituicao_id: string; hash: string };
 
 export type ErroAsa =
   | "ASA_CREDENCIAL_INVALIDA"
@@ -19,7 +18,18 @@ const BASE = "https://sistema.asasaude.app.br/api";
 const USER_AGENT = `Kentro-Asa-Connector/${config.version} (+https://asa-integracao-samuels.kentro.com.br)`;
 
 export function authorization(c: CredencialAsa): string {
+  if ("token" in c) return c.token;
   return Buffer.from(`${c.instituicao_id}:${c.hash}`, "utf8").toString("base64");
+}
+
+// ID da instituição embutido no token, só para exibição. null se o token não seguir o formato.
+export function instituicaoDoToken(token: string): string | null {
+  const m = /^(\d+):/.exec(Buffer.from(token, "base64").toString("utf8"));
+  return m ? m[1] : null;
+}
+
+export function instituicaoDa(c: CredencialAsa): string | null {
+  return "token" in c ? instituicaoDoToken(c.token) : c.instituicao_id;
 }
 
 // Todas as rotas da Asa são POST com parâmetros na query string.

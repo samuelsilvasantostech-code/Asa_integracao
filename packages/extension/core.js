@@ -35,7 +35,7 @@
     if (status === 200 && body && body.tenant) {
       var nome = body.tenant.nome;
       switch (body.asa) {
-        case 'ok': return { tone: 'ok', pill: 'Conectado', text: nome + ': conectado à Asa (instituição ' + body.instituicao_id + ').', retry: false };
+        case 'ok': return { tone: 'ok', pill: 'Conectado', text: nome + ': conectado à Asa' + (body.instituicao_id ? ' (instituição ' + body.instituicao_id + ')' : '') + '.', retry: false };
         case 'credencial_ausente': return { tone: 'warn', pill: 'Sem credencial', text: nome + ': a credencial da Asa ainda não foi cadastrada. Um administrador cadastra em "Configurar Asa Saúde".', retry: true };
         case 'credencial_invalida': return { tone: 'err', pill: 'Credencial recusada', text: nome + ': a Asa recusou a credencial cadastrada. Um administrador precisa atualizá-la.', retry: true };
         default: return { tone: 'err', pill: 'Asa fora do ar', text: nome + ': a Asa não respondeu agora.', retry: true };
@@ -50,8 +50,8 @@
   function credentialSaveState(status, body) {
     if (status === 200 && body && body.ok) return { tone: 'ok', text: 'Credencial validada e salva. A Asa listou ' + body.prestadores + ' prestador(es) com agenda online.' };
     var erro = body && body.erro;
-    if (erro === 'ASA_CREDENCIAL_INVALIDA') return { tone: 'err', text: 'A Asa recusou esse ID e hash. Confira em Admin → editar instituição.' };
-    if (erro === 'DADOS_INVALIDOS') return { tone: 'err', text: 'Informe o ID (só números) e o hash.' };
+    if (erro === 'ASA_CREDENCIAL_INVALIDA') return { tone: 'err', text: 'A Asa recusou esse token. Confira se foi copiado inteiro, sem espaços.' };
+    if (erro === 'DADOS_INVALIDOS') return { tone: 'err', text: 'Cole o token da Asa (sem espaços ou quebras de linha).' };
     if (erro === 'CIFRA_NAO_CONFIGURADA') return { tone: 'err', text: 'O Conector ainda não está pronto para guardar credenciais (falta a chave de cifra).' };
     if (status === 401) return { tone: 'err', text: 'A chave da instalação não foi reconhecida pelo Conector.' };
     return { tone: 'err', text: 'Não foi possível validar agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '. Tente de novo.' };
