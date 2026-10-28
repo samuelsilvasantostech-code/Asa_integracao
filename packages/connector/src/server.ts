@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { config } from "./config.js";
 import { migrate, pool } from "./db.js";
+import { adminRoutes } from "./routes/admin.js";
 import { healthRoutes } from "./routes/health.js";
 import { tenantRoutes } from "./routes/tenant.js";
 
@@ -8,6 +9,7 @@ const app = Fastify({ logger: { level: config.logLevel } });
 
 await app.register(healthRoutes);
 await app.register(tenantRoutes);
+await app.register(adminRoutes);
 
 try {
   await migrate((msg) => app.log.info(msg));

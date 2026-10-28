@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asa Saúde</title>
+<link rel="stylesheet" href="styles.css?v=0.1.0">
+</head>
+<body>
+<div class="app">
+  <header class="hd">
+    <div class="hd__brand">
+      <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
+      <div>
+        <div class="hd__title">Asa Saúde</div>
+        <div class="hd__sub">Agenda da clínica</div>
+      </div>
+    </div>
+    <span class="pill" id="pill" data-tone="idle"><i class="dot"></i><span id="pill-text">Carregando</span></span>
+  </header>
+
+  <main class="body" aria-live="polite">
+    <section id="v-loading" class="view">
+      <div class="sk sk--block"></div><div class="sk sk--line"></div><div class="sk sk--line w60"></div>
+    </section>
+
+    <section id="v-empty" class="view state" hidden>
+      <p class="state__title">Nenhuma conversa aberta</p>
+      <p class="state__text">Selecione um atendimento para ver o paciente.</p>
+    </section>
+
+    <section id="v-off" class="view state" hidden>
+      <p class="state__title">Painel inativo nesta fila</p>
+      <p class="state__text">A integração com a Asa está ligada só nas filas configuradas na instalação.</p>
+    </section>
+
+    <section id="v-chat" class="view" hidden>
+      <div class="card">
+        <div class="card__label">Contato</div>
+        <div class="contact">
+          <span class="avatar" id="avatar" aria-hidden="true"></span>
+          <div class="contact__info">
+            <div class="contact__name" id="c-name">—</div>
+            <div class="contact__phone" id="c-phone">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__label">Conexão com a Asa</div>
+        <p class="conn" id="conn-text">Verificando…</p>
+        <button class="btn" id="conn-retry" type="button" hidden>Tentar de novo</button>
+      </div>
+
+      <nav class="tabs" aria-label="Módulos">
+        <button class="tab" type="button" disabled>Paciente</button>
+        <button class="tab" type="button" disabled>Consultas</button>
+        <button class="tab" type="button" disabled>Agendar</button>
+        <button class="tab" type="button" disabled>Financeiro</button>
+      </nav>
+      <p class="soon">Os módulos são liberados nas próximas fases.</p>
+    </section>
+  </main>
+</div>
+<script src="core.js?v=0.1.0"></script>
+<script src="api.js?v=0.1.0"></script>
+<script src="bridge.js?v=0.1.0"></script>
+<script src="app.js?v=0.1.0"></script>
+</body>
+</html>
