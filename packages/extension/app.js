@@ -259,7 +259,7 @@
       if (r.status !== 200 || !r.body) { fillSelect(sel, [], null, 'Indisponível'); status('b-status', C.readError(r.status, r.body), 'err'); return; }
       b.procedures = r.body.procedimentos;
       fillSelect(sel, b.procedures, function (p) {
-        return p.nome + (p.valor != null ? ' — ' + C.formatMoney(p.valor) : '');
+        return p.nome + (p.valor > 0 ? ' — ' + C.formatMoney(p.valor) : '');
       }, 'Nenhum procedimento para este convênio');
     });
   }
@@ -299,7 +299,7 @@
     fact(dl, 'Profissional', b.providerName);
     fact(dl, 'Quando', C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario);
     fact(dl, 'Convênio', conv.nome);
-    fact(dl, 'Procedimento', proc.nome + (proc.valor != null ? ' — ' + C.formatMoney(proc.valor) : ''));
+    fact(dl, 'Procedimento', proc.nome + (proc.valor > 0 ? ' — ' + C.formatMoney(proc.valor) : ''));
     if (b.obs) fact(dl, 'Observação', b.obs);
     status('b-confirm-status', '');
     $('b-go').disabled = false;
