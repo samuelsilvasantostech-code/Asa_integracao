@@ -1,39 +1,8 @@
-import { createHash } from "node:crypto";
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { instituicaoDa, listarPrestadores, type CredencialAsa } from "../asa.js";
 import { cifraDisponivel, cifrar, decifrar } from "../crypto.js";
 import { pool } from "../db.js";
-
-const hash = (valor: string) => createHash("sha256").update(valor).digest("hex");
-
-interface Tenant {
-  id: string;
-  nome: string;
-  credencial: Buffer | null;
-}
-
-// Identifica a clínica pela chave da instalação. Responde o erro e devolve null quando não dá.
-async function tenantDaRequisicao(req: FastifyRequest, reply: FastifyReply): Promise<Tenant | null> {
-  const chave = req.headers["x-install-key"];
-  if (typeof chave !== "string" || !chave) {
-    reply.code(401).send({ erro: "CHAVE_AUSENTE" });
-    return null;
-  }
-  if (!pool) {
-    reply.code(503).send({ erro: "BANCO_NAO_CONFIGURADO" });
-    return null;
-  }
-  const { rows } = await pool.query<{ id: string; nome: string; ativo: boolean; asa_credencial_cifrada: Buffer | null }>(
-    "SELECT id, nome, ativo, asa_credencial_cifrada FROM tenants WHERE chave_instalacao_hash = $1",
-    [hash(chave)],
-  );
-  const t = rows[0];
-  if (!t || !t.ativo) {
-    reply.code(401).send({ erro: "CHAVE_INVALIDA" });
-    return null;
-  }
-  return { id: t.id, nome: t.nome, credencial: t.asa_credencial_cifrada };
-}
+import { tenantDaRequisicao } from "../tenant-auth.js";
 
 export async function tenantRoutes(app: FastifyInstance) {
   // Confirma a clínica e, se houver credencial, testa de verdade na Asa.
