@@ -40,6 +40,19 @@ export async function adminRoutes(app: FastifyInstance) {
     return reply.code(201).send({ id: rows[0].id, nome, chave_instalacao: chave });
   });
 
+  app.patch<{ Params: { id: string }; Body: { nome?: string; ativo?: boolean } }>("/admin/tenants/:id", async (req, reply) => {
+    const nome = req.body?.nome?.trim();
+    const ativo = req.body?.ativo;
+    if (!nome && typeof ativo !== "boolean") return reply.code(400).send({ erro: "NADA_PARA_ALTERAR" });
+    const { rows } = await pool!.query(
+      `UPDATE tenants SET nome = COALESCE($1, nome), ativo = COALESCE($2, ativo), atualizado_em = now()
+       WHERE id = $3 RETURNING id, nome, ativo`,
+      [nome || null, typeof ativo === "boolean" ? ativo : null, req.params.id],
+    );
+    if (!rows[0]) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+    return rows[0];
+  });
+
   // Gera uma chave nova e invalida a anterior.
   app.post<{ Params: { id: string } }>("/admin/tenants/:id/rotacionar-chave", async (req, reply) => {
     const chave = "asa_" + randomBytes(24).toString("base64url");
