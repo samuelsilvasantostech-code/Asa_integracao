@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "kentro.asa-saude",
   "name": "Asa Saúde",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Pacientes, consultas e agendamentos da Asa Saúde dentro do atendimento.",
   "author": {
     "name": "Kentro"
@@ -27,7 +27,7 @@
       "label": "Chave da instalação",
       "type": "secret",
       "required": false,
-      "help": "Gerada pela implantação no Conector e preenchida na tela de instalação. Identifica a clínica; a credencial da Asa nunca fica aqui."
+      "help": "Opcional. Normalmente a chave é cadastrada pela tela \"Configurar Asa Saúde\" e fica guardada na instalação."
     }
   ],
   "contributions": [

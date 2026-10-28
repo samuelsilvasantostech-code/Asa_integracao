@@ -42,7 +42,7 @@
       }
     }
     if (status === 401) return { tone: 'err', pill: 'Chave inválida', text: 'A chave da instalação não foi reconhecida pelo Conector.', retry: false };
-    if (status === -1) return { tone: 'err', pill: 'Sem chave', text: 'Preencha o endereço do Conector e a chave da instalação na configuração da extensão.', retry: false };
+    if (status === -1) return { tone: 'warn', pill: 'Sem chave', text: 'A chave da instalação ainda não foi cadastrada. Um administrador cadastra em "Configurar Asa Saúde".', retry: true };
     return { tone: 'err', pill: 'Fora do ar', text: 'Não foi possível falar com o Conector' + (status ? ' (HTTP ' + status + ').' : '.'), retry: true };
   }
 

@@ -51,13 +51,19 @@
   if (!omni) { show('v-empty'); pill('err', 'Fora do Kentro'); return; }
   omni.ready(function (ctx) {
     cfg = (ctx && ctx.config) || {};
-    api = root.AsaApi.create(cfg);
     B.applyTheme(ctx && ctx.theme);
     omni.on('themeChanged', B.applyTheme);
     omni.on('chatPanelOpened', function () { setTimeout(B.fitHeight, 60); });
-    omni.on('omniChatSelected', loadChat);
-    $('conn-retry').addEventListener('click', function () { if (chat) checkConnection(seq); });
+    $('conn-retry').addEventListener('click', function () {
+      if (!chat) return;
+      // A chave pode ter sido cadastrada depois que o painel abriu.
+      root.AsaApi.load(omni, cfg).then(function (a) { api = a; checkConnection(seq); });
+    });
     B.fitHeight();
-    omni.chats.getSelected().then(loadChat, function () { loadChat(null); });
+    root.AsaApi.load(omni, cfg).then(function (a) {
+      api = a;
+      omni.on('omniChatSelected', loadChat);
+      omni.chats.getSelected().then(loadChat, function () { loadChat(null); });
+    });
   });
 })(this);

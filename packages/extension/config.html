@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Configurar Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.2.2">
+<link rel="stylesheet" href="styles.css?v=0.3.0">
 </head>
 <body class="page-config">
 <div class="app">
@@ -25,6 +25,17 @@
       <p class="conn" id="conn-text">Verificando…</p>
     </div>
 
+    <form class="card form" id="key-form" autocomplete="off" hidden>
+      <div class="card__label">Chave da instalação</div>
+      <p class="hint">Gerada pela implantação no Conector, uma por clínica. Fica guardada nesta instalação da extensão e identifica a clínica para o Conector.</p>
+      <label class="field">
+        <span>Chave</span>
+        <input id="k-key" type="password" required spellcheck="false">
+      </label>
+      <button class="btn btn--primary" id="k-save" type="submit">Verificar e salvar</button>
+      <p class="conn" id="k-msg" role="status"></p>
+    </form>
+
     <form class="card form" id="form" autocomplete="off" hidden>
       <div class="card__label">Credencial da Asa</div>
       <p class="hint">Na Asa, em Admin → editar instituição, copie o ID da instituição e o hash do código de acesso de terceiros. A credencial é validada na Asa, guardada cifrada no Conector e não volta para esta tela.</p>
@@ -41,9 +52,9 @@
     </form>
   </main>
 </div>
-<script src="core.js?v=0.2.2"></script>
-<script src="api.js?v=0.2.2"></script>
-<script src="bridge.js?v=0.2.2"></script>
-<script src="config.js?v=0.2.2"></script>
+<script src="core.js?v=0.3.0"></script>
+<script src="api.js?v=0.3.0"></script>
+<script src="bridge.js?v=0.3.0"></script>
+<script src="config.js?v=0.3.0"></script>
 </body>
 </html>
