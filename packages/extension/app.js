@@ -69,14 +69,28 @@
     $('count-consultas').textContent = String(list.length);
     if (!list.length) { status('c-status', 'Nenhuma consulta marcada.'); return; }
     status('c-status', list.length === 1 ? 'Próxima consulta:' : 'Próximas ' + list.length + ' consultas:');
-    list.forEach(function (c) {
-      var li = el('li', 'item');
-      li.appendChild(el('div', 'item__when', whenText(c)));
-      var who = [c.prestador, c.procedimentos.join(', ')].filter(Boolean).join(' — ');
-      if (who) li.appendChild(el('div', 'item__who', who));
-      if (patient && patient.id && c.id) li.appendChild(consultaActions(c));
+    list.forEach(function (c, i) {
+      var li = el('li', 'item appt' + (i === 0 ? ' appt--next' : ''));
+      li.appendChild(dateStub(c.data));
+      var body = el('div', 'appt__body');
+      body.appendChild(el('div', 'item__when', c.hora || 'Horário não informado'));
+      if (c.prestador) body.appendChild(el('div', 'item__who', c.prestador));
+      if (c.procedimentos.length) body.appendChild(el('div', 'item__proc', c.procedimentos.join(', ')));
+      if (patient && patient.id && c.id) body.appendChild(consultaActions(c));
+      li.appendChild(body);
       ul.appendChild(li);
     });
+  }
+
+  // Canhoto do cartão de consulta: dia em destaque, mês e dia da semana embaixo.
+  var MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  function dateStub(iso) {
+    var stub = el('div', 'appt__stub'), m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    if (!m) { stub.appendChild(el('span', 'appt__mon', 'sem data')); return stub; }
+    stub.appendChild(el('span', 'appt__day', m[3]));
+    stub.appendChild(el('span', 'appt__mon', MONTHS[Number(m[2]) - 1]));
+    stub.appendChild(el('span', 'appt__wd', C.formatDay(iso).split(',')[0]));
+    return stub;
   }
 
   function whenText(c) {
@@ -232,7 +246,12 @@
       status('a-status', dias.length ? '' : 'Este profissional não tem dias com agenda aberta nos próximos 60 dias.');
       $('a-dias-wrap').hidden = !dias.length;
       dias.forEach(function (d) {
-        box.appendChild(chip(C.formatDay(d), false, function (ev) { pickDay(id, d, ev.currentTarget); }));
+        var b = chip('', false, function (ev) { pickDay(id, d, ev.currentTarget); }), parts = C.formatDay(d).split(', ');
+        b.className = 'chip chip--day';
+        b.setAttribute('aria-label', C.formatDay(d));
+        b.appendChild(el('span', 'chip__wd', parts[0]));
+        b.appendChild(el('span', 'chip__date', parts[1]));
+        box.appendChild(b);
       });
       B.fitHeight();
     });

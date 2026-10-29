@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.8.0">
+<link rel="stylesheet" href="styles.css?v=0.9.0">
 </head>
 <body>
 <div class="app">
@@ -35,18 +35,15 @@
     </section>
 
     <section id="v-chat" class="view" hidden>
-      <div class="card">
-        <div class="card__label">Contato</div>
-        <div class="contact">
-          <span class="avatar" id="avatar" aria-hidden="true"></span>
-          <div class="contact__info">
-            <div class="contact__name" id="c-name">—</div>
-            <div class="contact__phone" id="c-phone">—</div>
-          </div>
+      <div class="contact">
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <div class="contact__info">
+          <div class="contact__name" id="c-name">—</div>
+          <div class="contact__phone" id="c-phone">—</div>
         </div>
       </div>
 
-      <div class="card">
+      <div class="card card--conn">
         <div class="card__label">Conexão com a Asa</div>
         <p class="conn" id="conn-text">Verificando…</p>
         <button class="btn" id="conn-retry" type="button" hidden>Tentar de novo</button>
@@ -158,9 +155,9 @@
     </section>
   </main>
 </div>
-<script src="core.js?v=0.8.0"></script>
-<script src="api.js?v=0.8.0"></script>
-<script src="bridge.js?v=0.8.0"></script>
-<script src="app.js?v=0.8.0"></script>
+<script src="core.js?v=0.9.0"></script>
+<script src="api.js?v=0.9.0"></script>
+<script src="bridge.js?v=0.9.0"></script>
+<script src="app.js?v=0.9.0"></script>
 </body>
 </html>

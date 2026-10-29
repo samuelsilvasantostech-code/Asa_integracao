@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "kentro.asa-saude",
   "name": "Asa Saúde",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Pacientes, consultas e agendamentos da Asa Saúde dentro do atendimento.",
   "author": {
     "name": "Kentro"
