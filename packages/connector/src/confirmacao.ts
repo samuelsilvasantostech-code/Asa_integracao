@@ -26,7 +26,7 @@ export interface ConfigConfirmacao {
 
 export const TEXTOS_PADRAO: Textos = {
   mensagem:
-    "Olá, {nome}! Passando para lembrar da sua consulta com {profissional} em {data} às {hora}, na {clinica}. Você confirma?",
+    "Olá, {nome}! Passando para lembrar da sua consulta com {profissional} {data} às {hora}, na {clinica}.\n\nResponda 1 para confirmar, 2 para remarcar ou 3 para cancelar.",
   confirmado: "Obrigado, {nome}! Sua consulta de {data} às {hora} está confirmada.",
   cancelado: "Tudo certo, {nome}. Sua consulta de {data} às {hora} foi cancelada. Quando quiser, é só chamar para marcar de novo.",
   remarcar: "Combinado, {nome}! Vou te passar para a nossa equipe escolher um novo horário com você.",
