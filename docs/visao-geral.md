@@ -104,10 +104,10 @@ A extensão é servida **pelo Conector**, e não pelo tipo "Extensão" do Doca. 
 | Item | Valor |
 |---|---|
 | Instalação | **29**: "Asa Saúde (teste — Samuel)" |
-| Filas | `18,19` |
+| Filas | `18,19` (a 19, WhatsApp oficial, foi ligada pelo usuário em 29/10 para a D-1) |
 | Usuários | 508 (samuel.silva.adm, administrador) e 509 (agente.samuel, que atende e testa o painel) |
 | Tenant | `7ad29fa2-0ccf-4e52-842c-8eab3cc71012`, instituição Asa 7 |
-| Versão instalada | **0.7.1**, sendo que o Conector já serve a 0.8.0 |
+| Versão instalada | **0.11.1** em 29/10. A 0.11.2 já está no GitHub, mas falta o deploy no Doca |
 
 ## 8. Comportamentos da Asa que já pegaram a gente
 
@@ -121,15 +121,19 @@ A extensão é servida **pelo Conector**, e não pelo tipo "Extensão" do Doca. 
 
 ## 9. Próximos passos
 
-1. Rodar `extension_installs_refresh_manifest` na instalação 29 para levá-la à **0.8.0**.
-2. Testar **Remarcar** e **Cancelar** com o login 509 numa consulta de teste.
-3. Definir o roteiro de implantação para a primeira clínica real: tenant, instalação, chave e token.
-4. Avaliar a observabilidade: consultar a trilha de agendamentos e os pedidos `incerto`.
-5. Corrigir o `/health`, que sempre informa `versao: 0.1.0`. O `package.json` do Conector nunca foi atualizado,
-   e o container roda `node dist/server.js` direto, sem `npm_package_version`.
+Ponto de parada em 29/10/2026: [`retomada.md`](retomada.md).
+
+1. **Deploy da 0.11.2** no Doca (ícone branco do Configurar), depois `extension_installs_refresh_manifest` na 29.
+2. **Testar a tela cheia** com o login 509, só com consultas do próprio usuário: marcar, confirmar presença,
+   remarcar, marcar falta e cancelar. Testar também a busca de paciente.
+3. Testar **Remarcar** e **Cancelar** do painel lateral (0.8.0).
+4. **Fluxos da D-1** na fila 19 (oficial): o usuário pediu para fazer depois das funcionalidades da Asa.
+5. Definir o roteiro de implantação para a primeira clínica real: tenant, instalação, chave e token.
+6. Corrigir o `/health`, que sempre informa `versao: 0.1.0`.
 
 ## 10. Publicar uma versão nova
 
 1. Subir `version` no `packages/extension/manifest.json` e o `?v=` dos arquivos nos `.html`.
-2. Fazer commit e push. O Doca faz o deploy do Conector, que serve a extensão.
+2. Fazer commit e push. **O push não dispara deploy**: alguém clica em "Fazer deploy" no projeto
+   `Asa_integracao` do Doca. O Conector serve a extensão.
 3. Rodar `extension_installs_refresh_manifest` nas instalações.
