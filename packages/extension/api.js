@@ -43,7 +43,7 @@
       day: function (providerId, day) { return request('GET', '/v1/agenda/dia' + query({ prestador_id: providerId, data: day })); },
       // payload = {chave, status: confirmado|ausente|cancelado, prestador_id, data, usuario}
       setStatus: function (id, payload) { return request('POST', '/v1/agendamentos/' + encodeURIComponent(id) + '/status', payload); },
-      exams: function (term) { return request('GET', '/v1/exames' + query({ busca: term })); },
+      exams: function () { return request('GET', '/v1/exames'); },
       examInsurances: function (examId) { return request('GET', '/v1/exames/' + encodeURIComponent(examId) + '/convenios'); },
       examProviders: function (examId, insuranceId) { return request('GET', '/v1/exames/' + encodeURIComponent(examId) + '/prestadores' + query({ convenio_id: insuranceId })); },
       slots: function (providerId, day) { return request('GET', '/v1/agenda/horarios' + query({ prestador_id: providerId, data: day })); },

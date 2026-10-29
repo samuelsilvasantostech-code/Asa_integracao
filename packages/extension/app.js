@@ -351,7 +351,8 @@
 
   /* ---------- agendar por exame: procedimento → convênio → quem faz → dias e horários ---------- */
   var exam = null; // {results, item, insurances, insurance, providers}; null no modo "por profissional"
-  var EXAM_STEPS = ['ex-wrap', 'ex-conv-wrap', 'ex-prest-wrap', 'a-dias-wrap', 'a-horas-wrap'];
+  var EXAM_STEPS = ['ex-conv-wrap', 'ex-prest-wrap', 'a-dias-wrap', 'a-horas-wrap'];
+  var examList = null; // lista completa de procedimentos: carregada uma vez por painel
   function hideFrom(i) { EXAM_STEPS.slice(i).forEach(function (id) { $(id).hidden = true; }); }
   function money(v) { return v > 0 ? ' — ' + C.formatMoney(v) : ''; }
 
@@ -364,29 +365,53 @@
     hideFrom(0);
     $('a-prest').value = '';
     closeBooking();
-    status('a-status', byExam ? 'Digite o nome do exame ou procedimento.' : '');
-    if (byExam) $('ex-q').focus();
+    status('a-status', '');
+    if (byExam) loadExams();
     B.fitHeight();
   }
 
-  function searchExam() {
-    var term = $('ex-q').value.trim(), e = exam;
-    if (!e) return;
-    if (term.length < 2) { status('a-status', 'Digite ao menos 2 letras.', 'err'); return; }
-    hideFrom(0);
-    closeBooking();
-    status('a-status', 'Buscando na Asa…');
-    api.exams(term).then(function (r) {
+  // Lista de seleção com todos os procedimentos com agenda online, separados em Exames e Consultas.
+  function loadExams() {
+    var e = exam;
+    if (examList) { e.results = examList; renderExams(); return; }
+    $('ex-sel').textContent = '';
+    $('ex-sel').appendChild(option('', 'Carregando…'));
+    $('ex-sel').disabled = true;
+    api.exams().then(function (r) {
       if (exam !== e) return;
-      if (r.status !== 200 || !r.body) { status('a-status', C.readError(r.status, r.body), 'err'); return; }
-      e.results = r.body.exames;
-      if (!e.results.length) { status('a-status', 'Nenhum procedimento com agenda online com esse nome.'); return; }
-      fillSelect($('ex-sel'), e.results, function (x) { return x.nome + (x.tipo ? ' (' + x.tipo + ')' : ''); }, '');
-      $('ex-wrap').hidden = false;
-      status('a-status', e.results.length === 1 ? '' : e.results.length + ' resultados. Escolha um.');
-      if (e.results.length === 1) { $('ex-sel').value = e.results[0].id; onExam(); }
-      B.fitHeight();
+      if (r.status !== 200 || !r.body) {
+        $('ex-sel').textContent = '';
+        $('ex-sel').appendChild(option('', 'Indisponível'));
+        status('a-status', C.readError(r.status, r.body), 'err');
+        return;
+      }
+      examList = r.body.exames;
+      e.results = examList;
+      renderExams();
+      if (r.body.completa === false) status('a-status', 'A Asa devolveu só parte da lista. Se não achar o procedimento, tente de novo em instantes.', 'err');
     });
+  }
+
+  var GROUPS = [['exame', 'Exames'], ['consulta', 'Consultas'], ['', 'Outros']];
+  function renderExams() {
+    var e = exam, sel = $('ex-sel'), term = C.fold($('ex-q').value.trim());
+    if (!e) return;
+    var list = e.results.filter(function (x) { return !term || C.fold(x.nome).indexOf(term) >= 0; });
+    sel.textContent = '';
+    sel.disabled = !e.results.length;
+    $('ex-q').hidden = e.results.length < 15;
+    if (!e.results.length) { sel.appendChild(option('', 'Nenhum procedimento com agenda online')); B.fitHeight(); return; }
+    sel.appendChild(option('', list.length ? 'Escolha…' : 'Nada com esse nome'));
+    GROUPS.forEach(function (g) {
+      var items = list.filter(function (x) { return g[0] ? x.tipo === g[0] : x.tipo !== 'exame' && x.tipo !== 'consulta'; });
+      if (!items.length) return;
+      var og = el('optgroup');
+      og.label = g[1];
+      items.forEach(function (x) { og.appendChild(option(x.id, x.nome)); });
+      sel.appendChild(og);
+    });
+    if (e.item && list.some(function (x) { return x.id === e.item.id; })) sel.value = e.item.id;
+    B.fitHeight();
   }
 
   function onExam() {
@@ -394,7 +419,7 @@
     if (!e) return;
     e.item = find(e.results, id) || null;
     e.insurance = null;
-    hideFrom(1);
+    hideFrom(0);
     closeBooking();
     if (!e.item) return;
     status('a-status', 'Buscando os convênios…');
@@ -414,7 +439,7 @@
     var e = exam, conv = $('ex-conv').value;
     if (!e || !e.item) return;
     e.insurance = find(e.insurances, conv) || null;
-    hideFrom(2);
+    hideFrom(1);
     closeBooking();
     if (!e.insurance) return;
     status('a-status', 'Buscando quem faz…');
@@ -668,8 +693,8 @@
     $('a-prest').addEventListener('change', onProvider);
     $('a-mode-prof').addEventListener('click', function () { setMode(false); });
     $('a-mode-exam').addEventListener('click', function () { setMode(true); });
-    $('ex-go').addEventListener('click', searchExam);
-    $('ex-q').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); searchExam(); } });
+    $('ex-q').addEventListener('input', renderExams);
+    $('ex-q').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') ev.preventDefault(); });
     $('ex-sel').addEventListener('change', onExam);
     $('ex-conv').addEventListener('change', onExamInsurance);
     $('ex-prest').addEventListener('change', function () { if ($('ex-prest').value) onProvider($('ex-prest').value); });

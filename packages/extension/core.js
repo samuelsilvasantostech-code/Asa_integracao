@@ -247,9 +247,13 @@
     return readError(status, body);
   }
 
+  function fold(s) {
+    return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
   var api = { queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, bookingError: bookingError, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
     todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
-    paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError };
+    fold: fold, paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;
 })(this);
