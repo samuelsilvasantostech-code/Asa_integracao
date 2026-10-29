@@ -173,3 +173,37 @@ export function dataBr(iso: string): string {
   const [a, m, d] = iso.split("-");
   return `${d}/${m}/${a}`;
 }
+
+export interface Agendado {
+  id: string;
+  hora: string | null; // HH:MM
+  status: string | null; // como a Asa escreveu, em minúsculas
+  paciente: { id: string | null; nome: string | null; telefone: string | null; idade: number | null; etiqueta: string | null };
+  procedimentos: string[];
+  obs: string | null;
+}
+
+// api-agendamento-horarios-agendados: consultas já marcadas de um prestador num dia.
+export function agendados(corpo: any): Agendado[] {
+  return lista(corpo?.agendamentos ?? corpo?.msg ?? corpo)
+    .filter((a: any) => a && typeof a === "object" && (a.id ?? a.agendamento_id) != null)
+    .map((a: any) => {
+      const p = a.paciente && typeof a.paciente === "object" ? a.paciente : {};
+      const idade = numero(p.idade);
+      return {
+        id: String(a.id ?? a.agendamento_id),
+        hora: horaCurta(a.hora ?? a.horario ?? a.data_hora),
+        status: texto(nomeOuTexto(a.status))?.toLowerCase() ?? null,
+        paciente: {
+          id: texto(p.id ?? p.paciente_id ?? a.paciente_id),
+          nome: texto(p.nome ?? a.paciente_nome ?? (typeof a.paciente === "string" ? a.paciente : null)),
+          telefone: texto(p.telefone ?? p.telefone1 ?? a.telefone),
+          idade: idade === null ? null : Math.trunc(idade),
+          etiqueta: nomeOuTexto(p.etiqueta),
+        },
+        procedimentos: lista(a.procedimentos).map(nomeProcedimento).filter((n): n is string => !!n),
+        obs: texto(a.obs),
+      };
+    })
+    .sort((x, y) => (x.hora ?? "").localeCompare(y.hora ?? ""));
+}

@@ -5,7 +5,7 @@ import * as N from "../normalizar.js";
 import { credencialDaRequisicao, tenantComCredencial } from "../tenant-auth.js";
 import { dataValida, falha, idValido, naoEncontrado } from "./consulta.js";
 
-// Marcar, remarcar e cancelar consulta pelo painel. Convênios e procedimentos são leitura; as rotas
+// Marcar, remarcar, cancelar, confirmar e marcar falta. Convênios e procedimentos são leitura; as rotas
 // POST deste arquivo são as ÚNICAS do Conector que gravam na Asa.
 
 const horaValida = (s: unknown): s is string => typeof s === "string" && /^\d{2}:\d{2}$/.test(s);
@@ -271,6 +271,51 @@ export async function agendamentoRoutes(app: FastifyInstance) {
       const feito = { agendamento_id: id, cancelado: true, data: c.consulta.data, horario: c.consulta.hora };
       await concluir(tenant.id, b.chave, feito);
       req.log.info({ tenant: tenant.id, tipo: "cancelar", agendamento: id, usuario: b.usuario }, "consulta cancelada na Asa");
+      return { ok: true, ...feito };
+    },
+  );
+
+  // Agenda em tela cheia: confirmar presença, marcar falta ou cancelar uma consulta do dia. A prova de
+  // que o id é legítimo é ele estar na agenda daquele prestador naquele dia (horarios-agendados).
+  const STATUS: Record<string, { asa: string; tipo: string }> = {
+    confirmado: { asa: "confirmado", tipo: "confirmar" },
+    ausente: { asa: "ausente", tipo: "ausente" },
+    cancelado: { asa: "cancelado", tipo: "cancelar" },
+  };
+  app.post<{ Params: { id: string }; Body: { chave?: string; status?: string; prestador_id?: string; data?: string; usuario?: string } }>(
+    "/v1/agendamentos/:id/status",
+    async (req, reply) => {
+      const id = req.params.id;
+      const b = req.body ?? {};
+      const alvo = STATUS[String(b.status ?? "")];
+      if (!idValido(id) || !alvo || !idValido(b.prestador_id) || !b.data || !dataValida(b.data)) {
+        return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
+      }
+      if (!chaveValida(b.chave)) return reply.code(400).send({ erro: "CHAVE_IDEMPOTENCIA_INVALIDA" });
+
+      const ctx = await tenantComCredencial(req, reply);
+      if (!ctx) return;
+      const { tenant, credencial } = ctx;
+
+      const reserva = await reservar(tenant.id, b.chave, {
+        tipo: alvo.tipo, usuario: b.usuario, prestador_id: b.prestador_id, data: b.data, agendamento_id: id,
+      });
+      if (!reserva.novo) return repetido(reply, reserva);
+
+      const ra = await chamarAsa<any>(credencial, "api-agendamento-horarios-agendados", { prestador_id: b.prestador_id, data: b.data });
+      const consulta = ra.ok ? N.agendados(ra.dados).find((a) => a.id === id) : undefined;
+      if (!consulta) {
+        await liberar(tenant.id, b.chave);
+        if (!ra.ok && !naoEncontrado(ra)) return falha(reply, ra);
+        return reply.code(409).send({ erro: "CONSULTA_NAO_ENCONTRADA" });
+      }
+
+      const r = await chamarAsa<any>(credencial, "api-agendamento-status", { status: alvo.asa, agendamento: id });
+      if (!r.ok) return falhaAoGravar(req, reply, tenant.id, b.chave, r);
+
+      const feito = { agendamento_id: id, status: alvo.asa, data: b.data, horario: consulta.hora };
+      await concluir(tenant.id, b.chave, feito, consulta.paciente.id);
+      req.log.info({ tenant: tenant.id, tipo: alvo.tipo, agendamento: id, usuario: b.usuario }, "status da consulta gravado na Asa");
       return { ok: true, ...feito };
     },
   );

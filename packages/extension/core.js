@@ -140,7 +140,72 @@
     return readError(status, body);
   }
 
+
+  /* ---------- agenda em tela cheia ---------- */
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function isoOf(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function todayIso(now) { return isoOf(now || new Date()); }
+  function shiftDay(iso, n) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    if (!m) return iso;
+    return isoOf(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + n));
+  }
+
+  var WEEKDAYS_LONG = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+  var MONTHS_LONG = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  // YYYY-MM-DD → {weekday: "quinta-feira", date: "30 de outubro"}
+  function longDay(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    if (!m) return { weekday: '', date: '' };
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return { weekday: WEEKDAYS_LONG[d.getDay()], date: Number(m[3]) + ' de ' + MONTHS_LONG[d.getMonth()] };
+  }
+
+  // Status da Asa (texto livre, minúsculo) → rótulo e tom. "ativa" = ainda conta como consulta do dia.
+  function statusInfo(st) {
+    var s = String(st || '').toLowerCase();
+    if (/cancel/.test(s)) return { key: 'cancelado', label: 'Cancelada', tone: 'err', active: false };
+    if (/desist/.test(s)) return { key: 'desistencia', label: 'Desistência', tone: 'err', active: false };
+    if (/ausen|falt/.test(s)) return { key: 'ausente', label: 'Faltou', tone: 'warn', active: true };
+    if (/remarc/.test(s)) return { key: 'remarcar', label: 'Pediu para remarcar', tone: 'warn', active: true };
+    if (/atendid|finaliz|conclu/.test(s)) return { key: 'atendido', label: 'Atendida', tone: 'done', active: true };
+    if (/confirm/.test(s)) return { key: 'confirmado', label: 'Confirmada', tone: 'ok', active: true };
+    return { key: 'agendado', label: 'Agendada', tone: 'idle', active: true };
+  }
+
+  // Consultas marcadas + horários livres → linhas da grade, em ordem de hora.
+  function dayRows(agendados, livres) {
+    var rows = (agendados || []).map(function (a) { return { kind: 'appt', hora: a.hora || '', appt: a }; })
+      .concat((livres || []).map(function (h) { return { kind: 'free', hora: h.horario, slot: h }; }));
+    return rows.sort(function (x, y) { return x.hora === y.hora ? (x.kind === 'appt' ? -1 : 1) : x.hora < y.hora ? -1 : 1; });
+  }
+
+  function daySummary(agendados, livres) {
+    var t = { consultas: 0, confirmadas: 0, faltas: 0, canceladas: 0, livres: (livres || []).length };
+    (agendados || []).forEach(function (a) {
+      var i = statusInfo(a.status);
+      if (!i.active) { t.canceladas++; return; }
+      t.consultas++;
+      if (i.key === 'confirmado' || i.key === 'atendido') t.confirmadas++;
+      if (i.key === 'ausente') t.faltas++;
+    });
+    return t;
+  }
+
+  // Busca digitada (CPF ou telefone) → buscas a tentar, em ordem. 11 dígitos podem ser os dois:
+  // com pontuação de CPF é CPF; com cara de celular (DDD + 9) tenta telefone e depois CPF.
+  function lookupsFrom(raw) {
+    var txt = String(raw || ''), d = txt.replace(/\D/g, '');
+    if (d.length >= 12 && d.indexOf('55') === 0) d = d.slice(2);
+    if (d.length === 10) return [{ telefone: d }];
+    if (d.length !== 11) return [];
+    if (/\d{3}\.\d{3}/.test(txt) || !/^[1-9]{2}9/.test(d)) return [{ cpf: d }];
+    return [{ telefone: d }, { cpf: d }];
+  }
+
   var api = { queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, bookingError: bookingError, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
-    formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError };
+    formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
+    todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;
 })(this);

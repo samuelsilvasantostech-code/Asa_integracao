@@ -60,6 +60,9 @@ A extensão é servida **pelo Conector**, e não pelo tipo "Extensão" do Doca. 
 | 2 — Leitura | 0.5.0 | Abas **Paciente**, **Consultas** e **Agenda** | ✅ validada |
 | 3 — Marcar | 0.7.0 – 0.7.1 | Marcar consulta (paciente novo vai junto), convênios e procedimentos | ✅ validada: agendamento real nº 42655586 |
 | 4 — Remarcar e cancelar | 0.8.0 | Botões Remarcar e Cancelar na aba Consultas, trava da troca de token, acesso só pelo domínio | 🟡 publicada, falta testar na instalação |
+| — Visual | 0.9.0 | Cartão de consulta | ✅ publicada |
+| 5 — Confirmação D-1 | 0.10.0 | Conector, configuração e selo; fluxos em `automations/confirmacao-d1/` | 🟡 falta montar os fluxos e testar |
+| 6 — Tela cheia | 0.11.0 | Ícone **Agenda Asa** na navegação: agenda do dia por profissional, busca de paciente, marcar, remarcar, confirmar presença, marcar falta e cancelar | 🟡 publicada, falta testar com dados reais |
 
 ## 5. Rotas do Conector
 
@@ -73,7 +76,9 @@ A extensão é servida **pelo Conector**, e não pelo tipo "Extensão" do Doca. 
 | GET | `/v1/agenda` · `/v1/agenda/dias` · `/v1/agenda/horarios` | Profissionais, dias e horários livres |
 | GET | `/v1/agenda/convenios` · `/v1/agenda/procedimentos` | Opções para o agendamento |
 | POST | `/v1/agendamentos` | Marca a consulta; com `remarcar`, remarca |
-| POST | `/v1/agendamentos/:id/cancelar` | Cancela a consulta |
+| POST | `/v1/agendamentos/:id/cancelar` | Cancela a consulta (prova: a consulta está na lista do paciente) |
+| GET | `/v1/agenda/dia?prestador_id=&data=` | Tela cheia: consultas marcadas (`horarios-agendados`) e horários livres do dia |
+| POST | `/v1/agendamentos/:id/status` | Tela cheia: `confirmado`, `ausente` ou `cancelado` (prova: a consulta está na agenda do prestador naquele dia) |
 
 **Administração** (header `x-admin-key`): `GET/POST /admin/tenants`, `PATCH /admin/tenants/:id`,
 `PUT /admin/tenants/:id/credencial` e `POST /admin/tenants/:id/rotacionar-chave`.

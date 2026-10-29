@@ -40,6 +40,9 @@
       patient: function (by) { return request('GET', '/v1/paciente' + query({ telefone: by.telefone, cpf: by.cpf })); },
       schedule: function () { return request('GET', '/v1/agenda'); },
       days: function (providerId) { return request('GET', '/v1/agenda/dias' + query({ prestador_id: providerId })); },
+      day: function (providerId, day) { return request('GET', '/v1/agenda/dia' + query({ prestador_id: providerId, data: day })); },
+      // payload = {chave, status: confirmado|ausente|cancelado, prestador_id, data, usuario}
+      setStatus: function (id, payload) { return request('POST', '/v1/agendamentos/' + encodeURIComponent(id) + '/status', payload); },
       slots: function (providerId, day) { return request('GET', '/v1/agenda/horarios' + query({ prestador_id: providerId, data: day })); },
       // slot = {prestador_id, data, horario, agenda_id}
       insurances: function (slot) { return request('GET', '/v1/agenda/convenios' + query(slot)); },

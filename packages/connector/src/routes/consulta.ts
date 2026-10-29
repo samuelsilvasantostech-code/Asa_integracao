@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { chamarAsa, type RespostaAsa } from "../asa.js";
 import * as N from "../normalizar.js";
 import { pool } from "../db.js";
+import { hojeEm } from "../confirmacao.js";
 import { credencialDaRequisicao, tenantComCredencial } from "../tenant-auth.js";
 
 // Rotas de LEITURA da Asa para o painel. Nada aqui grava na Asa.
@@ -100,6 +101,30 @@ export async function consultaRoutes(app: FastifyInstance) {
     if (naoEncontrado(r)) return { dias: [] };
     if (!r.ok) return falha(reply, r);
     return { dias: N.dias(r.dados) };
+  });
+
+  // Dia de um prestador para a agenda em tela cheia: consultas marcadas e horários livres.
+  // A Asa recusa horários livres de dia passado, então eles só são pedidos de hoje em diante.
+  app.get<{ Querystring: { prestador_id?: string; data?: string } }>("/v1/agenda/dia", async (req, reply) => {
+    const { prestador_id, data } = req.query;
+    if (!idValido(prestador_id)) return reply.code(400).send({ erro: "PRESTADOR_INVALIDO" });
+    if (!data || !dataValida(data)) return reply.code(400).send({ erro: "DATA_INVALIDA" });
+    const credencial = await credencialDaRequisicao(req, reply);
+    if (!credencial) return;
+    const futuro = data >= hojeEm(new Date());
+    const [ra, rl] = await Promise.all([
+      chamarAsa<any>(credencial, "api-agendamento-horarios-agendados", { prestador_id, data }),
+      futuro ? chamarAsa<any>(credencial, "api-agendamento-horarios-atendimento", { prestador_id, data: `${data} 00:00:00` }) : null,
+    ]);
+    if (!ra.ok && !naoEncontrado(ra)) return falha(reply, ra);
+    const agendados = ra.ok ? N.agendados(ra.dados) : [];
+    if (ra.ok && !agendados.length && ra.dados && typeof ra.dados === "object") {
+      const primeiro = N.lista(ra.dados.agendamentos ?? ra.dados)[0];
+      req.log.info({ chaves: Object.keys(ra.dados), item: primeiro && typeof primeiro === "object" ? Object.keys(primeiro) : typeof primeiro }, "agenda do dia sem consultas reconhecidas");
+    }
+    // Horários livres indisponíveis não derrubam a agenda: as consultas marcadas ainda servem.
+    const livres = rl && rl.ok ? N.horarios(rl.dados) : [];
+    return { data, agendados, livres, livres_ok: !rl || rl.ok || naoEncontrado(rl) };
   });
 
   // Horários livres do prestador num dia.

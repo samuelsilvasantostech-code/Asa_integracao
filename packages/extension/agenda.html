@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asa Saúde: agenda da clínica</title>
+<link rel="stylesheet" href="styles.css?v=0.11.0">
+</head>
+<body class="page-agenda">
+<div class="app">
+  <header class="hd">
+    <div class="hd__brand">
+      <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
+      <div>
+        <div class="hd__title">Asa Saúde</div>
+        <div class="hd__sub">Agenda da clínica</div>
+      </div>
+    </div>
+    <form class="lookup" id="q-form" autocomplete="off" role="search">
+      <label class="sr" for="q-input">Buscar paciente por CPF ou telefone</label>
+      <input id="q-input" inputmode="numeric" maxlength="18" placeholder="Buscar paciente: CPF ou telefone">
+      <button class="btn" type="submit">Buscar</button>
+    </form>
+    <span class="pill" id="pill" data-tone="idle"><i class="dot"></i><span id="pill-text">Carregando</span></span>
+  </header>
+
+  <div class="state" id="g-off" hidden>
+    <p class="state__title" id="g-off-title">Sem conexão com a Asa</p>
+    <p class="state__text" id="g-off-text"></p>
+    <button class="btn" id="g-retry" type="button">Tentar de novo</button>
+  </div>
+
+  <div class="ws" id="ws" hidden>
+    <div class="bar">
+      <label class="field field--inline">
+        <span>Especialidade</span>
+        <select id="f-esp"><option value="">Carregando…</option></select>
+      </label>
+      <label class="field field--inline">
+        <span>Profissional</span>
+        <select id="f-prest" disabled><option value="">Escolha a especialidade</option></select>
+      </label>
+      <div class="daynav" role="group" aria-label="Dia">
+        <button class="btn btn--icon" id="d-prev" type="button" aria-label="Dia anterior">‹</button>
+        <button class="btn" id="d-today" type="button">Hoje</button>
+        <button class="btn btn--icon" id="d-next" type="button" aria-label="Próximo dia">›</button>
+        <label class="daynav__label">
+          <span class="daynav__wd" id="d-wd"></span>
+          <span class="daynav__date" id="d-date"></span>
+          <input type="date" id="d-pick" aria-label="Escolher data">
+        </label>
+      </div>
+    </div>
+
+    <div class="banner" id="rs-banner" hidden>
+      <span id="rs-text"></span>
+      <button class="btn" id="rs-stop" type="button">Desistir de remarcar</button>
+    </div>
+
+    <div class="split">
+      <section class="day" aria-labelledby="day-title">
+        <h2 class="sr" id="day-title">Consultas do dia</h2>
+        <p class="day__sum" id="day-sum"></p>
+        <p class="muted" id="day-status">Escolha a especialidade e o profissional.</p>
+        <ol class="sheet" id="sheet"></ol>
+      </section>
+
+      <aside class="side" id="side" aria-live="polite">
+        <div class="side__empty" id="s-empty">
+          <p class="state__title">Nada selecionado</p>
+          <p class="state__text">Clique numa consulta para ver o paciente, ou num horário livre para marcar.</p>
+        </div>
+
+        <!-- consulta do dia -->
+        <div class="sv" id="s-appt" hidden>
+          <div class="sv__head">
+            <div class="sv__time" id="sa-time"></div>
+            <span class="seal" id="sa-seal"></span>
+          </div>
+          <div class="sv__name" id="sa-name"></div>
+          <dl class="facts" id="sa-facts"></dl>
+          <div class="sv__actions" id="sa-actions"></div>
+          <p class="muted" id="sa-status" role="status"></p>
+        </div>
+
+        <!-- paciente buscado -->
+        <div class="sv" id="s-pac" hidden>
+          <div class="sv__name" id="sp-name"></div>
+          <p class="muted" id="sp-status"></p>
+          <dl class="facts" id="sp-facts" hidden></dl>
+          <p class="hint" id="sp-hint" hidden>Para marcar uma consulta para este paciente, escolha um horário livre na agenda.</p>
+          <div class="card__label" id="sp-list-label" hidden>Próximas consultas</div>
+          <ul class="list" id="sp-list"></ul>
+          <button class="btn" id="sp-close" type="button">Fechar</button>
+        </div>
+
+        <!-- marcar -->
+        <form class="sv" id="s-book" autocomplete="off" hidden>
+          <div class="sv__title" id="sb-title">Marcar consulta</div>
+          <p class="booking__slot" id="sb-slot"></p>
+          <div class="field" id="sb-pac-known" hidden>
+            <span>Paciente</span>
+            <p class="booking__who"><span id="sb-pac-name"></span> <button class="link" id="sb-pac-change" type="button">trocar</button></p>
+          </div>
+          <div class="field" id="sb-pac-find">
+            <span>Paciente (CPF ou telefone)</span>
+            <div class="inline-form">
+              <input id="sb-q" inputmode="numeric" maxlength="18">
+              <button class="btn" id="sb-q-go" type="button">Buscar</button>
+            </div>
+          </div>
+          <p class="muted" id="sb-pac-status"></p>
+          <fieldset class="booking__new" id="sb-new" hidden>
+            <legend>Paciente novo na Asa</legend>
+            <label class="field"><span>Nome completo</span><input id="sb-nome" maxlength="120"></label>
+            <label class="field"><span>CPF</span><input id="sb-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></label>
+            <label class="field"><span>Nascimento</span><input id="sb-nasc" type="date"></label>
+            <label class="field"><span>Telefone</span><input id="sb-tel" inputmode="tel" maxlength="20"></label>
+          </fieldset>
+          <label class="field">
+            <span>Convênio</span>
+            <select id="sb-conv" required><option value="">Carregando…</option></select>
+          </label>
+          <label class="field">
+            <span>Procedimento</span>
+            <select id="sb-proc" required disabled><option value="">Escolha o convênio</option></select>
+          </label>
+          <label class="field">
+            <span>Observação (opcional)</span>
+            <textarea id="sb-obs" rows="2" maxlength="500"></textarea>
+          </label>
+          <div class="booking__actions">
+            <button class="btn btn--primary" type="submit">Revisar</button>
+            <button class="btn" id="sb-cancel" type="button">Fechar</button>
+          </div>
+          <p class="muted" id="sb-status"></p>
+        </form>
+
+        <div class="sv booking--review" id="s-review" hidden>
+          <div class="sv__title" id="sr-title">Confirme o agendamento</div>
+          <dl class="facts" id="sr-summary"></dl>
+          <p class="hint" id="sr-hint">Ao confirmar, a consulta é gravada na agenda da clínica na Asa.</p>
+          <div class="booking__actions">
+            <button class="btn btn--primary" id="sr-go" type="button">Confirmar agendamento</button>
+            <button class="btn" id="sr-back" type="button">Voltar</button>
+          </div>
+          <p class="muted" id="sr-status" role="status"></p>
+        </div>
+
+        <div class="sv booking--done" id="s-done" hidden>
+          <div class="sv__title" id="sd-title">Consulta marcada</div>
+          <dl class="facts" id="sd-facts"></dl>
+          <button class="btn" id="sd-close" type="button">Fechar</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+<script src="core.js?v=0.11.0"></script>
+<script src="api.js?v=0.11.0"></script>
+<script src="bridge.js?v=0.11.0"></script>
+<script src="agenda.js?v=0.11.0"></script>
+</body>
+</html>

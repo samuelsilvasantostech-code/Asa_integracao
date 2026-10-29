@@ -2,8 +2,8 @@
   "manifestVersion": 1,
   "id": "kentro.asa-saude",
   "name": "Asa Saúde",
-  "version": "0.10.0",
-  "description": "Pacientes, consultas e agendamentos da Asa Saúde dentro do atendimento.",
+  "version": "0.11.0",
+  "description": "Pacientes, consultas e agenda da clínica na Asa Saúde: no atendimento e em tela cheia.",
   "author": {
     "name": "Kentro"
   },
@@ -37,6 +37,13 @@
       "title": "Asa Saúde",
       "icon": "icon.svg",
       "url": "chat.html"
+    },
+    {
+      "id": "agenda",
+      "type": "mainNav",
+      "title": "Agenda Asa",
+      "icon": "icon.svg",
+      "url": "agenda.html"
     },
     {
       "id": "configurar",
