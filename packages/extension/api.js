@@ -53,6 +53,11 @@
       book: function (payload) { return request('POST', '/v1/agendamentos', payload); },
       // payload = {chave, busca: {telefone|cpf}, usuario}; a busca prova que a consulta é do paciente.
       cancel: function (id, payload) { return request('POST', '/v1/agendamentos/' + encodeURIComponent(id) + '/cancelar', payload); },
+      financeConfig: function () { return request('GET', '/v1/tenant/financeiro'); },
+      saveFinanceConfig: function (config, usuario) { return request('PUT', '/v1/tenant/financeiro', { config: config, usuario: usuario }); },
+      charges: function (patientId) { return request('GET', '/v1/cobrancas' + query({ paciente_id: patientId })); },
+      // Grava na Asa SEM VOLTA (conta a receber). payload = {chave, paciente_id, busca, valor, forma, vencimento?, agendamento?, usuario}
+      charge: function (payload) { return request('POST', '/v1/cobrancas', payload); },
       reminderConfig: function () { return request('GET', '/v1/tenant/confirmacao'); },
       saveReminderConfig: function (config, usuario) { return request('PUT', '/v1/tenant/confirmacao', { config: config, usuario: usuario }); },
       saveCredential: function (token) {

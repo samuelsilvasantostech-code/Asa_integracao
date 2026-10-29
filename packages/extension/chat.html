@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.11.0">
+<link rel="stylesheet" href="styles.css?v=0.12.0">
 </head>
 <body>
 <div class="app">
@@ -54,7 +54,7 @@
           <button class="tab" type="button" role="tab" data-tab="paciente" aria-selected="true">Paciente</button>
           <button class="tab" type="button" role="tab" data-tab="consultas" aria-selected="false">Consultas <span class="count" id="count-consultas" hidden></span></button>
           <button class="tab" type="button" role="tab" data-tab="agendar" aria-selected="false">Agenda</button>
-          <button class="tab" type="button" role="tab" disabled title="Próxima fase">Financeiro</button>
+          <button class="tab" type="button" role="tab" data-tab="financeiro" aria-selected="false" id="tab-fin" hidden>Financeiro</button>
         </nav>
 
         <section class="pane" id="pane-paciente" role="tabpanel">
@@ -151,13 +151,23 @@
             <button class="btn" id="b-new" type="button">Marcar outra</button>
           </div>
         </section>
+
+        <section class="pane" id="pane-financeiro" role="tabpanel" hidden>
+          <p class="muted" id="f-status">Identifique o paciente primeiro.</p>
+          <button class="btn btn--primary" id="f-new" type="button" hidden>Lançar cobrança</button>
+          <div id="f-box"></div>
+          <div class="card__label" id="f-list-label" hidden>Cobranças lançadas pela Kentro</div>
+          <ul class="list" id="f-list"></ul>
+          <p class="hint" id="f-hint" hidden>A Asa não devolve as contas pela integração: aqui aparece só o que foi lançado pela Kentro. O financeiro completo fica na Asa.</p>
+        </section>
       </div>
     </section>
   </main>
 </div>
-<script src="core.js?v=0.11.0"></script>
-<script src="api.js?v=0.11.0"></script>
-<script src="bridge.js?v=0.11.0"></script>
-<script src="app.js?v=0.11.0"></script>
+<script src="core.js?v=0.12.0"></script>
+<script src="api.js?v=0.12.0"></script>
+<script src="bridge.js?v=0.12.0"></script>
+<script src="cobranca.js?v=0.12.0"></script>
+<script src="app.js?v=0.12.0"></script>
 </body>
 </html>

@@ -136,6 +136,8 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .appt--next .appt__stub { background: var(--remind-soft); color: var(--remind); border-right-color: color-mix(in srgb, var(--remind) 35%, transparent); }
 .appt--next .appt__wd { color: var(--remind); opacity: .8; }
 .appt__body { min-width: 0; padding: 9px 12px 10px; }
+.charge { padding: 9px 12px 10px; }
+#f-box:empty { display: none; }
 .item__when { font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .item__who { margin-top: 1px; font-weight: 550; }
 .item__proc { margin-top: 1px; color: var(--muted); font-size: 12px; }

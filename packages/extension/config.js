@@ -26,7 +26,7 @@
       $('key-help').hidden = !!temClinica;
       $('form').hidden = !semToken;
       $('token-locked').hidden = !temClinica || semToken;
-      if (temClinica && !semToken) loadReminder();
+      if (temClinica && !semToken) { loadReminder(); loadFinance(); }
     });
   }
 
@@ -73,6 +73,31 @@
     });
   }
 
+  /* ---------- financeiro ---------- */
+  function loadFinance() {
+    api.financeConfig().then(function (r) {
+      if (r.status !== 200 || !r.body || !r.body.config) { $('fin').hidden = true; return; }
+      $('fin').hidden = false;
+      $('fin-on').checked = r.body.config.ativo;
+      $('fin-who').value = r.body.config.quem;
+    });
+  }
+
+  function saveFinance(ev) {
+    ev.preventDefault();
+    var next = { ativo: $('fin-on').checked, quem: $('fin-who').value };
+    $('fin-save').disabled = true;
+    msg($('fin-msg'), null, 'Salvando…');
+    api.saveFinanceConfig(next, userLabel).then(function (r) {
+      $('fin-save').disabled = false;
+      if (r.status !== 200 || !r.body || !r.body.ok) { msg($('fin-msg'), 'err', 'Não foi possível salvar agora' + (r.status > 0 ? ' (HTTP ' + r.status + ').' : '.')); return; }
+      var c = r.body.config;
+      msg($('fin-msg'), 'ok', c.ativo
+        ? 'Salvo. Lançamento de cobrança ligado para ' + (c.quem === 'todos' ? 'todos os atendentes.' : 'administradores.') + ' Quem estiver com o painel aberto precisa recarregar a Kentro.'
+        : 'Salvo. Lançamento de cobrança desligado.');
+    });
+  }
+
   function saveCredential(ev) {
     ev.preventDefault();
     var token = $('f-token').value.trim();
@@ -99,6 +124,7 @@
     }
     $('form').addEventListener('submit', saveCredential);
     $('rem').addEventListener('submit', saveReminder);
+    $('fin').addEventListener('submit', saveFinance);
     connect().then(refresh);
   });
 })(this);

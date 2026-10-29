@@ -9,6 +9,9 @@
   var lastLookup = null; // última busca de paciente, para atualizar depois de agendar
   var booking = null; // agendamento em montagem: {slot, providerName, key, insurances, procedures}
   var userLabel = ''; // "id nome" do usuário do Kentro, para a trilha do Conector
+  var userType = null; // perfil do usuário do Kentro (0 = administrador); null = desconhecido
+  var fin = null; // configuração do financeiro da clínica ({ativo, quem})
+  var consultas = []; // próximas consultas do paciente, para vincular a cobrança
 
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) {
@@ -37,14 +40,17 @@
     Array.prototype.forEach.call(document.querySelectorAll('.tab[data-tab]'), function (t) {
       t.setAttribute('aria-selected', String(t.getAttribute('data-tab') === name));
     });
-    ['paciente', 'consultas', 'agendar'].forEach(function (p) { $('pane-' + p).hidden = p !== name; });
+    ['paciente', 'consultas', 'agendar', 'financeiro'].forEach(function (p) { $('pane-' + p).hidden = p !== name; });
     if (name === 'agendar') loadSchedule();
+    if (name === 'financeiro') renderFinance();
     B.fitHeight();
   }
 
   /* ---------- paciente e consultas ---------- */
   function resetPatient() {
     patient = null;
+    consultas = [];
+    $('f-box').textContent = '';
     $('p-facts').hidden = true;
     $('p-search').hidden = true;
     $('c-list').textContent = '';
@@ -64,6 +70,7 @@
   function renderConsultas(list) {
     var ul = $('c-list');
     ul.textContent = '';
+    consultas = list || [];
     if (list === null) { status('c-status', 'A Asa não devolveu as consultas agora.', 'err'); return; }
     $('count-consultas').hidden = !list.length;
     $('count-consultas').textContent = String(list.length);
@@ -127,6 +134,7 @@
     function normal() {
       box.textContent = '';
       box.appendChild(button('Remarcar', null, function () { startReschedule(c); }));
+      if (C.canCharge(fin, userType)) box.appendChild(button('Cobrar', null, function () { openCharge(c.id); }));
       box.appendChild(button('Cancelar', 'btn--danger', ask));
     }
     function ask() {
@@ -157,6 +165,40 @@
         : C.bookingError(r.status, r.body)));
       box.appendChild(button('Voltar', null, function () { box.parentNode.replaceChild(consultaActions(c), box); }));
       B.fitHeight();
+    });
+  }
+
+  /* ---------- financeiro: lançar cobrança (grava na Asa, sem volta) ---------- */
+  function renderFinance() {
+    var ok = !!(patient && patient.id);
+    var can = C.canCharge(fin, userType);
+    $('f-new').hidden = !ok || !can;
+    $('f-list-label').hidden = !ok;
+    $('f-hint').hidden = !ok;
+    if (!ok) { $('f-list').textContent = ''; $('f-box').textContent = ''; status('f-status', 'Identifique o paciente na aba Paciente primeiro.'); B.fitHeight(); return; }
+    status('f-status', can ? '' : 'Lançar cobrança é permitido só para administradores nesta clínica.');
+    root.AsaCharge.history($('f-list'), api, patient.id, B.fitHeight);
+  }
+
+  function openCharge(preselect) {
+    if (!(patient && patient.id) || !C.canCharge(fin, userType)) return;
+    selectTab('financeiro');
+    $('f-new').hidden = true;
+    root.AsaCharge.mount($('f-box'), {
+      api: api, user: userLabel, patient: patient, busca: lastLookup, preselect: preselect,
+      appointments: consultas.filter(function (c) { return c.id; }).map(function (c) {
+        return { id: c.id, label: whenText(c) + (c.prestador ? ' — ' + c.prestador : '') };
+      }),
+      onDone: function () { root.AsaCharge.history($('f-list'), api, patient.id, B.fitHeight); },
+      onClose: function () { $('f-box').textContent = ''; $('f-new').hidden = false; B.fitHeight(); },
+      fit: B.fitHeight
+    });
+  }
+
+  function loadFinance() {
+    api.financeConfig().then(function (r) {
+      fin = r.status === 200 && r.body ? r.body.config : null;
+      $('tab-fin').hidden = !(fin && fin.ativo);
     });
   }
 
@@ -191,6 +233,7 @@
         patient = r.body.paciente;
         renderPatient(r.body.paciente);
         renderConsultas(r.body.consultas);
+        if (!$('pane-financeiro').hidden) renderFinance();
         if (notice) status('c-status', notice + ' ' + $('c-status').textContent);
       } else if (r.status === 200 && r.body) {
         status('p-status', by.cpf ? 'Nenhum paciente com esse CPF na Asa.' : 'Nenhum paciente com o telefone deste contato na Asa.');
@@ -490,6 +533,7 @@
       if (st.tone !== 'ok') return;
       $('modules').hidden = false;
       selectTab('paciente');
+      if (!fin) loadFinance();
       phone.then(function (p) {
         if (s !== seq) return;
         if (p) findPatient({ telefone: p }, s);
@@ -541,8 +585,12 @@
     if (omni.session && omni.session.getUser) {
       Promise.resolve(omni.session.getUser()).then(function (u) {
         if (u) userLabel = [u.id, u.name || u.username].filter(Boolean).join(' ');
+        userType = C.userType(u);
+        // O SDK não documenta o campo do perfil: registra os nomes (não os valores) para ajustar.
+        if (u && userType === null && root.console) root.console.info('[Asa] perfil do usuário não reconhecido; campos:', Object.keys(u).join(', '));
       }).catch(function () { /* sem usuário: a trilha fica sem nome */ });
     }
+    $('f-new').addEventListener('click', function () { openCharge(''); });
     $('p-search').addEventListener('submit', function (ev) {
       ev.preventDefault();
       var cpf = C.cpfDigits($('p-cpf-input').value);

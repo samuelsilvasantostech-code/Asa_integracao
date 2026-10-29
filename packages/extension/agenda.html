@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde: agenda da clínica</title>
-<link rel="stylesheet" href="styles.css?v=0.11.0">
+<link rel="stylesheet" href="styles.css?v=0.12.0">
 </head>
 <body class="page-agenda">
 <div class="app">
@@ -91,8 +91,16 @@
           <p class="hint" id="sp-hint" hidden>Para marcar uma consulta para este paciente, escolha um horário livre na agenda.</p>
           <div class="card__label" id="sp-list-label" hidden>Próximas consultas</div>
           <ul class="list" id="sp-list"></ul>
-          <button class="btn" id="sp-close" type="button">Fechar</button>
+          <div class="card__label" id="sp-fin-label" hidden>Cobranças lançadas pela Kentro</div>
+          <ul class="list" id="sp-fin" hidden></ul>
+          <div class="booking__actions">
+            <button class="btn btn--primary" id="sp-charge" type="button" hidden>Lançar cobrança</button>
+            <button class="btn" id="sp-close" type="button">Fechar</button>
+          </div>
         </div>
+
+        <!-- lançar cobrança (cobranca.js monta o formulário) -->
+        <div class="sv" id="s-charge" hidden></div>
 
         <!-- marcar -->
         <form class="sv" id="s-book" autocomplete="off" hidden>
@@ -156,9 +164,10 @@
     </div>
   </div>
 </div>
-<script src="core.js?v=0.11.0"></script>
-<script src="api.js?v=0.11.0"></script>
-<script src="bridge.js?v=0.11.0"></script>
-<script src="agenda.js?v=0.11.0"></script>
+<script src="core.js?v=0.12.0"></script>
+<script src="api.js?v=0.12.0"></script>
+<script src="bridge.js?v=0.12.0"></script>
+<script src="cobranca.js?v=0.12.0"></script>
+<script src="agenda.js?v=0.12.0"></script>
 </body>
 </html>

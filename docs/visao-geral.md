@@ -63,6 +63,7 @@ A extensão é servida **pelo Conector**, e não pelo tipo "Extensão" do Doca. 
 | — Visual | 0.9.0 | Cartão de consulta | ✅ publicada |
 | 5 — Confirmação D-1 | 0.10.0 | Conector, configuração e selo; fluxos em `automations/confirmacao-d1/` | 🟡 falta montar os fluxos e testar |
 | 6 — Tela cheia | 0.11.0 | Ícone **Agenda Asa** na navegação: agenda do dia por profissional, busca de paciente, marcar, remarcar, confirmar presença, marcar falta e cancelar | 🟡 publicada, falta testar com dados reais |
+| 7 — Financeiro | 0.12.0 | Lançar conta a receber na Asa (aba Financeiro, botão Cobrar e Agenda), ligado em Configurar, com histórico local | 🟡 falta deploy e teste |
 
 ## 5. Rotas do Conector
 
@@ -123,7 +124,7 @@ A extensão é servida **pelo Conector**, e não pelo tipo "Extensão" do Doca. 
 
 Ponto de parada em 29/10/2026: [`retomada.md`](retomada.md).
 
-1. **Deploy da 0.11.2** no Doca (ícone branco do Configurar), depois `extension_installs_refresh_manifest` na 29.
+1. **Deploy da 0.12.0** no Doca (Financeiro), depois `extension_installs_refresh_manifest` na 29, ligar o Financeiro em Configurar e lançar uma cobrança de teste.
 2. **Testar a tela cheia** com o login 509, só com consultas do próprio usuário: marcar, confirmar presença,
    remarcar, marcar falta e cancelar. Testar também a busca de paciente.
 3. Testar **Remarcar** e **Cancelar** do painel lateral (0.8.0).

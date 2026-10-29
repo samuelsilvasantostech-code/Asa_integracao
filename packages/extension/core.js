@@ -204,8 +204,52 @@
     return [{ telefone: d }, { cpf: d }];
   }
 
+
+  /* ---------- financeiro ---------- */
+
+  var PAYMENT_LABELS = { pix: 'Pix', cartao_credito: 'Cartão de crédito', cartao_debito: 'Cartão de débito', dinheiro: 'Dinheiro', boleto: 'Boleto' };
+  function paymentLabel(k) { return PAYMENT_LABELS[k] || String(k || ''); }
+
+  // Valor digitado ("350", "1.234,56", "R$ 89,90") → "350.00", como o Conector espera. null se inválido.
+  function parseMoney(raw) {
+    var s = String(raw == null ? '' : raw).replace(/R\$|\s/g, '');
+    if (/,/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
+    if (!/^\d{1,6}(\.\d{1,2})?$/.test(s)) return null;
+    var n = Number(s);
+    return n > 0 && n <= 100000 ? n.toFixed(2) : null;
+  }
+
+  // Perfil do usuário do Kentro (0 = administrador). O nome do campo não está documentado no SDK:
+  // tenta os usuais. null = não deu para saber.
+  function userType(u) {
+    if (!u) return null;
+    var v = [u.type, u.userType, u.usertype, u.tipo].filter(function (x) { return x != null && x !== ''; })[0];
+    if (v == null) return null;
+    var n = Number(v);
+    return isNaN(n) ? (/admin/i.test(String(v)) ? 0 : null) : n;
+  }
+
+  // Pode lançar cobrança? fin = configuração do Conector ({ativo, quem}); type = userType().
+  function canCharge(fin, type) {
+    if (!fin || !fin.ativo) return false;
+    return fin.quem === 'todos' || type === 0;
+  }
+
+  // Resposta de POST /v1/cobrancas → mensagem para o atendente.
+  function chargeError(status, body) {
+    var erro = body && body.erro;
+    if (erro === 'COBRANCA_INCERTA') return 'A Asa não confirmou a tempo e a conta pode ter sido lançada. Confira no financeiro da Asa antes de lançar de novo.';
+    if (erro === 'COBRANCA_EM_ANDAMENTO') return 'Esta cobrança já está sendo lançada. Aguarde alguns segundos.';
+    if (erro === 'FINANCEIRO_DESLIGADO') return 'O lançamento de cobrança está desligado para esta clínica.';
+    if (erro === 'PACIENTE_NAO_CONFERE') return 'O paciente não conferiu na Asa. Busque o paciente de novo.';
+    if (erro === 'CONSULTA_NAO_ENCONTRADA') return 'A consulta vinculada não foi encontrada para este paciente. Lance sem vínculo ou escolha outra.';
+    if (erro === 'DADOS_INVALIDOS') return 'Confira o valor, a forma de pagamento e o vencimento.';
+    return readError(status, body);
+  }
+
   var api = { queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, bookingError: bookingError, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
-    todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom };
+    todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
+    paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;
 })(this);

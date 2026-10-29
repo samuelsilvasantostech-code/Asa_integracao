@@ -6,9 +6,9 @@ Situação em **29/10/2026**, quando o trabalho parou. A visão geral do projeto
 
 | Item | Situação |
 |---|---|
-| Último commit | `e8aa469`: ícone branco do Configurar (**0.11.2**), já no GitHub |
-| Conector no Doca | **0.11.1**. A 0.11.2 ainda **não teve deploy** |
-| Instalação 29 (`apresentacao`) | **0.11.1**, ativa, para os usuários 508 e 509 |
+| Último commit | **0.12.0**: Financeiro (lançar cobrança), no GitHub |
+| Conector no Doca | **0.11.2**. A 0.12.0 ainda **não teve deploy** |
+| Instalação 29 (`apresentacao`) | **0.11.2**, ativa, para os usuários 508 e 509 |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
 ## O que foi feito nesta sessão (29/10)
@@ -29,9 +29,18 @@ Situação em **29/10/2026**, quando o trabalho parou. A visão geral do projeto
   Monitor de Atendimento, com ícone branco `icon-agenda.svg`. Como `mainNav`, ela não aparecia como ícone.
 - **0.11.2**: ícone branco `icon-config.svg` para "Configurar Asa Saúde".
 
+## 0.12.0: Financeiro (29/10, à tarde)
+
+- Lançar conta a receber na Asa: aba Financeiro e botão "Cobrar" no cartão da consulta, no painel; e "Lançar cobrança" na Agenda (consulta do dia e paciente buscado).
+- Liga e desliga em Configurar → Financeiro, e lá também se escolhe quem lança (administradores ou todos). Nasce **desligado**.
+- A Asa só cria a conta (sem ler, editar ou excluir). O histórico mostrado é o que a Kentro lançou, pela tabela `cobrancas`. Detalhes em `asa-api.md`.
+- **A conferir no primeiro teste:**
+  - o perfil do usuário vem de `omni.session.getUser()`, cujo campo não está documentado. Se o botão não aparecer para o admin, o console mostra `[Asa] perfil do usuário não reconhecido; campos: …`;
+  - o que o `status` 0/1 da Asa significa (pago ou em aberto). Hoje ele não é enviado.
+
 ## Próximos passos, em ordem
 
-1. Fazer o deploy da 0.11.2 no Doca e rodar `extension_installs_refresh_manifest` na 29.
+1. Fazer o deploy da 0.12.0 no Doca e rodar `extension_installs_refresh_manifest` na 29. Ligar o Financeiro em Configurar.
 2. O usuário testa a tela cheia com o login 509, **só com consultas próprias**, porque tudo grava na Asa:
    marcar → confirmar presença → remarcar → marcar falta ou cancelar.
 3. Melhorias de funcionalidade da Asa: o usuário quer priorizar isso. Ideias ainda não discutidas:

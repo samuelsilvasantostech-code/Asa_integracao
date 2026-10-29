@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Configurar Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.11.0">
+<link rel="stylesheet" href="styles.css?v=0.12.0">
 </head>
 <body class="page-config">
 <div class="app">
@@ -45,6 +45,20 @@
       <button class="btn btn--primary" id="f-save" type="submit">Validar e salvar</button>
       <p class="conn" id="f-msg" role="status"></p>
     </form>
+    <form class="card form" id="fin" autocomplete="off" hidden>
+      <div class="card__label">Financeiro</div>
+      <p class="hint">Permite lançar conta a receber do paciente na Asa pelo painel do atendimento e pela Agenda. A conta criada não pode ser editada nem excluída pela Kentro: correções são feitas direto na Asa.</p>
+      <label class="check"><input type="checkbox" id="fin-on"> <span>Permitir lançar cobrança</span></label>
+      <label class="field">
+        <span>Quem pode lançar</span>
+        <select id="fin-who">
+          <option value="admin">Só administradores</option>
+          <option value="todos">Todos os atendentes</option>
+        </select>
+      </label>
+      <button class="btn btn--primary" id="fin-save" type="submit">Salvar financeiro</button>
+      <p class="conn" id="fin-msg" role="status"></p>
+    </form>
     <form class="card form" id="rem" autocomplete="off" hidden>
       <div class="card__label">Confirmação de véspera</div>
       <p class="hint">Na véspera, o paciente recebe um lembrete com os botões Confirmar, Remarcar e Cancelar, e a resposta é gravada na Asa. O horário dos envios, a fila e o template ficam na automação da Kentro, montada pela implantação.</p>
@@ -66,9 +80,9 @@
     </form>
   </main>
 </div>
-<script src="core.js?v=0.11.0"></script>
-<script src="api.js?v=0.11.0"></script>
-<script src="bridge.js?v=0.11.0"></script>
-<script src="config.js?v=0.11.0"></script>
+<script src="core.js?v=0.12.0"></script>
+<script src="api.js?v=0.12.0"></script>
+<script src="bridge.js?v=0.12.0"></script>
+<script src="config.js?v=0.12.0"></script>
 </body>
 </html>

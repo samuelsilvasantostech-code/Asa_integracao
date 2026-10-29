@@ -132,3 +132,17 @@ Como ela se protege:
 - **Sem resposta da Asa:** em timeout ou erro de rede, a chave fica `incerto` e a rota responde 504 `AGENDAMENTO_INCERTO`. Não libera a chave, porque a Asa pode ter gravado.
 - **Paciente novo:** vai com `cpf`, `nome`, `nascimento` e `telefone` no próprio agendamento. Não usa `paciente-create-edit`, que sobrescreveria o cadastro de um CPF existente.
 - **Dados pessoais:** a trilha no banco não guarda nome, CPF nem telefone.
+
+## Cobrança pelo painel (Conector, 0.12.0)
+
+`POST /v1/cobrancas` lança conta a receber na Asa (`api-gerar-conta-paciente`). É gravação **sem volta**: a Asa não tem rota para ler, editar nem excluir a conta. Correções são feitas direto na Asa.
+
+- **Só com o financeiro ligado** para a clínica (`tenants.financeiro.ativo`, em "Configurar Asa Saúde"). Nasce desligado. "Quem pode lançar" (`admin` ou `todos`) é aplicado no painel, porque o Conector não conhece o usuário da Kentro.
+- **Paciente conferido:** o `paciente_id` tem de ser o que a Asa devolve em `paciente-instituicao` para a `busca` (telefone ou CPF) do painel.
+- **Consulta vinculada (opcional) conferida:**
+  - vinda da agenda do dia (com `prestador_id` e `data`): precisa estar em `horarios-agendados`, com o telefone do paciente;
+  - sem esses campos: precisa estar em `agendamentos-futuros` do paciente.
+- **Idempotência:** a `chave` vai na tabela `cobrancas` (migração 006) e também como `id_externo` na Asa. Sem resposta da Asa, a cobrança fica `incerto` (504 `COBRANCA_INCERTA`), e a `chave` permite achar a conta na Asa.
+- **Valor:** em reais, com ponto (`350.00`), maior que zero e até R$ 100.000.
+- **`status` (0/1) não é enviado:** a Asa não documenta o significado de cada valor. Antes de usar, confirmar com a Asa ou num teste.
+- `GET /v1/cobrancas?paciente_id=` lista as 20 últimas cobranças lançadas pela Kentro (trilha local).

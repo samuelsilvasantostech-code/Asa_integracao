@@ -5,6 +5,7 @@
 
   var C = root.AsaCore, B = root.AsaBridge, omni = root.omni;
   var cfg = {}, api = null, userLabel = '';
+  var userType = null, fin = null;          // perfil do usuário (0 = administrador) e financeiro da clínica
   var sched = null;                         // especialidades e prestadores
   var sel = { esp: '', prest: '', day: C.todayIso() };
   var day = null, daySeq = 0;               // dia carregado: {data, agendados, livres}
@@ -43,7 +44,7 @@
   function remember(k, v) { try { root.localStorage.setItem('asa.' + k, v); } catch (e) { /* sem storage */ } }
   function recall(k) { try { return root.localStorage.getItem('asa.' + k) || ''; } catch (e) { return ''; } }
 
-  var SIDE = ['s-empty', 's-appt', 's-pac', 's-book', 's-review', 's-done'];
+  var SIDE = ['s-empty', 's-appt', 's-pac', 's-charge', 's-book', 's-review', 's-done'];
   function side(id) { SIDE.forEach(function (v) { $(v).hidden = v !== id; }); }
 
   function providerName(id) {
@@ -214,6 +215,7 @@
       box.appendChild(button('Marcar falta', null, function (ev) { setStatus(a, 'ausente', ev.currentTarget); }));
     }
     if (sel.day >= today && a.paciente.telefone) box.appendChild(button('Remarcar', null, function (ev) { rescheduleFromAppt(a, ev.currentTarget); }));
+    if (a.paciente.telefone && C.canCharge(fin, userType)) box.appendChild(button('Lançar cobrança', null, function (ev) { chargeFromAppt(a, ev.currentTarget); }));
     if (sel.day >= today) {
       box.appendChild(button('Cancelar', 'btn--danger', function () {
         box.textContent = '';
@@ -266,6 +268,36 @@
     });
   }
 
+  /* ---------- financeiro: lançar cobrança (grava na Asa, sem volta) ---------- */
+  // Pela folha do dia: acha o paciente pelo telefone (horarios-agendados não traz o id dele).
+  function chargeFromAppt(a, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Buscando o paciente…';
+    var busca = { telefone: a.paciente.telefone };
+    api.patient(busca).then(function (r) {
+      btn.disabled = false;
+      btn.textContent = 'Lançar cobrança';
+      if (!(r.status === 200 && r.body && r.body.encontrado && r.body.paciente.id)) {
+        status('sa-status', r.status === 200 ? 'Não achei o paciente pelo telefone desta consulta. Busque pelo CPF e lance por lá.' : C.readError(r.status, r.body), 'err');
+        return;
+      }
+      var label = C.formatDay(sel.day) + ' às ' + (a.hora || '--:--') + ' — ' + providerName(sel.prest);
+      openCharge(r.body.paciente, busca, [{ id: a.id, label: label, prestador_id: sel.prest, data: sel.day }], a.id, function () { showAppt(a); });
+    });
+  }
+
+  function openCharge(paciente, busca, appointments, preselect, back) {
+    side('s-charge');
+    root.AsaCharge.mount($('s-charge'), {
+      api: api, user: userLabel, patient: paciente, busca: busca, appointments: appointments, preselect: preselect,
+      onClose: back
+    });
+  }
+
+  function loadFinance() {
+    api.financeConfig().then(function (r) { fin = r.status === 200 && r.body ? r.body.config : null; });
+  }
+
   function startReschedule(c, paciente, busca) {
     rescheduling = { consulta: c, paciente: paciente, busca: busca };
     $('rs-text').textContent = 'Remarcando ' + paciente.nome + ': ' + whenText(c) + (c.prestador ? ' com ' + c.prestador : '') + '. Escolha um horário livre.';
@@ -306,6 +338,8 @@
     $('sp-hint').hidden = true;
     $('sp-list-label').hidden = true;
     $('sp-list').textContent = '';
+    $('sp-charge').hidden = true;
+    $('sp-fin-label').hidden = $('sp-fin').hidden = true;
     if (!tries.length) { status('sp-status', 'Digite um CPF (11 dígitos) ou um telefone com DDD.', 'err'); return; }
     status('sp-status', 'Buscando na Asa…');
     lookup(tries).then(function (x) {
@@ -333,6 +367,9 @@
     if (p.cpf) fact(dl, 'CPF', C.maskCpf(p.cpf));
     dl.hidden = false;
     $('sp-hint').hidden = false;
+    $('sp-charge').hidden = !(p.id && C.canCharge(fin, userType));
+    $('sp-fin-label').hidden = $('sp-fin').hidden = !(p.id && fin && fin.ativo);
+    if (p.id && fin && fin.ativo) root.AsaCharge.history($('sp-fin'), api, p.id);
     var list = pac.consultas, ul = $('sp-list');
     ul.textContent = '';
     $('sp-list-label').hidden = !list || !list.length;
@@ -589,6 +626,7 @@
       }
       $('ws').hidden = false;
       $('q-form').hidden = false;
+      if (!fin) loadFinance();
       if (!sched) loadSchedule(); else loadDay();
     });
   }
@@ -601,9 +639,19 @@
     if (omni.session && omni.session.getUser) {
       Promise.resolve(omni.session.getUser()).then(function (u) {
         if (u) userLabel = [u.id, u.name || u.username].filter(Boolean).join(' ');
+        userType = C.userType(u);
+        // O SDK não documenta o campo do perfil: registra os nomes (não os valores) para ajustar.
+        if (u && userType === null && root.console) root.console.info('[Asa] perfil do usuário não reconhecido; campos:', Object.keys(u).join(', '));
       }).catch(function () { /* sem usuário: a trilha fica sem nome */ });
     }
 
+    $('sp-charge').addEventListener('click', function () {
+      if (!pac || !pac.paciente.id) return;
+      var appts = (pac.consultas || []).filter(function (c) { return c.id; }).map(function (c) {
+        return { id: c.id, label: whenText(c) + (c.prestador ? ' — ' + c.prestador : '') };
+      });
+      openCharge(pac.paciente, pac.busca, appts, '', function () { renderPatient(); });
+    });
     $('f-esp').addEventListener('change', function () { onSpecialty(); });
     $('f-prest').addEventListener('change', function () { setProvider($('f-prest').value); });
     $('d-prev').addEventListener('click', function () { setDay(C.shiftDay(sel.day, -1)); });
