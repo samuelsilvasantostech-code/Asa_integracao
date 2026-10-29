@@ -191,3 +191,12 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 /* O diálogo "md" do host tem conteúdo de 60vw dentro de uma moldura de 680px: o que passa disso some.
    A tela de configuração se limita à largura visível. */
 .page-config .app { max-width: 660px; }
+
+/* Selo da confirmação de véspera, ao lado do horário. */
+.seal { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0; vertical-align: 2px; background: var(--surface); color: var(--muted); }
+.seal[data-tone="ok"] { background: color-mix(in srgb, var(--ok) 14%, var(--bg)); color: var(--ok); }
+.seal[data-tone="warn"] { background: var(--remind-soft); color: var(--remind); }
+.seal[data-tone="err"] { background: color-mix(in srgb, var(--err) 12%, var(--bg)); color: var(--err); }
+
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--brand); }

@@ -15,6 +15,7 @@ export interface Consulta {
   hora: string | null; // HH:MM
   prestador: string | null;
   procedimentos: string[];
+  confirmacao?: { estado: string; resposta: string | null }; // da confirmação de véspera, quando houve
 }
 
 export interface Horario {

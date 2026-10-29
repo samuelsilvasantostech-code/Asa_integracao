@@ -59,6 +59,29 @@ export async function adminRoutes(app: FastifyInstance) {
     gravarCredencial(req, reply, req.params.id, req.body?.token),
   );
 
+  // Chave da automação de confirmação (só vale em /v1/confirmacao/*). Gerar de novo invalida a anterior.
+  app.post<{ Params: { id: string } }>("/admin/tenants/:id/chave-automacao", async (req, reply) => {
+    const chave = "asaauto_" + randomBytes(24).toString("base64url");
+    const { rowCount } = await pool!.query(
+      "UPDATE tenants SET chave_automacao_hash = $1, atualizado_em = now() WHERE id = $2",
+      [hash(chave), req.params.id],
+    );
+    if (!rowCount) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+    return { id: req.params.id, chave_automacao: chave };
+  });
+
+  // Trilha da confirmação de véspera de uma clínica (sem nome nem CPF).
+  app.get<{ Params: { id: string }; Querystring: { data?: string } }>("/admin/tenants/:id/confirmacoes", async (req) => {
+    const { rows } = await pool!.query(
+      `SELECT agendamento_id, to_char(data, 'YYYY-MM-DD') AS data, hora, estado, tentativas, resposta, erro, disparado_asa,
+              enviado_em, respondido_em, atualizado_em
+       FROM confirmacoes WHERE tenant_id = $1 AND ($2::date IS NULL OR data = $2::date)
+       ORDER BY data DESC, hora LIMIT 500`,
+      [req.params.id, req.query.data || null],
+    );
+    return { confirmacoes: rows };
+  });
+
   // Gera uma chave nova e invalida a anterior.
   app.post<{ Params: { id: string } }>("/admin/tenants/:id/rotacionar-chave", async (req, reply) => {
     const chave = "asa_" + randomBytes(24).toString("base64url");

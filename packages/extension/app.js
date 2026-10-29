@@ -73,13 +73,30 @@
       var li = el('li', 'item appt' + (i === 0 ? ' appt--next' : ''));
       li.appendChild(dateStub(c.data));
       var body = el('div', 'appt__body');
-      body.appendChild(el('div', 'item__when', c.hora || 'Horário não informado'));
+      var when = el('div', 'item__when', c.hora || 'Horário não informado');
+      var selo = confirmacaoSelo(c.confirmacao);
+      if (selo) when.appendChild(selo);
+      body.appendChild(when);
       if (c.prestador) body.appendChild(el('div', 'item__who', c.prestador));
       if (c.procedimentos.length) body.appendChild(el('div', 'item__proc', c.procedimentos.join(', ')));
       if (patient && patient.id && c.id) body.appendChild(consultaActions(c));
       li.appendChild(body);
       ul.appendChild(li);
     });
+  }
+
+  // Resposta do paciente à mensagem de véspera (Conector, tabela confirmacoes).
+  var SELOS = {
+    confirmar: ['Confirmada pelo paciente', 'ok'],
+    remarcar: ['Pediu para remarcar', 'warn'],
+    cancelar: ['Cancelada pelo paciente', 'err']
+  };
+  function confirmacaoSelo(cf) {
+    if (!cf) return null;
+    var s = cf.estado === 'respondido' && SELOS[cf.resposta] ? SELOS[cf.resposta] : ['Lembrete enviado', 'idle'];
+    var b = el('span', 'seal', s[0]);
+    b.setAttribute('data-tone', s[1]);
+    return b;
   }
 
   // Canhoto do cartão de consulta: dia em destaque, mês e dia da semana embaixo.

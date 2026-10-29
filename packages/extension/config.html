@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Configurar Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.9.0">
+<link rel="stylesheet" href="styles.css?v=0.10.0">
 </head>
 <body class="page-config">
 <div class="app">
@@ -45,11 +45,30 @@
       <button class="btn btn--primary" id="f-save" type="submit">Validar e salvar</button>
       <p class="conn" id="f-msg" role="status"></p>
     </form>
+    <form class="card form" id="rem" autocomplete="off" hidden>
+      <div class="card__label">Confirmação de véspera</div>
+      <p class="hint">Na véspera, o paciente recebe um lembrete com os botões Confirmar, Remarcar e Cancelar, e a resposta é gravada na Asa. O horário dos envios, a fila e o template ficam na automação da Kentro, montada pela implantação.</p>
+      <p class="hint" id="rem-auto" hidden>A automação de envio ainda não foi montada para esta clínica. Você pode deixar tudo configurado, mas nada é enviado enquanto ela não existir.</p>
+      <label class="check"><input type="checkbox" id="rem-on"> <span>Enviar lembretes</span></label>
+      <label class="check"><input type="checkbox" id="rem-fri"> <span>Na sexta, lembrar também das consultas de sábado a segunda</span></label>
+      <fieldset class="booking__new">
+        <legend>Modo teste</legend>
+        <label class="check"><input type="checkbox" id="rem-test"> <span>Enviar só para os telefones abaixo</span></label>
+        <label class="field"><span>Telefones permitidos (um por linha)</span><textarea id="rem-phones" rows="2" spellcheck="false" placeholder="(27) 99999-0000"></textarea></label>
+      </fieldset>
+      <label class="field"><span>Lembrete (canal não oficial)</span><textarea id="rem-t-mensagem" rows="3"></textarea></label>
+      <label class="field"><span>Resposta ao confirmar</span><textarea id="rem-t-confirmado" rows="2"></textarea></label>
+      <label class="field"><span>Resposta ao cancelar</span><textarea id="rem-t-cancelado" rows="2"></textarea></label>
+      <label class="field"><span>Resposta ao pedir para remarcar</span><textarea id="rem-t-remarcar" rows="2"></textarea></label>
+      <p class="hint">Nos textos, {nome} vira o primeiro nome do paciente, e {data}, {hora}, {profissional} e {clinica} viram os dados da consulta. No WhatsApp oficial, o lembrete é o template aprovado, com as variáveis nesta ordem: nome, data, hora, profissional, clínica.</p>
+      <button class="btn btn--primary" id="rem-save" type="submit">Salvar confirmação</button>
+      <p class="conn" id="rem-msg" role="status"></p>
+    </form>
   </main>
 </div>
-<script src="core.js?v=0.9.0"></script>
-<script src="api.js?v=0.9.0"></script>
-<script src="bridge.js?v=0.9.0"></script>
-<script src="config.js?v=0.9.0"></script>
+<script src="core.js?v=0.10.0"></script>
+<script src="api.js?v=0.10.0"></script>
+<script src="bridge.js?v=0.10.0"></script>
+<script src="config.js?v=0.10.0"></script>
 </body>
 </html>

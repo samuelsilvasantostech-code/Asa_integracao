@@ -50,6 +50,8 @@
       book: function (payload) { return request('POST', '/v1/agendamentos', payload); },
       // payload = {chave, busca: {telefone|cpf}, usuario}; a busca prova que a consulta é do paciente.
       cancel: function (id, payload) { return request('POST', '/v1/agendamentos/' + encodeURIComponent(id) + '/cancelar', payload); },
+      reminderConfig: function () { return request('GET', '/v1/tenant/confirmacao'); },
+      saveReminderConfig: function (config, usuario) { return request('PUT', '/v1/tenant/confirmacao', { config: config, usuario: usuario }); },
       saveCredential: function (token) {
         return request('PUT', '/v1/tenant/credencial', { token: token });
       }

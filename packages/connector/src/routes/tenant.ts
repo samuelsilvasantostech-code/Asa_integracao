@@ -3,6 +3,7 @@ import { instituicaoDa, listarPrestadores, type CredencialAsa } from "../asa.js"
 import { cifraDisponivel, cifrar, decifrar } from "../crypto.js";
 import { pool } from "../db.js";
 import { tenantDaRequisicao } from "../tenant-auth.js";
+import { lerConfig, TEXTOS_PADRAO } from "../confirmacao.js";
 import { adminAutorizado } from "./admin.js";
 
 export async function tenantRoutes(app: FastifyInstance) {
@@ -34,6 +35,28 @@ export async function tenantRoutes(app: FastifyInstance) {
     if (!tenant) return;
     if (tenant.credencial && !adminAutorizado(req)) return reply.code(403).send({ erro: "CREDENCIAL_JA_CADASTRADA" });
     return gravarCredencial(req, reply, tenant.id, req.body?.token);
+  });
+
+  // Configuração da confirmação de véspera, pela tela "Configurar Asa Saúde".
+  app.get("/v1/tenant/confirmacao", async (req, reply) => {
+    const tenant = await tenantDaRequisicao(req, reply);
+    if (!tenant) return;
+    const { rows } = await pool!.query<{ confirmacao: unknown; tem_chave: boolean }>(
+      "SELECT confirmacao, chave_automacao_hash IS NOT NULL AS tem_chave FROM tenants WHERE id = $1",
+      [tenant.id],
+    );
+    return { config: lerConfig(rows[0]?.confirmacao), padrao: TEXTOS_PADRAO, automacao_configurada: !!rows[0]?.tem_chave };
+  });
+
+  // Grava a configuração inteira, já validada (o que vier fora do formato volta ao padrão).
+  app.put<{ Body: { config?: unknown; usuario?: string } }>("/v1/tenant/confirmacao", async (req, reply) => {
+    const tenant = await tenantDaRequisicao(req, reply);
+    if (!tenant) return;
+    if (!req.body?.config || typeof req.body.config !== "object") return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
+    const cfg = lerConfig(req.body.config);
+    await pool!.query("UPDATE tenants SET confirmacao = $1, atualizado_em = now() WHERE id = $2", [cfg, tenant.id]);
+    req.log.info({ tenant: tenant.id, usuario: req.body.usuario, ativo: cfg.ativo, teste: cfg.teste.ativo }, "confirmação: configuração gravada");
+    return { ok: true, config: cfg };
   });
 }
 

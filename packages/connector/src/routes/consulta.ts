@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { chamarAsa, type RespostaAsa } from "../asa.js";
 import * as N from "../normalizar.js";
-import { credencialDaRequisicao } from "../tenant-auth.js";
+import { pool } from "../db.js";
+import { credencialDaRequisicao, tenantComCredencial } from "../tenant-auth.js";
 
 // Rotas de LEITURA da Asa para o painel. Nada aqui grava na Asa.
 
@@ -29,8 +30,9 @@ export async function consultaRoutes(app: FastifyInstance) {
     if (cpf && cpf.length !== 11) return reply.code(400).send({ erro: "CPF_INVALIDO" });
     if (!cpf && !telefone) return reply.code(400).send({ erro: "TELEFONE_INVALIDO" });
 
-    const credencial = await credencialDaRequisicao(req, reply);
-    if (!credencial) return;
+    const ctx = await tenantComCredencial(req, reply);
+    if (!ctx) return;
+    const { tenant, credencial } = ctx;
 
     const busca: Record<string, string> = cpf ? { cpf } : { telefone: telefone! };
     const [rp, rc] = await Promise.all([
@@ -54,6 +56,19 @@ export async function consultaRoutes(app: FastifyInstance) {
     if (naoEncontrado(rc)) consultas = [];
     else if (rc.ok) consultas = N.consultasFuturas(rc.dados);
     else req.log.warn({ erro: rc.erro, status: rc.status }, "agendamentos futuros indisponíveis");
+
+    // Estado da confirmação de véspera, para o selo no cartão da consulta.
+    if (consultas?.length) {
+      const { rows } = await pool!.query<{ agendamento_id: string; estado: string; resposta: string | null }>(
+        "SELECT agendamento_id, estado, resposta FROM confirmacoes WHERE tenant_id = $1 AND agendamento_id = ANY($2::text[])",
+        [tenant.id, consultas.map((c) => c.id)],
+      );
+      const porId = new Map(rows.map((r) => [r.agendamento_id, r]));
+      consultas = consultas.map((c) => {
+        const r = porId.get(c.id);
+        return r && (r.estado === "enviado" || r.estado === "respondido") ? { ...c, confirmacao: { estado: r.estado, resposta: r.resposta } } : c;
+      });
+    }
 
     return { encontrado: true, paciente, consultas };
   });

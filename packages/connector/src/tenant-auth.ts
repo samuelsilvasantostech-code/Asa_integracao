@@ -58,3 +58,44 @@ export async function tenantComCredencial(
 export async function credencialDaRequisicao(req: FastifyRequest, reply: FastifyReply): Promise<CredencialAsa | null> {
   return (await tenantComCredencial(req, reply))?.credencial ?? null;
 }
+
+export interface TenantAutomacao {
+  id: string;
+  nome: string;
+  confirmacao: unknown;
+  credencial: CredencialAsa;
+}
+
+// Identifica a clínica pela chave da automação (header x-automation-key). Essa chave vale só nas
+// rotas de confirmação: fica gravada no fluxo da Kentro, que os administradores leem.
+export async function tenantDaAutomacao(req: FastifyRequest, reply: FastifyReply): Promise<TenantAutomacao | null> {
+  const chave = req.headers["x-automation-key"];
+  if (typeof chave !== "string" || !chave) {
+    reply.code(401).send({ erro: "CHAVE_AUSENTE" });
+    return null;
+  }
+  if (!pool) {
+    reply.code(503).send({ erro: "BANCO_NAO_CONFIGURADO" });
+    return null;
+  }
+  const { rows } = await pool.query<{ id: string; nome: string; ativo: boolean; confirmacao: unknown; asa_credencial_cifrada: Buffer | null }>(
+    "SELECT id, nome, ativo, confirmacao, asa_credencial_cifrada FROM tenants WHERE chave_automacao_hash = $1",
+    [hash(chave)],
+  );
+  const t = rows[0];
+  if (!t || !t.ativo) {
+    reply.code(401).send({ erro: "CHAVE_INVALIDA" });
+    return null;
+  }
+  if (!t.asa_credencial_cifrada) {
+    reply.code(409).send({ erro: "CREDENCIAL_AUSENTE" });
+    return null;
+  }
+  try {
+    return { id: t.id, nome: t.nome, confirmacao: t.confirmacao, credencial: JSON.parse(decifrar(t.asa_credencial_cifrada)) };
+  } catch (err) {
+    req.log.error({ err }, "falha ao decifrar credencial");
+    reply.code(500).send({ erro: "ERRO_INTERNO" });
+    return null;
+  }
+}
