@@ -1,14 +1,14 @@
 # Retomada: Asa Saúde × Kentro
 
-Situação em **29/10/2026**, quando o trabalho parou. A visão geral do projeto está em [`visao-geral.md`](visao-geral.md).
+Situação em **29/10/2026**, quando o trabalho parou. A visão geral do projeto está em [`visao-geral.md`](visao-geral.md), e o que a API não entrega e o que falta validar está em [`pendencias.md`](pendencias.md) (P1 a P35).
 
 ## Onde paramos
 
 | Item | Situação |
 |---|---|
 | Último commit | **0.12.0**: Financeiro (lançar cobrança), no GitHub |
-| Conector no Doca | **0.11.2**. A 0.12.0 ainda **não teve deploy** |
-| Instalação 29 (`apresentacao`) | **0.11.2**, ativa, para os usuários 508 e 509 |
+| Conector no Doca | **0.12.0** (deploy feito em 29/10) |
+| Instalação 29 (`apresentacao`) | **0.12.0**, ativa, para os usuários 508 e 509. Financeiro ainda **desligado** |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
 ## O que foi feito nesta sessão (29/10)
