@@ -135,7 +135,7 @@ Como ela se protege:
 
 ## Agendar por exame (Conector, 0.13.0)
 
-Somente leitura: `GET /v1/exames` (`procedimentos`; sem `busca`, todas as páginas até 1.000 itens, em ordem alfabética e guardadas por 10 min por clínica; o painel mostra como lista de seleção, separada em Exames e Consultas, com filtro local), `GET /v1/exames/:id/convenios` (`get-convenios-procedimento`) e `GET /v1/exames/:id/prestadores?convenio_id=` (`get-prestadores-procedimento`, com o valor no convênio).
+Somente leitura: `GET /v1/exames` (`procedimentos`; sem `busca`, todas as páginas até 6.000 itens, buscadas em lotes de 6 em paralelo, em ordem alfabética e guardadas por 1 h por clínica; o painel mostra uma lista única de seleção com filtro local). O campo `tipo` da Asa **não é confiável**: na clínica de teste, 940 de 999 itens vêm como "consulta", incluindo exames de laboratório (ex.: CORTISOL), e aparecem também "procedimento" e "cirurgico". Por isso a lista não é agrupada por tipo, `GET /v1/exames/:id/convenios` (`get-convenios-procedimento`) e `GET /v1/exames/:id/prestadores?convenio_id=` (`get-prestadores-procedimento`, com o valor no convênio).
 
 Depois do prestador, o painel segue o fluxo normal: dias, horários, `get-procedimentos-instituicao` e `agendar-instituicao`. No formulário, o convênio e o procedimento buscados já vêm escolhidos. O procedimento é casado pelo `procedimento_id`, quando a Asa o traz em `procedimento_instituicao`, ou pelo nome.
 

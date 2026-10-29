@@ -34,6 +34,7 @@ Legenda: **API** = a Asa não entrega · **Asa** = a Asa entrega, mas com compor
 | P18 | Asa | `horarios-agendados` traz o estado "pendente" para consulta só agendada, além de chaves fora do documentado. | Normalizador tolerante, que registra as chaves no log quando não reconhece. |
 | P19 | Asa | As datas vêm em três formatos diferentes. | Normalizadores em `normalizar.ts`. |
 | P20 | Asa | Prestador, procedimento e convênio só aparecem com "Permite agendamento online" marcado. | Avisar na implantação de cada clínica. |
+| P37 | Asa | O `tipo` de `api-agendamento-procedimentos` não separa exame de consulta (exames de laboratório vêm como "consulta"), e a clínica de teste tem mais de 1.000 procedimentos com agenda online. | Lista única em ordem alfabética, com filtro. A primeira carga leva alguns segundos e fica guardada por 1 h. |
 | P21 | Asa | A credencial de exemplo publicada na coleção é recusada em produção. | Cada clínica precisa de um token real. |
 
 ## 3. Limitações da Kentro (SDK e plataforma)

@@ -41,7 +41,7 @@
       t.setAttribute('aria-selected', String(t.getAttribute('data-tab') === name));
     });
     ['paciente', 'consultas', 'agendar', 'financeiro'].forEach(function (p) { $('pane-' + p).hidden = p !== name; });
-    if (name === 'agendar') loadSchedule();
+    if (name === 'agendar') { loadSchedule(); fetchExams(); }
     if (name === 'financeiro') renderFinance();
     B.fitHeight();
   }
@@ -371,13 +371,25 @@
   }
 
   // Lista de seleção com todos os procedimentos com agenda online, separados em Exames e Consultas.
+  // Uma busca por painel; a primeira da clínica pode levar alguns segundos (a Asa pagina de 100 em 100).
+  var examReq = null;
+  function fetchExams() {
+    if (!examReq) {
+      examReq = api.exams().then(function (r) {
+        if (r.status === 200 && r.body) examList = r.body.exames; else examReq = null;
+        return r;
+      });
+    }
+    return examReq;
+  }
+
   function loadExams() {
     var e = exam;
     if (examList) { e.results = examList; renderExams(); return; }
     $('ex-sel').textContent = '';
-    $('ex-sel').appendChild(option('', 'Carregando…'));
+    $('ex-sel').appendChild(option('', 'Carregando a lista da Asa…'));
     $('ex-sel').disabled = true;
-    api.exams().then(function (r) {
+    fetchExams().then(function (r) {
       if (exam !== e) return;
       if (r.status !== 200 || !r.body) {
         $('ex-sel').textContent = '';
@@ -385,32 +397,25 @@
         status('a-status', C.readError(r.status, r.body), 'err');
         return;
       }
-      examList = r.body.exames;
       e.results = examList;
       renderExams();
       if (r.body.completa === false) status('a-status', 'A Asa devolveu só parte da lista. Se não achar o procedimento, tente de novo em instantes.', 'err');
     });
   }
 
-  var GROUPS = [['exame', 'Exames'], ['consulta', 'Consultas'], ['', 'Outros']];
+  // O "tipo" da Asa não é confiável (exame de laboratório vem como "consulta"): lista única, em ordem
+  // alfabética, e o filtro digitado (sem acento) estreita na hora.
   function renderExams() {
     var e = exam, sel = $('ex-sel'), term = C.fold($('ex-q').value.trim());
     if (!e) return;
     var list = e.results.filter(function (x) { return !term || C.fold(x.nome).indexOf(term) >= 0; });
     sel.textContent = '';
     sel.disabled = !e.results.length;
-    $('ex-q').hidden = e.results.length < 15;
     if (!e.results.length) { sel.appendChild(option('', 'Nenhum procedimento com agenda online')); B.fitHeight(); return; }
-    sel.appendChild(option('', list.length ? 'Escolha…' : 'Nada com esse nome'));
-    GROUPS.forEach(function (g) {
-      var items = list.filter(function (x) { return g[0] ? x.tipo === g[0] : x.tipo !== 'exame' && x.tipo !== 'consulta'; });
-      if (!items.length) return;
-      var og = el('optgroup');
-      og.label = g[1];
-      items.forEach(function (x) { og.appendChild(option(x.id, x.nome)); });
-      sel.appendChild(og);
-    });
+    sel.appendChild(option('', !list.length ? 'Nada com esse nome' : term ? list.length + ' encontrado(s). Escolha…' : 'Escolha… (' + list.length + ' procedimentos)'));
+    list.forEach(function (x) { sel.appendChild(option(x.id, x.nome)); });
     if (e.item && list.some(function (x) { return x.id === e.item.id; })) sel.value = e.item.id;
+    else if (term && list.length === 1) { sel.value = list[0].id; onExam(); }
     B.fitHeight();
   }
 
