@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.12.0">
+<link rel="stylesheet" href="styles.css?v=0.13.0">
 </head>
 <body>
 <div class="app">
@@ -84,14 +84,41 @@
             <span id="a-remarcar-text"></span>
             <button class="btn" id="a-remarcar-sair" type="button">Desistir</button>
           </div>
-          <label class="field">
-            <span>Especialidade</span>
-            <select id="a-esp"><option value="">Carregando…</option></select>
-          </label>
-          <label class="field">
-            <span>Profissional</span>
-            <select id="a-prest" disabled><option value="">Escolha a especialidade</option></select>
-          </label>
+          <div class="chips" role="group" aria-label="Como agendar">
+            <button class="chip" type="button" id="a-mode-prof" aria-pressed="true">Por profissional</button>
+            <button class="chip" type="button" id="a-mode-exam" aria-pressed="false">Por exame</button>
+          </div>
+          <div id="a-by-prof">
+            <label class="field">
+              <span>Especialidade</span>
+              <select id="a-esp"><option value="">Carregando…</option></select>
+            </label>
+            <label class="field">
+              <span>Profissional</span>
+              <select id="a-prest" disabled><option value="">Escolha a especialidade</option></select>
+            </label>
+          </div>
+          <div id="a-by-exam" hidden>
+            <div class="field">
+              <span>Exame ou procedimento</span>
+              <div class="inline-form">
+                <input id="ex-q" maxlength="60" placeholder="Ex.: hemograma, ressonância">
+                <button class="btn" id="ex-go" type="button">Buscar</button>
+              </div>
+            </div>
+            <label class="field" id="ex-wrap" hidden>
+              <span>Resultado</span>
+              <select id="ex-sel"></select>
+            </label>
+            <label class="field" id="ex-conv-wrap" hidden>
+              <span>Convênio</span>
+              <select id="ex-conv"></select>
+            </label>
+            <label class="field" id="ex-prest-wrap" hidden>
+              <span>Quem faz</span>
+              <select id="ex-prest"></select>
+            </label>
+          </div>
           <div class="field" id="a-dias-wrap" hidden>
             <span>Dias com atendimento</span>
             <div class="chips" id="a-dias"></div>
@@ -164,10 +191,10 @@
     </section>
   </main>
 </div>
-<script src="core.js?v=0.12.0"></script>
-<script src="api.js?v=0.12.0"></script>
-<script src="bridge.js?v=0.12.0"></script>
-<script src="cobranca.js?v=0.12.0"></script>
-<script src="app.js?v=0.12.0"></script>
+<script src="core.js?v=0.13.0"></script>
+<script src="api.js?v=0.13.0"></script>
+<script src="bridge.js?v=0.13.0"></script>
+<script src="cobranca.js?v=0.13.0"></script>
+<script src="app.js?v=0.13.0"></script>
 </body>
 </html>

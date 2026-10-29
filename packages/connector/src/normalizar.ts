@@ -118,6 +118,7 @@ export interface Procedimento {
   id: string; // convenio_procedimento_id, o que vai para o agendamento
   nome: string;
   valor: number | null;
+  procedimento_id: string | null; // id do procedimento (o de api-agendamento-procedimentos), quando vier
 }
 
 const numero = (v: unknown): number | null => {
@@ -148,6 +149,7 @@ export function procedimentos(corpo: any): Procedimento[] {
       id: texto(p?.convenio_procedimento_id ?? p?.id),
       nome: nomeProcedimento(p?.procedimento_instituicao) ?? nomeProcedimento(p),
       valor: numero(p?.valor_convenio) ?? numero(p?.valor),
+      procedimento_id: texto(p?.procedimento_instituicao?.procedimento_id ?? p?.procedimento_id ?? p?.procedimento_instituicao?.id),
     }))
     .filter((p): p is Procedimento => !!p.id && !!p.nome);
 }
@@ -206,4 +208,56 @@ export function agendados(corpo: any): Agendado[] {
       };
     })
     .sort((x, y) => (x.hora ?? "").localeCompare(y.hora ?? ""));
+}
+
+/* ---------- agendar por exame (procedimento) ---------- */
+
+export interface Exame {
+  id: string;
+  nome: string;
+  tipo: string | null; // "consulta" | "exame"
+}
+
+// api-agendamento-procedimentos: {procedimentos: [{id, descricao, tipo, odontologico}]}
+export function exames(corpo: any): Exame[] {
+  return lista(corpo?.procedimentos ?? corpo)
+    .map((p: any) => ({ id: texto(p?.id), nome: texto(p?.descricao ?? p?.nome), tipo: texto(p?.tipo)?.toLowerCase() ?? null }))
+    .filter((p): p is Exame => !!p.id && !!p.nome);
+}
+
+export interface ConvenioValor extends Convenio {
+  valor: number | null;
+}
+
+// api-agendamento-get-convenios-procedimento: {convenios: [{id, nome, valor}]}
+export function conveniosDoExame(corpo: any): ConvenioValor[] {
+  return lista(corpo?.convenios ?? corpo)
+    .map((c: any) => ({ id: texto(c?.id ?? c?.convenio_id), nome: texto(c?.nome ?? c?.convenio_nome), valor: numero(c?.valor) }))
+    .filter((c): c is ConvenioValor => !!c.id && !!c.nome);
+}
+
+export interface PrestadorDoExame {
+  id: string;
+  nome: string;
+  especialidade: string | null;
+  ordem_chegada: boolean;
+  valor: number | null; // do convênio pedido, quando houver
+}
+
+// api-agendamento-get-prestadores-procedimento: {prestadores: [{id, nome, especialidade, ordem_chegada,
+// convenios: [{convenio_id, convenio_nome, valor_procedimento}]}]}
+export function prestadoresDoExame(corpo: any, convenioId?: string): PrestadorDoExame[] {
+  return lista(corpo?.prestadores ?? corpo)
+    .map((p: any) => {
+      const conv = convenioId ? lista(p?.convenios).find((c: any) => String(c?.convenio_id) === convenioId) : undefined;
+      const oc = p?.ordem_chegada;
+      return {
+        id: texto(p?.id),
+        nome: texto(p?.nome),
+        especialidade: nomeOuTexto(p?.especialidade),
+        ordem_chegada: oc === true || Number(oc) === 1,
+        valor: conv ? numero((conv as any).valor_procedimento) : null,
+      };
+    })
+    .filter((p): p is PrestadorDoExame => !!p.id && !!p.nome);
 }

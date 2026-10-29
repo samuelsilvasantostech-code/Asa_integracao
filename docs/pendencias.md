@@ -51,7 +51,7 @@ Legenda: **API** = a Asa não entrega · **Asa** = a Asa entrega, mas com compor
 | Código | Tipo | Ponto | O que fazer |
 |---|---|---|---|
 | P27 | Nosso | "Quem pode lançar cobrança" é aplicado **só no painel**: o Conector não conhece o usuário da Kentro. | Avaliar uma assinatura do usuário vinda da Kentro, se existir. |
-| P28 | Nosso | O `/health` sempre informa `versao: 0.1.0`. | Ler a versão do `manifest.json` ou do `package.json`. |
+| P28 | Nosso | ~~O `/health` sempre informa `versao: 0.1.0`.~~ | **Resolvido na 0.13.0**: a versão vem do `manifest.json`. |
 | P29 | Nosso | O push no GitHub não faz deploy no Doca: alguém clica em "Fazer deploy". | Avaliar o deploy automático no Doca. |
 | P30 | Nosso | Não há roteiro escrito de **implantação de clínica real**: tenant, chave, instalação, token, filas e template. | Escrever antes do primeiro cliente. |
 | P31 | Nosso | Não há testes automáticos da extensão (só do Conector). | Testar `core.js` e `cobranca.js`. |
@@ -64,3 +64,4 @@ Legenda: **API** = a Asa não entrega · **Asa** = a Asa entrega, mas com compor
 | P33 | Teste | Tela cheia: marcar, confirmar presença, remarcar, marcar falta, cancelar e buscar paciente | 0.11.x |
 | P34 | Teste | Financeiro: ligar em Configurar, lançar cobrança e ver como fica na Asa (fecha P3 e P22) | 0.12.0 |
 | P35 | Teste | Confirmação D-1: criar os fluxos na fila 19 e testar só com o número do usuário | 0.10.0 |
+| P36 | Teste | Agendar por exame: o procedimento buscado já deve vir escolhido no formulário. A Asa pode não trazer o id do procedimento no horário; nesse caso, ele é casado pelo nome | 0.13.0 |

@@ -133,6 +133,12 @@ Como ela se protege:
 - **Paciente novo:** vai com `cpf`, `nome`, `nascimento` e `telefone` no próprio agendamento. Não usa `paciente-create-edit`, que sobrescreveria o cadastro de um CPF existente.
 - **Dados pessoais:** a trilha no banco não guarda nome, CPF nem telefone.
 
+## Agendar por exame (Conector, 0.13.0)
+
+Somente leitura: `GET /v1/exames?busca=` (`procedimentos`, 1ª página), `GET /v1/exames/:id/convenios` (`get-convenios-procedimento`) e `GET /v1/exames/:id/prestadores?convenio_id=` (`get-prestadores-procedimento`, com o valor no convênio).
+
+Depois do prestador, o painel segue o fluxo normal: dias, horários, `get-procedimentos-instituicao` e `agendar-instituicao`. No formulário, o convênio e o procedimento buscados já vêm escolhidos. O procedimento é casado pelo `procedimento_id`, quando a Asa o traz em `procedimento_instituicao`, ou pelo nome.
+
 ## Cobrança pelo painel (Conector, 0.12.0)
 
 `POST /v1/cobrancas` lança conta a receber na Asa (`api-gerar-conta-paciente`). É gravação **sem volta**: a Asa não tem rota para ler, editar nem excluir a conta. Correções são feitas direto na Asa.

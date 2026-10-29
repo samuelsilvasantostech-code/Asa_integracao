@@ -292,8 +292,8 @@
   }
 
   var dayReq = 0;
-  function onProvider() {
-    var id = $('a-prest').value, box = $('a-dias'), r0 = ++dayReq;
+  function onProvider(pick) {
+    var id = typeof pick === 'string' ? pick : $('a-prest').value, box = $('a-dias'), r0 = ++dayReq;
     closeBooking();
     $('a-horas-wrap').hidden = true;
     box.textContent = '';
@@ -345,7 +345,92 @@
   /* ---------- marcar consulta (grava na Asa) ---------- */
   function providerName(id) {
     var p = agenda && agenda.prestadores && agenda.prestadores.filter(function (x) { return x.id === id; })[0];
+    if (!p && exam) p = exam.providers.filter(function (x) { return x.id === id; })[0];
     return p ? p.nome : '';
+  }
+
+  /* ---------- agendar por exame: procedimento → convênio → quem faz → dias e horários ---------- */
+  var exam = null; // {results, item, insurances, insurance, providers}; null no modo "por profissional"
+  var EXAM_STEPS = ['ex-wrap', 'ex-conv-wrap', 'ex-prest-wrap', 'a-dias-wrap', 'a-horas-wrap'];
+  function hideFrom(i) { EXAM_STEPS.slice(i).forEach(function (id) { $(id).hidden = true; }); }
+  function money(v) { return v > 0 ? ' — ' + C.formatMoney(v) : ''; }
+
+  function setMode(byExam) {
+    $('a-mode-prof').setAttribute('aria-pressed', String(!byExam));
+    $('a-mode-exam').setAttribute('aria-pressed', String(byExam));
+    $('a-by-prof').hidden = byExam;
+    $('a-by-exam').hidden = !byExam;
+    exam = byExam ? { results: [], item: null, insurances: [], insurance: null, providers: [] } : null;
+    hideFrom(0);
+    $('a-prest').value = '';
+    closeBooking();
+    status('a-status', byExam ? 'Digite o nome do exame ou procedimento.' : '');
+    if (byExam) $('ex-q').focus();
+    B.fitHeight();
+  }
+
+  function searchExam() {
+    var term = $('ex-q').value.trim(), e = exam;
+    if (!e) return;
+    if (term.length < 2) { status('a-status', 'Digite ao menos 2 letras.', 'err'); return; }
+    hideFrom(0);
+    closeBooking();
+    status('a-status', 'Buscando na Asa…');
+    api.exams(term).then(function (r) {
+      if (exam !== e) return;
+      if (r.status !== 200 || !r.body) { status('a-status', C.readError(r.status, r.body), 'err'); return; }
+      e.results = r.body.exames;
+      if (!e.results.length) { status('a-status', 'Nenhum procedimento com agenda online com esse nome.'); return; }
+      fillSelect($('ex-sel'), e.results, function (x) { return x.nome + (x.tipo ? ' (' + x.tipo + ')' : ''); }, '');
+      $('ex-wrap').hidden = false;
+      status('a-status', e.results.length === 1 ? '' : e.results.length + ' resultados. Escolha um.');
+      if (e.results.length === 1) { $('ex-sel').value = e.results[0].id; onExam(); }
+      B.fitHeight();
+    });
+  }
+
+  function onExam() {
+    var e = exam, id = $('ex-sel').value;
+    if (!e) return;
+    e.item = find(e.results, id) || null;
+    e.insurance = null;
+    hideFrom(1);
+    closeBooking();
+    if (!e.item) return;
+    status('a-status', 'Buscando os convênios…');
+    api.examInsurances(id).then(function (r) {
+      if (exam !== e || !e.item || e.item.id !== id) return;
+      if (r.status !== 200 || !r.body) { status('a-status', C.readError(r.status, r.body), 'err'); return; }
+      e.insurances = r.body.convenios;
+      if (!e.insurances.length) { status('a-status', 'Nenhum convênio cobre este procedimento na agenda online.'); return; }
+      fillSelect($('ex-conv'), e.insurances, function (c) { return c.nome + money(c.valor); }, '');
+      $('ex-conv-wrap').hidden = false;
+      status('a-status', 'Escolha o convênio do paciente.');
+      B.fitHeight();
+    });
+  }
+
+  function onExamInsurance() {
+    var e = exam, conv = $('ex-conv').value;
+    if (!e || !e.item) return;
+    e.insurance = find(e.insurances, conv) || null;
+    hideFrom(2);
+    closeBooking();
+    if (!e.insurance) return;
+    status('a-status', 'Buscando quem faz…');
+    api.examProviders(e.item.id, conv).then(function (r) {
+      if (exam !== e || !e.insurance || e.insurance.id !== conv) return;
+      if (r.status !== 200 || !r.body) { status('a-status', C.readError(r.status, r.body), 'err'); return; }
+      e.providers = r.body.prestadores;
+      if (!e.providers.length) { status('a-status', 'Nenhum profissional faz este procedimento por esse convênio na agenda online.'); return; }
+      fillSelect($('ex-prest'), e.providers, function (p) {
+        return p.nome + (p.especialidade ? ' · ' + p.especialidade : '') + (p.ordem_chegada ? ' (ordem de chegada)' : '') + money(p.valor);
+      }, '');
+      $('ex-prest-wrap').hidden = false;
+      status('a-status', '');
+      if (e.providers.length === 1) { $('ex-prest').value = e.providers[0].id; onProvider(e.providers[0].id); }
+      B.fitHeight();
+    });
   }
 
   function closeBooking() {
@@ -362,7 +447,8 @@
   }
 
   function openBooking(slot) {
-    booking = { slot: slot, providerName: providerName(slot.prestador_id), key: C.newKey(), insurances: [], procedures: [], user: userLabel, original: rescheduling };
+    booking = { slot: slot, providerName: providerName(slot.prestador_id), key: C.newKey(), insurances: [], procedures: [], user: userLabel, original: rescheduling,
+      prefer: exam && exam.item && exam.insurance ? { convenio_id: exam.insurance.id, exame: exam.item } : null };
     var b = booking;
     $('b-review').textContent = b.original ? 'Revisar remarcação' : 'Revisar';
     $('b-done').hidden = true;
@@ -392,6 +478,7 @@
       if (r.status !== 200 || !r.body) { fillSelect($('b-conv'), [], null, 'Indisponível'); status('b-status', C.readError(r.status, r.body), 'err'); return; }
       b.insurances = r.body.convenios;
       fillSelect($('b-conv'), b.insurances, function (c) { return c.nome; }, 'Nenhum convênio aceito neste horário');
+      if (b.prefer && find(b.insurances, b.prefer.convenio_id)) { $('b-conv').value = b.prefer.convenio_id; onInsurance(); }
       B.fitHeight();
     });
     B.fitHeight();
@@ -413,6 +500,13 @@
       fillSelect(sel, b.procedures, function (p) {
         return p.nome + (p.valor > 0 ? ' — ' + C.formatMoney(p.valor) : '');
       }, 'Nenhum procedimento para este convênio');
+      // Vindo do modo exame: já deixa escolhido o procedimento buscado (pelo id ou, sem ele, pelo nome).
+      var ex = b.prefer && b.prefer.exame;
+      var match = ex && b.procedures.filter(function (p) {
+        return p.procedimento_id ? p.procedimento_id === ex.id : p.nome.toLowerCase() === ex.nome.toLowerCase();
+      })[0];
+      if (match) sel.value = match.id;
+      else if (ex) status('b-status', 'Confira o procedimento: "' + ex.nome + '" não apareceu com esse nome neste horário.', 'err');
     });
   }
 
@@ -572,6 +666,13 @@
     });
     $('a-esp').addEventListener('change', onSpecialty);
     $('a-prest').addEventListener('change', onProvider);
+    $('a-mode-prof').addEventListener('click', function () { setMode(false); });
+    $('a-mode-exam').addEventListener('click', function () { setMode(true); });
+    $('ex-go').addEventListener('click', searchExam);
+    $('ex-q').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); searchExam(); } });
+    $('ex-sel').addEventListener('change', onExam);
+    $('ex-conv').addEventListener('change', onExamInsurance);
+    $('ex-prest').addEventListener('change', function () { if ($('ex-prest').value) onProvider($('ex-prest').value); });
     $('b-conv').addEventListener('change', onInsurance);
     $('b-form').addEventListener('submit', review);
     $('b-go').addEventListener('click', confirmBooking);

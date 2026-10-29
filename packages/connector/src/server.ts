@@ -7,6 +7,7 @@ import { confirmacaoRoutes } from "./routes/confirmacao.js";
 import { consultaRoutes } from "./routes/consulta.js";
 import { extensaoRoutes } from "./routes/extensao.js";
 import { financeiroRoutes } from "./routes/financeiro.js";
+import { examesRoutes } from "./routes/exames.js";
 import { healthRoutes } from "./routes/health.js";
 import { tenantRoutes } from "./routes/tenant.js";
 
@@ -25,6 +26,7 @@ await app.register(consultaRoutes);
 await app.register(agendamentoRoutes);
 await app.register(confirmacaoRoutes);
 await app.register(financeiroRoutes);
+await app.register(examesRoutes);
 await app.register(adminRoutes);
 await app.register(extensaoRoutes);
 
