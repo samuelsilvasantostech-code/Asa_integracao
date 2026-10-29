@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "kentro.asa-saude",
   "name": "Asa Saúde",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Pacientes, consultas e agenda da clínica na Asa Saúde: no atendimento e em tela cheia.",
   "author": {
     "name": "Kentro"
@@ -40,10 +40,20 @@
     },
     {
       "id": "agenda",
-      "type": "mainNav",
+      "type": "topMenu",
       "title": "Agenda Asa",
-      "icon": "icon.svg",
-      "url": "agenda.html"
+      "icon": "icon-agenda.svg",
+      "url": "agenda.html",
+      "presentation": {
+        "mode": "fullscreen"
+      },
+      "visibility": {
+        "userTypes": [
+          0,
+          1,
+          2
+        ]
+      }
     },
     {
       "id": "configurar",
