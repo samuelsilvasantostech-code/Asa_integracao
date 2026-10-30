@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde: agenda da clínica</title>
-<link rel="stylesheet" href="styles.css?v=0.17.0">
+<link rel="stylesheet" href="styles.css?v=0.18.0">
 </head>
 <body class="page-agenda">
 <div class="app">
@@ -66,6 +66,7 @@
       <section class="day" aria-labelledby="day-title">
         <h2 class="sr" id="day-title">Consultas</h2>
         <p class="day__sum" id="day-sum"></p>
+        <div class="kpis" id="day-kpis" hidden></div>
         <p class="muted" id="day-status">Escolha a especialidade e o profissional.</p>
         <ol class="sheet" id="sheet"></ol>
         <div class="grid" id="grid" hidden></div>
@@ -87,7 +88,7 @@
             <div class="sv__time" id="sa-time"></div>
             <span class="seal" id="sa-seal"></span>
           </div>
-          <div class="sv__name" id="sa-name"></div>
+          <div class="sv__who"><span class="avatar avatar--lg" id="sa-avatar" aria-hidden="true"></span><div class="sv__name" id="sa-name"></div></div>
           <dl class="facts" id="sa-facts"></dl>
           <div class="sv__actions" id="sa-actions"></div>
           <p class="muted" id="sa-status" role="status"></p>
@@ -174,10 +175,10 @@
     </div>
   </div>
 </div>
-<script src="core.js?v=0.17.0"></script>
-<script src="api.js?v=0.17.0"></script>
-<script src="bridge.js?v=0.17.0"></script>
-<script src="cobranca.js?v=0.17.0"></script>
-<script src="agenda.js?v=0.17.0"></script>
+<script src="core.js?v=0.18.0"></script>
+<script src="api.js?v=0.18.0"></script>
+<script src="bridge.js?v=0.18.0"></script>
+<script src="cobranca.js?v=0.18.0"></script>
+<script src="agenda.js?v=0.18.0"></script>
 </body>
 </html>

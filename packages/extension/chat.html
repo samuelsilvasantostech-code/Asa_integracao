@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.17.0">
+<link rel="stylesheet" href="styles.css?v=0.18.0">
 </head>
 <body>
 <div class="app">
@@ -35,12 +35,20 @@
     </section>
 
     <section id="v-chat" class="view" hidden>
-      <div class="contact">
-        <span class="avatar" id="avatar" aria-hidden="true"></span>
-        <div class="contact__info">
-          <div class="contact__name" id="c-name">—</div>
-          <div class="contact__phone" id="c-phone">—</div>
+      <div class="hero">
+        <div class="contact">
+          <span class="avatar avatar--lg" id="avatar" aria-hidden="true"></span>
+          <div class="contact__info">
+            <div class="contact__name" id="c-name">—</div>
+            <div class="contact__phone" id="c-phone">—</div>
+          </div>
         </div>
+        <div class="tags" id="c-tags" hidden></div>
+        <button class="next" id="c-next" type="button" hidden>
+          <span class="next__label">Próxima consulta</span>
+          <span class="next__when" id="c-next-when"></span>
+          <span class="next__who" id="c-next-who"></span>
+        </button>
       </div>
 
       <div class="card card--conn">
@@ -185,10 +193,10 @@
     </section>
   </main>
 </div>
-<script src="core.js?v=0.17.0"></script>
-<script src="api.js?v=0.17.0"></script>
-<script src="bridge.js?v=0.17.0"></script>
-<script src="cobranca.js?v=0.17.0"></script>
-<script src="app.js?v=0.17.0"></script>
+<script src="core.js?v=0.18.0"></script>
+<script src="api.js?v=0.18.0"></script>
+<script src="bridge.js?v=0.18.0"></script>
+<script src="cobranca.js?v=0.18.0"></script>
+<script src="app.js?v=0.18.0"></script>
 </body>
 </html>

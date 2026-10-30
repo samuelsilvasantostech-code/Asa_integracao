@@ -261,7 +261,7 @@
     sheet.removeAttribute('aria-busy');
     sheet.textContent = '';
     if (c.erro) return;
-    $('day-sum').textContent = providerName(c.prest) + ': ' + summaryParts(c).join(', ') + '.';
+    $('day-sum').textContent = providerName(c.prest);
     C.dayRows(c.data.agendados, c.data.livres).forEach(function (row) { sheet.appendChild(row.kind === 'appt' ? apptRow(row.appt, c) : freeRow(row.slot, c)); });
     placeNow(sheet, c.day);
     renderTally();
@@ -296,7 +296,7 @@
   function renderTally() {
     var n = {}, loaded = cols.filter(function (c) { return c.data; }), today = C.todayIso();
     $('s-tally').hidden = !loaded.length;
-    if (!loaded.length) return;
+    if (!loaded.length) { $('day-kpis').hidden = true; return; }
     loaded.forEach(function (c) {
       (c.data.agendados || []).forEach(function (a) { var t = C.statusInfo(a.status).tone; n[t] = (n[t] || 0) + 1; });
       if (c.day >= today) n.free = (n.free || 0) + (c.data.livres || []).length;
@@ -304,6 +304,7 @@
     var esp = sched && find(sched.especialidades, sel.esp);
     $('st-title').textContent = sel.view === 'lado' ? (esp ? esp.nome : 'Especialidade') : providerName(sel.prest);
     $('st-when').textContent = ($('d-wd').textContent ? $('d-wd').textContent + ': ' : '') + $('d-date').textContent;
+    renderKpis(n);
     var g = $('st-grid');
     g.textContent = '';
     TALLY.forEach(function (t) {
@@ -316,6 +317,35 @@
     });
   }
 
+  // Números do que está na tela, acima da folha: consultas, confirmadas, livres e ocupação.
+  function renderKpis(n) {
+    var box = $('day-kpis'), consultas = (n.ok || 0) + (n.idle || 0) + (n.warn || 0) + (n.done || 0), livres = n.free || 0;
+    box.textContent = '';
+    box.hidden = false;
+    var ocup = consultas + livres ? Math.round(100 * consultas / (consultas + livres)) : null;
+    var conf = consultas ? Math.round(100 * ((n.ok || 0) + (n.done || 0)) / consultas) : null;
+    kpi(box, 'Consultas', String(consultas), (n.err ? n.err + (n.err === 1 ? ' cancelada' : ' canceladas') : 'nenhuma cancelada'));
+    kpi(box, 'Confirmadas ou atendidas', String((n.ok || 0) + (n.done || 0)), conf == null ? 'sem consultas' : conf + '% das consultas', 'ok');
+    kpi(box, 'Horários livres', String(livres), livres ? 'para marcar' : 'agenda cheia ou passada', 'free');
+    var o = kpi(box, 'Ocupação', ocup == null ? '—' : ocup + '%', ocup == null ? 'sem agenda' : consultas + ' de ' + (consultas + livres) + ' horários', 'brand');
+    if (ocup != null) {
+      var bar = el('span', 'kpi__bar');
+      var fill = el('span', 'kpi__fill');
+      fill.style.width = ocup + '%';
+      bar.appendChild(fill);
+      o.appendChild(bar);
+    }
+  }
+  function kpi(box, label, value, note, tone) {
+    var k = el('div', 'kpi');
+    if (tone) k.setAttribute('data-tone', tone);
+    k.appendChild(el('span', 'kpi__label', label));
+    k.appendChild(el('span', 'kpi__value', value));
+    k.appendChild(el('span', 'kpi__note', note));
+    box.appendChild(k);
+    return k;
+  }
+
   function apptRow(a, c) {
     var info = C.statusInfo(a.status), li = el('li', 'slot slot--appt');
     li.setAttribute('data-tone', info.tone);
@@ -325,6 +355,7 @@
     b.type = 'button';
     b.title = info.label; // nas colunas estreitas o selo some; o tom fica na hora
     b.appendChild(el('span', 'slot__time', a.hora || '--:--'));
+    b.appendChild(el('span', 'avatar avatar--sm', C.initials(a.paciente.nome)));
     var body = el('span', 'slot__body');
     var who = el('span', 'slot__who', a.paciente.nome || 'Paciente sem nome');
     if (a.paciente.idade != null) who.appendChild(el('span', 'slot__age', a.paciente.idade + ' anos'));
@@ -369,6 +400,8 @@
     $('sa-seal').textContent = info.label;
     $('sa-seal').setAttribute('data-tone', info.tone);
     $('sa-name').textContent = a.paciente.nome || 'Paciente sem nome';
+    $('sa-avatar').textContent = C.initials(a.paciente.nome);
+    $('sa-avatar').setAttribute('data-tone', info.tone);
     var dl = $('sa-facts');
     dl.textContent = '';
     if (a.paciente.idade != null) fact(dl, 'Idade', a.paciente.idade + ' anos');

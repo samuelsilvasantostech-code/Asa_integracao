@@ -66,6 +66,8 @@
       saveReminderConfig: function (config, usuario) { return request('PUT', '/v1/tenant/confirmacao', { config: config, usuario: usuario }); },
       // payload = {agendamento_id, busca: {telefone|cpf}, usuario}: põe na fila e aciona o envio da confirmação.
       sendConfirmation: function (payload) { return request('POST', '/v1/confirmacao/enviar', payload, 30000); },
+      // Números do painel do administrador nos últimos `dias` dias (1, 7, 15, 30 ou 90).
+      dashboard: function (dias) { return request('GET', '/v1/painel/resumo' + query({ dias: String(dias) }), null, 20000); },
       previewReminder: function (config) { return request('POST', '/v1/tenant/confirmacao/previa', { config: config }); },
       saveCredential: function (token) {
         return request('PUT', '/v1/tenant/credencial', { token: token });

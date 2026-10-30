@@ -55,6 +55,8 @@
     $('p-search').hidden = true;
     $('c-list').textContent = '';
     $('count-consultas').hidden = true;
+    $('c-tags').hidden = true;
+    $('c-next').hidden = true;
     status('c-status', 'Identifique o paciente primeiro.');
   }
 
@@ -65,6 +67,28 @@
     $('p-tel').textContent = p.telefone || '—';
     $('p-cpf').textContent = C.maskCpf(p.cpf) || '—';
     $('p-facts').hidden = false;
+    var tags = $('c-tags');
+    tags.textContent = '';
+    tags.appendChild(tag('Paciente na Asa', 'ok'));
+    if (idade != null) tags.appendChild(tag(idade + ' anos'));
+    if (p.cpf) tags.appendChild(tag('CPF ' + C.maskCpf(p.cpf)));
+    tags.hidden = false;
+  }
+  function tag(text, tone) {
+    var t = el('span', 'tag', text);
+    if (tone) t.setAttribute('data-tone', tone);
+    return t;
+  }
+
+  // Resumo da próxima consulta no topo do painel, visível em qualquer aba; o toque abre Consultas.
+  function renderNext(c) {
+    if (!c) { $('c-next').hidden = true; return; }
+    var when = $('c-next-when');
+    when.textContent = whenText(c);
+    var selo = confirmacaoSelo(c.confirmacao);
+    if (selo) when.appendChild(selo);
+    $('c-next-who').textContent = [c.prestador, c.procedimentos.join(', ')].filter(Boolean).join(' · ');
+    $('c-next').hidden = false;
   }
 
   function renderConsultas(list) {
@@ -74,6 +98,7 @@
     if (list === null) { status('c-status', 'A Asa não devolveu as consultas agora.', 'err'); return; }
     $('count-consultas').hidden = !list.length;
     $('count-consultas').textContent = String(list.length);
+    renderNext(list[0]);
     if (!list.length) { status('c-status', 'Nenhuma consulta marcada.'); return; }
     status('c-status', list.length === 1 ? 'Próxima consulta:' : 'Próximas ' + list.length + ' consultas:');
     list.forEach(function (c, i) {
@@ -718,6 +743,7 @@
     });
     $('a-esp').addEventListener('change', onSpecialty);
     $('a-prest').addEventListener('change', onProvider);
+    $('c-next').addEventListener('click', function () { selectTab('consultas'); });
     $('a-mode-prof').addEventListener('click', function () { setMode(false); });
     $('a-mode-exam').addEventListener('click', function () { setMode(true); });
     $('ex-q').addEventListener('input', renderExams);

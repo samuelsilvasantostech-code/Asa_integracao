@@ -7,9 +7,23 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Item | Situação |
 |---|---|
 | Último commit | **0.16.0**: confirmação configurável e revisão de segurança, no GitHub |
-| Conector no Doca | **0.17.0** (deploy em 30/10) |
+| Conector no Doca | **0.17.0** (deploy em 30/10); **0.18.0** no GitHub, aguardando deploy |
 | Instalação 29 (`apresentacao`) | **0.17.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
+
+## 30/10: visual novo e Painel da clínica (0.18.0)
+
+- Faixa do topo em pinho escuro (com o traçado do pulso do logo) em todas as telas.
+- Painel da conversa: o cartão do contato continua a faixa, com etiquetas (paciente na Asa, idade, CPF mascarado) e a próxima consulta, que abre a aba Consultas. Abas em trilho segmentado, ficha em blocos e consultas numa linha do tempo.
+- Agenda: números do dia acima da folha (consultas, confirmadas, livres e ocupação), iniciais do paciente em cada consulta e no painel lateral.
+- Tela nova "Painel Asa" (topMenu em tela cheia, perfis 0 e 1):
+  - números do período (hoje, 7, 30 ou 90 dias);
+  - desfechos da confirmação e envios por dia;
+  - lista "Precisa de contato" (remarcar, cancelou, não entregue);
+  - atividade por dia e por atendente;
+  - cobranças por forma e alertas (marcações e cobranças incertas, confirmações não entregues);
+  - ocupação por profissional no dia escolhido, consultada na Asa aos poucos (3 de cada vez, até 40 profissionais).
+- Conector: `GET /v1/painel/resumo?dias=` (chave da instalação), que só lê as trilhas `agendamentos`, `confirmacoes` e `cobrancas`, sem chamar a Asa. A restrição a administradores e supervisores é a visibilidade do menu na Kentro; a rota aceita qualquer chave da instalação, como as demais.
 
 ## 30/10: "Enviar confirmação" pelo atendente (0.17.0)
 

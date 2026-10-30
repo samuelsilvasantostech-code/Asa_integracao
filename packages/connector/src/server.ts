@@ -9,6 +9,7 @@ import { extensaoRoutes } from "./routes/extensao.js";
 import { financeiroRoutes } from "./routes/financeiro.js";
 import { examesRoutes } from "./routes/exames.js";
 import { healthRoutes } from "./routes/health.js";
+import { painelRoutes } from "./routes/painel.js";
 import { tenantRoutes } from "./routes/tenant.js";
 
 // O log de requisição não leva a query string: a busca de paciente vai por ?cpf= e ?telefone=, e
@@ -47,6 +48,7 @@ await app.register(agendamentoRoutes);
 await app.register(confirmacaoRoutes);
 await app.register(financeiroRoutes);
 await app.register(examesRoutes);
+await app.register(painelRoutes);
 await app.register(adminRoutes);
 await app.register(extensaoRoutes);
 

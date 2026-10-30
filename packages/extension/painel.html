@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asa Saúde: painel da clínica</title>
+<link rel="stylesheet" href="styles.css?v=0.18.0">
+</head>
+<body class="page-dash">
+<div class="app">
+  <header class="hd">
+    <div class="hd__brand">
+      <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
+      <div>
+        <div class="hd__title">Asa Saúde</div>
+        <div class="hd__sub">Painel da clínica</div>
+      </div>
+    </div>
+    <div class="seg seg--dark" role="group" aria-label="Período" id="period">
+      <button class="seg__btn" type="button" data-dias="1" aria-pressed="false">Hoje</button>
+      <button class="seg__btn" type="button" data-dias="7" aria-pressed="true">7 dias</button>
+      <button class="seg__btn" type="button" data-dias="30" aria-pressed="false">30 dias</button>
+      <button class="seg__btn" type="button" data-dias="90" aria-pressed="false">90 dias</button>
+    </div>
+    <span class="pill" id="pill" data-tone="idle"><i class="dot"></i><span id="pill-text">Carregando</span></span>
+  </header>
+
+  <main class="dash" aria-live="polite">
+    <p class="muted" id="d-status">Carregando os números…</p>
+
+    <section class="kpis kpis--hero" id="d-kpis" hidden></section>
+
+    <div class="dash__grid" id="d-body" hidden>
+      <section class="panel panel--wide" aria-labelledby="h-conf">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-conf">Confirmações</h2>
+          <p class="panel__sub" id="conf-sub"></p>
+        </header>
+        <div class="stack" id="conf-stack"></div>
+        <div class="legend" id="conf-legend"></div>
+        <h3 class="panel__h3">Enviadas por dia</h3>
+        <div class="cols cols--stacked" id="conf-days"></div>
+        <div class="legend" id="conf-days-legend"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-tratar">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-tratar">Precisa de contato</h2>
+          <p class="panel__sub">Consultas futuras em que o paciente pediu para remarcar, cancelou ou não recebeu a mensagem.</p>
+        </header>
+        <ul class="todo" id="tratar"></ul>
+      </section>
+
+      <section class="panel panel--wide" aria-labelledby="h-ativ">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-ativ">Atividade da equipe</h2>
+          <p class="panel__sub" id="ativ-sub"></p>
+        </header>
+        <div class="chips chips--stat" id="ativ-tipos"></div>
+        <h3 class="panel__h3">Ações gravadas na Asa por dia</h3>
+        <div class="cols" id="ativ-days"></div>
+        <h3 class="panel__h3">Por atendente</h3>
+        <div class="table-wrap"><table class="table" id="equipe"></table></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-cob">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-cob">Cobranças</h2>
+          <p class="panel__sub" id="cob-sub"></p>
+        </header>
+        <div class="hbars" id="cob-formas"></div>
+        <h3 class="panel__h3">Alertas</h3>
+        <ul class="alerts" id="alertas"></ul>
+      </section>
+
+      <section class="panel panel--full" aria-labelledby="h-ocup">
+        <header class="panel__hd panel__hd--row">
+          <div>
+            <h2 class="panel__title" id="h-ocup">Ocupação da agenda</h2>
+            <p class="panel__sub" id="ocup-sub">Consultas marcadas e horários livres de cada profissional no dia.</p>
+          </div>
+          <div class="panel__tools">
+            <label class="field field--inline">
+              <span>Especialidade</span>
+              <select id="oc-esp"><option value="">Todas</option></select>
+            </label>
+            <label class="field">
+              <span>Dia</span>
+              <input type="date" id="oc-day">
+            </label>
+            <button class="btn btn--primary" id="oc-go" type="button">Ver ocupação</button>
+          </div>
+        </header>
+        <p class="muted" id="oc-status">Escolha o dia e toque em "Ver ocupação". Cada profissional é uma consulta à Asa, por isso a lista chega aos poucos.</p>
+        <div class="hbars hbars--occ" id="oc-list"></div>
+        <div class="legend" id="oc-legend" hidden></div>
+      </section>
+    </div>
+  </main>
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+</div>
+<script src="core.js?v=0.18.0"></script>
+<script src="api.js?v=0.18.0"></script>
+<script src="bridge.js?v=0.18.0"></script>
+<script src="painel.js?v=0.18.0"></script>
+</body>
+</html>
