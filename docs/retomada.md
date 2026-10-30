@@ -11,6 +11,11 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.16.4**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
+## 30/10: causa da marcação que "dava certo" sem gravar (0.16.5)
+
+- Diagnóstico da 0.16.4: a Asa respondeu em 383 ms com `"The given data was invalid."` (validação do Laravel), sem HTTP de erro. O Conector tratava isso como sucesso: era o "marcado" que não aparecia.
+- 0.16.5: `validacaoDa` reconhece essa recusa (com ou sem `errors`, qualquer status) e todo 4xx vira `ASA_RECUSOU`. A tela mostra "A Asa respondeu: <campo>: <motivo>". Falta ver qual campo a Asa recusa (paciente existente, convênio 5307, procedimento 1619420, agenda 358726).
+
 ## 30/10: marcação incerta (0.16.3)
 
 - Depois da 0.16.1, a marcação deu `AGENDAMENTO_INCERTO`: a chamada de gravação à Asa ficou sem resposta (tempo esgotado ou conexão caída). O detalhe exato ainda não foi visto (o log do Doca tem "gravação sem confirmação da Asa" com `detalhe`).

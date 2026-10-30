@@ -33,6 +33,19 @@ export function instituicaoDa(c: CredencialAsa): string | null {
   return "token" in c ? instituicaoDoToken(c.token) : c.instituicao_id;
 }
 
+// Recusa de validação no formato do Laravel: {message: "The given data was invalid.", errors: {campo: [..]}}.
+// A Asa a devolve inclusive com HTTP 200, então não dá para confiar só no status. null se não for isso.
+export function validacaoDa(corpo: any): string | null {
+  if (!corpo || typeof corpo !== "object") return null;
+  const erros = corpo.errors && typeof corpo.errors === "object" ? corpo.errors : null;
+  const invalido = /given data was invalid|dados (fornecidos )?(s[aã]o )?inv[aá]lidos/i.test(String(corpo.message ?? corpo.msg ?? ""));
+  if (!erros && !invalido) return null;
+  const campos = erros
+    ? Object.entries(erros).map(([k, v]) => `${k}: ${(Array.isArray(v) ? v : [v]).map(String).join(" ")}`).join("; ")
+    : "";
+  return (campos || String(corpo.message ?? corpo.msg ?? "dados inválidos")).slice(0, 400);
+}
+
 // Todas as rotas da Asa são POST com parâmetros na query string.
 export async function chamarAsa<T>(
   credencial: CredencialAsa,
@@ -77,7 +90,9 @@ export async function chamarAsa<T>(
   if (resp.status === 401 || (resp.status === 403 && /autoriza/i.test(String(corpo?.msg ?? "")))) {
     return { ok: false, erro: "ASA_CREDENCIAL_INVALIDA", status: resp.status, msg: corpo?.msg };
   }
-  if (resp.status === 403 || corpo?.status === "error") {
+  const invalida = validacaoDa(corpo);
+  if (invalida) return { ok: false, erro: "ASA_RECUSOU", status: resp.status, msg: invalida };
+  if (resp.status === 403 || corpo?.status === "error" || (resp.status >= 400 && resp.status < 500 && resp.status !== 404)) {
     return { ok: false, erro: "ASA_RECUSOU", status: resp.status, msg: String(corpo?.msg ?? corpo?.message ?? "") };
   }
   if (resp.status === 404) return { ok: false, erro: "ASA_ROTA_INEXISTENTE", status: 404 };

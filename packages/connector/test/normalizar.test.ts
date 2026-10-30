@@ -36,3 +36,11 @@ test("consulta pedida reencontrada na agenda do dia", async () => {
   assert.equal(consultaNoHorario(lista, { horario: "09:00" })?.id, "1");
   assert.equal(consultaNoHorario(lista, { horario: "11:00", nome: "Ana" }), undefined);
 });
+
+test("recusa de validação da Asa, mesmo com HTTP 200", async () => {
+  const { validacaoDa } = await import("../src/asa.js");
+  assert.equal(validacaoDa({ message: "The given data was invalid.", errors: { horario: ["O campo horario é obrigatório."], agenda_id: ["inválido"] } }), "horario: O campo horario é obrigatório.; agenda_id: inválido");
+  assert.equal(validacaoDa({ message: "The given data was invalid." }), "The given data was invalid.");
+  assert.equal(validacaoDa({ agendamento: { id: 1 } }), null);
+  assert.equal(validacaoDa(null), null);
+});
