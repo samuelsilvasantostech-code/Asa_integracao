@@ -7,8 +7,8 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Item | Situação |
 |---|---|
 | Último commit | **0.16.0**: confirmação configurável e revisão de segurança, no GitHub |
-| Conector no Doca | **0.16.1** (deploy em 30/10) |
-| Instalação 29 (`apresentacao`) | **0.16.1**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
+| Conector no Doca | **0.16.3** (deploy em 30/10) |
+| Instalação 29 (`apresentacao`) | **0.16.3**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
 ## 30/10: marcação incerta (0.16.3)
