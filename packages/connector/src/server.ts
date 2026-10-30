@@ -11,7 +11,24 @@ import { examesRoutes } from "./routes/exames.js";
 import { healthRoutes } from "./routes/health.js";
 import { tenantRoutes } from "./routes/tenant.js";
 
-const app = Fastify({ logger: { level: config.logLevel } });
+// O log de requisição não leva a query string: a busca de paciente vai por ?cpf= e ?telefone=, e
+// esses dados não podem ficar nos logs do Doca.
+const app = Fastify({
+  logger: {
+    level: config.logLevel,
+    serializers: {
+      req: (req) => ({ method: req.method, url: String(req.url ?? "").split("?")[0], hostname: req.hostname, remoteAddress: req.ip }),
+    },
+  },
+});
+
+// Erro inesperado (banco, bug) vira resposta genérica; o detalhe fica só no log. Erros 4xx do próprio
+// Fastify (JSON inválido, corpo grande demais) continuam com o código certo.
+app.setErrorHandler((err: { statusCode?: number; code?: string }, req, reply) => {
+  const status = err.statusCode && err.statusCode >= 400 && err.statusCode < 500 ? err.statusCode : 500;
+  if (status === 500) req.log.error({ err }, "erro inesperado");
+  return reply.code(status).send({ erro: status === 500 ? "ERRO_INTERNO" : err.code ?? "REQUISICAO_INVALIDA" });
+});
 
 // Só pelo domínio (HTTPS no proxy do Doca): o acesso direto por IP:porta trafegaria chaves em claro.
 app.addHook("onRequest", async (req, reply) => {
