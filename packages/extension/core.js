@@ -200,12 +200,13 @@
   }
 
   function daySummary(agendados, livres) {
-    var t = { consultas: 0, confirmadas: 0, faltas: 0, canceladas: 0, livres: (livres || []).length };
+    var t = { consultas: 0, confirmadas: 0, atendidas: 0, faltas: 0, canceladas: 0, livres: (livres || []).length };
     (agendados || []).forEach(function (a) {
       var i = statusInfo(a.status);
       if (!i.active) { t.canceladas++; return; }
       t.consultas++;
-      if (i.key === 'confirmado' || i.key === 'atendido') t.confirmadas++;
+      if (i.key === 'confirmado') t.confirmadas++;
+      if (i.key === 'atendido') t.atendidas++;
       if (i.key === 'ausente') t.faltas++;
     });
     return t;

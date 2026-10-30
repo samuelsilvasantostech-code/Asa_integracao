@@ -167,6 +167,7 @@
     renderDayLabel();
     var s = ++viewSeq, list = columns(), multi = sel.view !== 'dia';
     cols = list;
+    renderTally();
     $('sheet').textContent = '';
     $('grid').textContent = '';
     $('day-sum').textContent = '';
@@ -197,6 +198,7 @@
     var parts = [t.consultas === 1 ? '1 consulta' : t.consultas + ' consultas'];
     if (!short) {
       if (t.confirmadas) parts.push(t.confirmadas + (t.confirmadas === 1 ? ' confirmada' : ' confirmadas'));
+      if (t.atendidas) parts.push(t.atendidas + (t.atendidas === 1 ? ' atendida' : ' atendidas'));
       if (t.faltas) parts.push(t.faltas + (t.faltas === 1 ? ' falta' : ' faltas'));
       if (t.canceladas) parts.push(t.canceladas + (t.canceladas === 1 ? ' cancelada' : ' canceladas'));
     }
@@ -229,6 +231,7 @@
   function colNode(c) {
     var today = C.todayIso(), n = el('section', 'col');
     if (sel.view === 'semana' && c.day === today) n.classList.add('col--today');
+    if (sel.view === 'semana' && c.day < today) n.classList.add('col--past');
     var hd = el('header', 'col__hd');
     var t = el('button', 'col__title', sel.view === 'semana' ? C.formatDay(c.day) : providerName(c.prest));
     t.type = 'button';
@@ -249,6 +252,8 @@
     var rows = C.dayRows(c.data.agendados, c.data.livres);
     c.sumNode.textContent = rows.length ? summaryParts(c, true).join(' · ') : 'Sem agenda';
     rows.forEach(function (row) { c.list.appendChild(row.kind === 'appt' ? apptRow(row.appt, c) : freeRow(row.slot, c)); });
+    placeNow(c.list, c.day);
+    renderTally();
   }
 
   function renderDay(c) {
@@ -258,11 +263,63 @@
     if (c.erro) return;
     $('day-sum').textContent = providerName(c.prest) + ': ' + summaryParts(c).join(', ') + '.';
     C.dayRows(c.data.agendados, c.data.livres).forEach(function (row) { sheet.appendChild(row.kind === 'appt' ? apptRow(row.appt, c) : freeRow(row.slot, c)); });
+    placeNow(sheet, c.day);
+    renderTally();
+  }
+
+  function nowHm() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+
+  // Linha do "agora" na folha de hoje; o que já passou fica apagado. Refeita a cada minuto.
+  function placeNow(list, day) {
+    var old = list.querySelector('.now'), today = C.todayIso(), hm = nowHm(), next = null;
+    if (old) old.remove();
+    Array.prototype.forEach.call(list.querySelectorAll('.slot'), function (li) {
+      var past = day < today || (day === today && li.getAttribute('data-hora') < hm);
+      li.classList.toggle('slot--past', past);
+      if (day === today && !past && !next) next = li;
+    });
+    if (day !== today || !list.querySelector('.slot')) return;
+    var n = el('li', 'now');
+    n.setAttribute('aria-hidden', 'true');
+    n.appendChild(el('span', 'now__time', hm));
+    list.insertBefore(n, next);
+  }
+  function tickNow() {
+    cols.forEach(function (c) {
+      var list = sel.view === 'dia' ? $('sheet') : c.list;
+      if (c.data && list) placeNow(list, c.day);
+    });
+  }
+
+  // Painel vazio = resumo do que está na tela, com as mesmas cores da folha (serve de legenda).
+  var TALLY = [['ok', 'Confirmadas'], ['idle', 'A confirmar'], ['warn', 'Faltas e remarcações'], ['done', 'Atendidas'], ['err', 'Canceladas'], ['free', 'Horários livres']];
+  function renderTally() {
+    var n = {}, loaded = cols.filter(function (c) { return c.data; }), today = C.todayIso();
+    $('s-tally').hidden = !loaded.length;
+    if (!loaded.length) return;
+    loaded.forEach(function (c) {
+      (c.data.agendados || []).forEach(function (a) { var t = C.statusInfo(a.status).tone; n[t] = (n[t] || 0) + 1; });
+      if (c.day >= today) n.free = (n.free || 0) + (c.data.livres || []).length;
+    });
+    var esp = sched && find(sched.especialidades, sel.esp);
+    $('st-title').textContent = sel.view === 'lado' ? (esp ? esp.nome : 'Especialidade') : providerName(sel.prest);
+    $('st-when').textContent = ($('d-wd').textContent ? $('d-wd').textContent + ': ' : '') + $('d-date').textContent;
+    var g = $('st-grid');
+    g.textContent = '';
+    TALLY.forEach(function (t) {
+      var row = el('div', 'tally__row');
+      row.setAttribute('data-tone', t[0]);
+      if (!n[t[0]]) row.classList.add('tally__row--zero');
+      row.appendChild(el('dt', null, t[1]));
+      row.appendChild(el('dd', null, String(n[t[0]] || 0)));
+      g.appendChild(row);
+    });
   }
 
   function apptRow(a, c) {
     var info = C.statusInfo(a.status), li = el('li', 'slot slot--appt');
     li.setAttribute('data-tone', info.tone);
+    li.setAttribute('data-hora', a.hora || '');
     if (!info.active) li.classList.add('slot--off');
     var b = el('button', 'slot__btn');
     b.type = 'button';
@@ -284,6 +341,7 @@
 
   function freeRow(h, c) {
     var li = el('li', 'slot slot--free'), b = el('button', 'slot__btn');
+    li.setAttribute('data-hora', h.horario || '');
     b.type = 'button';
     b.appendChild(el('span', 'slot__time', h.horario));
     b.appendChild(el('span', 'slot__body', rescheduling ? 'Livre: remarcar para este horário' : 'Livre'));
@@ -795,6 +853,7 @@
 
     setView(recall('view'));
     side('s-empty');
+    root.setInterval(tickNow, 60000);
     connect();
   });
 })(this);

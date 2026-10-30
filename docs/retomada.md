@@ -6,10 +6,19 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 
 | Item | Situação |
 |---|---|
-| Último commit | **0.14.0**: Agenda em semana e com profissionais lado a lado, no GitHub |
-| Conector no Doca | **0.13.2**. A 0.14.0 ainda precisa de deploy |
-| Instalação 29 (`apresentacao`) | **0.13.2**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
+| Último commit | **0.15.0**: acabamento visual da Agenda, no GitHub |
+| Conector no Doca | **0.14.0** (deploy em 30/10). A 0.15.0 ainda precisa de deploy |
+| Instalação 29 (`apresentacao`) | **0.14.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
+
+## 30/10: acabamento visual da Agenda (0.15.0)
+
+- A cor da hora é o status, agora com fundo também na confirmada (verde), além de falta e remarcação (âmbar). Atendida fica cinza e cancelada riscada.
+- **Linha do agora**, na cor de lembrete, na folha de hoje (dia, semana e lado a lado). Ela é refeita a cada minuto, e o que já passou fica apagado.
+- Na semana, os dias que já passaram ficam com o título apagado.
+- O painel lateral vazio virou um **resumo do que está na tela**: confirmadas, a confirmar, faltas e remarcações, atendidas, canceladas e horários livres. Cada linha usa a amostra da hora da folha, então o resumo serve também de legenda.
+- `daySummary` agora conta atendidas à parte das confirmadas.
+- Testado só localmente (Chrome headless, dados falsos, tema claro e escuro).
 
 ## 30/10: semana e lado a lado (0.14.0)
 
