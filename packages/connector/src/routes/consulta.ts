@@ -26,6 +26,23 @@ export function naoEncontrado(r: RespostaAsa<any>): boolean {
 const AGENDA_CACHE_MS = 5 * 60 * 1000;
 const cacheAgenda = new Map<string, { em: number; corpo: unknown }>();
 
+// Estado da confirmação (véspera ou botão do atendente) de cada consulta, para o selo. "fila" = pedido
+// manual que ainda não saiu.
+async function confirmacoesDe(tenantId: string, ids: string[]) {
+  const mapa = new Map<string, { estado: string; resposta: string | null }>();
+  if (!ids.length) return mapa;
+  const { rows } = await pool!.query<{ agendamento_id: string; estado: string; resposta: string | null; origem: string }>(
+    "SELECT agendamento_id, estado, resposta, origem FROM confirmacoes WHERE tenant_id = $1 AND agendamento_id = ANY($2::text[])",
+    [tenantId, ids],
+  );
+  for (const r of rows) {
+    if (r.estado === "enviado" || r.estado === "respondido") mapa.set(r.agendamento_id, { estado: r.estado, resposta: r.resposta });
+    else if (r.origem === "manual" && (r.estado === "pendente" || r.estado === "reservado")) mapa.set(r.agendamento_id, { estado: "fila", resposta: null });
+    else if (r.origem === "manual" && r.estado === "falhou") mapa.set(r.agendamento_id, { estado: "falhou", resposta: null });
+  }
+  return mapa;
+}
+
 export async function consultaRoutes(app: FastifyInstance) {
   // Paciente da conversa (por telefone ou CPF) e os próximos agendamentos dele.
   app.get<{ Querystring: { telefone?: string; cpf?: string } }>("/v1/paciente", async (req, reply) => {
@@ -63,15 +80,8 @@ export async function consultaRoutes(app: FastifyInstance) {
 
     // Estado da confirmação de véspera, para o selo no cartão da consulta.
     if (consultas?.length) {
-      const { rows } = await pool!.query<{ agendamento_id: string; estado: string; resposta: string | null }>(
-        "SELECT agendamento_id, estado, resposta FROM confirmacoes WHERE tenant_id = $1 AND agendamento_id = ANY($2::text[])",
-        [tenant.id, consultas.map((c) => c.id)],
-      );
-      const porId = new Map(rows.map((r) => [r.agendamento_id, r]));
-      consultas = consultas.map((c) => {
-        const r = porId.get(c.id);
-        return r && (r.estado === "enviado" || r.estado === "respondido") ? { ...c, confirmacao: { estado: r.estado, resposta: r.resposta } } : c;
-      });
+      const porId = await confirmacoesDe(tenant.id, consultas.map((c) => c.id));
+      consultas = consultas.map((c) => (porId.has(c.id) ? { ...c, confirmacao: porId.get(c.id) } : c));
     }
 
     return { encontrado: true, paciente, consultas };
@@ -117,8 +127,9 @@ export async function consultaRoutes(app: FastifyInstance) {
     const { prestador_id, data } = req.query;
     if (!idValido(prestador_id)) return reply.code(400).send({ erro: "PRESTADOR_INVALIDO" });
     if (!data || !dataValida(data)) return reply.code(400).send({ erro: "DATA_INVALIDA" });
-    const credencial = await credencialDaRequisicao(req, reply);
-    if (!credencial) return;
+    const ctx = await tenantComCredencial(req, reply);
+    if (!ctx) return;
+    const { credencial } = ctx;
     const futuro = data >= hojeEm(new Date());
     const [ra, rl] = await Promise.all([
       chamarAsa<any>(credencial, "api-agendamento-horarios-agendados", { prestador_id, data }),
@@ -132,7 +143,13 @@ export async function consultaRoutes(app: FastifyInstance) {
     }
     // Horários livres indisponíveis não derrubam a agenda: as consultas marcadas ainda servem.
     const livres = rl && rl.ok ? N.horarios(rl.dados) : [];
-    return { data, agendados, livres, livres_ok: !rl || rl.ok || naoEncontrado(rl) };
+    const conf = await confirmacoesDe(ctx.tenant.id, agendados.map((x) => x.id));
+    return {
+      data,
+      agendados: agendados.map((x) => (conf.has(x.id) ? { ...x, confirmacao: conf.get(x.id) } : x)),
+      livres,
+      livres_ok: !rl || rl.ok || naoEncontrado(rl),
+    };
   });
 
   // Horários livres do prestador num dia.

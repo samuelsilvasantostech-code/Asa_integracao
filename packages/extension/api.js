@@ -64,6 +64,8 @@
       charge: function (payload) { return request('POST', '/v1/cobrancas', payload); },
       reminderConfig: function () { return request('GET', '/v1/tenant/confirmacao'); },
       saveReminderConfig: function (config, usuario) { return request('PUT', '/v1/tenant/confirmacao', { config: config, usuario: usuario }); },
+      // payload = {agendamento_id, busca: {telefone|cpf}, usuario}: põe na fila e aciona o envio da confirmação.
+      sendConfirmation: function (payload) { return request('POST', '/v1/confirmacao/enviar', payload, 30000); },
       previewReminder: function (config) { return request('POST', '/v1/tenant/confirmacao/previa', { config: config }); },
       saveCredential: function (token) {
         return request('PUT', '/v1/tenant/credencial', { token: token });

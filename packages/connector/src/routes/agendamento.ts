@@ -19,7 +19,7 @@ interface Vaga {
 }
 
 // Como o painel achou o paciente: serve para conferir que a consulta é dele.
-interface Busca {
+export interface Busca {
   telefone?: string;
   cpf?: string;
 }
@@ -149,7 +149,7 @@ async function falhaAoGravar(
 
 // Remarcar e cancelar só valem para uma consulta futura DO paciente da conversa. Um id solto não
 // basta: evita mexer na consulta de outra pessoa por engano ou com um id adulterado.
-async function consultaDoPaciente(
+export async function consultaDoPaciente(
   credencial: CredencialAsa,
   busca: Busca | undefined,
   agendamentoId: string,

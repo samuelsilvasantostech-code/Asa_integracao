@@ -44,10 +44,15 @@ são cadastrados em "Respostas aceitas", na mesma tela.
 4. Criar a agenda (`automation_schedules_create`): `fk_ivr` = disparo, `fk_queue` = `%%FILA_ID%%`,
    `kind=4`, a cada 15 min, janela das 09:00 às 18:00, de segunda a sexta (ou o que a clínica pedir),
    fuso `America/Sao_Paulo`. Criar **pausada** (`enabled=0`) e ligar só depois do teste.
-5. Em "Confirmação Asa": ajustar as variáveis do template e ligar a confirmação **em modo teste**, só com o telefone de quem testa.
-6. Marcar uma consulta de teste para amanhã nesse telefone e rodar a agenda (`automation_schedules_run_now`).
+5. **Envio imediato (botão "Enviar confirmação" do atendente):** criar uma captura de webhook
+   (`webhook_captures_create`: `fk_ivr` = disparo, `fk_queue` = `%%FILA_ID%%`) e gravar a `captureUrl`
+   no Conector: `PUT /admin/tenants/<id>/disparo {"url": "<captureUrl>"}`. Sem ela, o pedido do atendente
+   sai na próxima rodada da agenda (até 15 min). A mesma automação atende os dois caminhos: o lote traz
+   primeiro os pedidos manuais, e a reserva no banco impede que duas rodadas peguem a mesma consulta.
+6. Em "Confirmação Asa": ajustar as variáveis do template e ligar a confirmação **em modo teste**, só com o telefone de quem testa.
+7. Marcar uma consulta de teste para amanhã nesse telefone e rodar a agenda (`automation_schedules_run_now`).
    Conferir a mensagem, as três respostas, o selo na aba Consultas e `GET /admin/tenants/<id>/confirmacoes`.
-7. Desligar o modo teste.
+8. Desligar o modo teste.
 
 ## Limites que o modelo respeita
 

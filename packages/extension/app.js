@@ -92,17 +92,12 @@
     });
   }
 
-  // Resposta do paciente à mensagem de véspera (Conector, tabela confirmacoes).
-  var SELOS = {
-    confirmar: ['Confirmada pelo paciente', 'ok'],
-    remarcar: ['Pediu para remarcar', 'warn'],
-    cancelar: ['Cancelada pelo paciente', 'err']
-  };
+  // Andamento da confirmação (véspera ou botão "Enviar confirmação").
   function confirmacaoSelo(cf) {
-    if (!cf) return null;
-    var s = cf.estado === 'respondido' && SELOS[cf.resposta] ? SELOS[cf.resposta] : ['Lembrete enviado', 'idle'];
-    var b = el('span', 'seal', s[0]);
-    b.setAttribute('data-tone', s[1]);
+    var s = C.confirmationState(cf);
+    if (!s) return null;
+    var b = el('span', 'seal', s.label);
+    b.setAttribute('data-tone', s.tone);
     return b;
   }
 
@@ -133,6 +128,8 @@
     var box = el('div', 'item__actions');
     function normal() {
       box.textContent = '';
+      var cf = C.confirmationState(c.confirmacao);
+      if (!(cf && cf.answered)) box.appendChild(button(cf ? 'Reenviar confirmação' : 'Enviar confirmação', null, function (ev) { sendConfirmation(c, box, ev.currentTarget); }));
       box.appendChild(button('Remarcar', null, function () { startReschedule(c); }));
       if (C.canCharge(fin, userType)) box.appendChild(button('Cobrar', null, function () { openCharge(c.id); }));
       box.appendChild(button('Cancelar', 'btn--danger', ask));
@@ -146,6 +143,28 @@
     normal();
     return box;
   }
+
+  function sendConfirmation(c, box, btn) {
+    Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
+    btn.textContent = 'Enviando…';
+    api.sendConfirmation({ agendamento_id: c.id, busca: lastLookup, usuario: userLabel || undefined }).then(function (r) {
+      if (r.status === 200 && r.body && r.body.ok) {
+        var notice = C.confirmationSent(r.body);
+        if (lastLookup) findPatient(lastLookup, seq, notice); else status('c-status', notice);
+        return;
+      }
+      box.textContent = '';
+      box.appendChild(el('span', 'item__ask', C.confirmationError(r.status, r.body)));
+      box.appendChild(button('Voltar', null, function () { box.parentNode.replaceChild(consultaActions(c), box); }));
+      B.fitHeight();
+    });
+  }
+
+  // Enquanto alguma consulta espera a resposta do paciente, a lista se atualiza a cada minuto.
+  setInterval(function () {
+    if (document.hidden || !lastLookup || booking) return;
+    if (consultas.some(function (c) { var cf = C.confirmationState(c.confirmacao); return cf && cf.waiting; })) findPatient(lastLookup, seq);
+  }, 60000);
 
   function doCancel(c, box, btn) {
     Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });

@@ -2,7 +2,10 @@ import type { FastifyInstance } from "fastify";
 import { chamarAsa } from "../asa.js";
 import * as C from "../confirmacao.js";
 import { pool } from "../db.js";
-import { tenantDaAutomacao } from "../tenant-auth.js";
+import { tenantComCredencial, tenantDaAutomacao } from "../tenant-auth.js";
+import * as N from "../normalizar.js";
+import { consultaDoPaciente, type Busca } from "./agendamento.js";
+import { falha, naoEncontrado } from "./consulta.js";
 
 // Confirmação de véspera (D-1). Quem chama é a automação da Kentro, com a chave da automação.
 // Gravações na Asa daqui: `disparados` (só depois que a mensagem saiu) e `agendamento-status`
@@ -23,22 +26,30 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
     const hoje = C.hojeEm(new Date());
     const { inicio, fim } = C.datasAlvo(hoje, cfg);
     const base = { ativo: cfg.ativo, teste: cfg.teste.ativo, data_inicio: inicio, data_fim: fim };
-    if (!cfg.ativo) return { ...base, total: 0, itens: [] };
 
-    const r = await chamarAsa<any>(t.credencial, "api-proximos-agendamento", { data_inicio: inicio, data_fim: fim, envio_final_semana: 0 });
-    if (!r.ok) {
-      req.log.warn({ tenant: t.id, erro: r.erro, status: r.status }, "confirmação: a Asa não devolveu os próximos agendamentos");
-      return reply.code(502).send({ erro: r.erro });
+    // Rodada de véspera só com o envio automático ligado. Os pedidos manuais (botão do atendente)
+    // saem sempre: já foram conferidos (paciente, telefone, modo teste) quando foram pedidos.
+    let daAsa: C.ConsultaD1[] = [];
+    if (cfg.ativo) {
+      const r = await chamarAsa<any>(t.credencial, "api-proximos-agendamento", { data_inicio: inicio, data_fim: fim, envio_final_semana: 0 });
+      if (!r.ok) {
+        req.log.warn({ tenant: t.id, erro: r.erro, status: r.status }, "confirmação: a Asa não devolveu os próximos agendamentos");
+        return reply.code(502).send({ erro: r.erro });
+      }
+      daAsa = C.proximos(r.dados).filter((c) => c.data >= inicio && c.data <= fim);
     }
-    const daAsa = C.proximos(r.dados).filter((c) => c.data >= inicio && c.data <= fim);
     const porId = new Map(daAsa.map((c) => [c.agendamento_id, c]));
     // Modo teste: só entram os telefones permitidos. Os demais nem são gravados, para saírem
     // normalmente quando o teste for desligado.
     const permitidos = new Set(cfg.teste.telefones);
     const entram = cfg.teste.ativo ? daAsa.filter((c) => c.telefone && permitidos.has(c.telefone)) : daAsa;
 
+    type Reservada = {
+      agendamento_id: string; origem: string; telefone: string; data: string; hora: string | null;
+      prestador: string | null; nome: string | null; procedimento: string | null;
+    };
     const db = await pool!.connect();
-    let reservadas: { agendamento_id: string }[];
+    let reservadas: Reservada[];
     try {
       await db.query("BEGIN");
       for (const c of entram) {
@@ -53,22 +64,28 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
         "UPDATE confirmacoes SET estado = 'pendente', atualizado_em = now() WHERE tenant_id = $1 AND estado = 'reservado' AND reservado_ate < now()",
         [t.id],
       );
-      // Consulta que saiu da lista da Asa (cancelada ou já disparada por outro meio) não é enviada.
+      // Consulta da véspera que saiu da lista da Asa (cancelada ou já disparada por outro meio) não é enviada.
       const ids = [...porId.keys()];
-      await db.query(
-        `UPDATE confirmacoes SET estado = 'ignorado', erro = 'SAIU_DA_AGENDA', atualizado_em = now()
-         WHERE tenant_id = $1 AND estado = 'pendente' AND data BETWEEN $2 AND $3 AND NOT (agendamento_id = ANY($4::text[]))`,
-        [t.id, inicio, fim, ids],
-      );
-      const res = await db.query<{ agendamento_id: string }>(
+      if (cfg.ativo) {
+        await db.query(
+          `UPDATE confirmacoes SET estado = 'ignorado', erro = 'SAIU_DA_AGENDA', atualizado_em = now()
+           WHERE tenant_id = $1 AND origem = 'automatica' AND estado = 'pendente' AND data BETWEEN $2 AND $3
+             AND NOT (agendamento_id = ANY($4::text[]))`,
+          [t.id, inicio, fim, ids],
+        );
+      }
+      // Manuais primeiro: alguém está esperando por elas.
+      const res = await db.query<Reservada>(
         `UPDATE confirmacoes SET estado = 'reservado', reservado_ate = now() + interval '${RESERVA_MIN} minutes',
                 tentativas = tentativas + 1, atualizado_em = now()
          WHERE (tenant_id, agendamento_id) IN (
            SELECT tenant_id, agendamento_id FROM confirmacoes
-           WHERE tenant_id = $1 AND estado = 'pendente' AND data BETWEEN $2 AND $3 AND agendamento_id = ANY($4::text[])
-           ORDER BY data, hora LIMIT $5 FOR UPDATE SKIP LOCKED)
-         RETURNING agendamento_id`,
-        [t.id, inicio, fim, ids, cfg.lote],
+           WHERE tenant_id = $1 AND estado = 'pendente' AND (
+             (origem = 'manual' AND data >= $6::date)
+             OR ($7 AND origem = 'automatica' AND data BETWEEN $2 AND $3 AND agendamento_id = ANY($4::text[])))
+           ORDER BY (origem = 'manual') DESC, data, hora LIMIT $5 FOR UPDATE SKIP LOCKED)
+         RETURNING agendamento_id, origem, telefone, to_char(data, 'YYYY-MM-DD') AS data, hora, prestador, nome, procedimento`,
+        [t.id, inicio, fim, ids, cfg.lote, hoje, cfg.ativo],
       );
       reservadas = res.rows;
       await db.query("COMMIT");
@@ -79,22 +96,98 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
       db.release();
     }
 
-    const itens = reservadas.map(({ agendamento_id }) => {
-      const c = porId.get(agendamento_id)!;
+    const itens = reservadas.map((row) => {
+      const c: C.ConsultaD1 = porId.get(row.agendamento_id) ?? {
+        agendamento_id: row.agendamento_id, data: row.data, hora: row.hora, prestador: row.prestador, paciente: row.nome,
+        telefone: row.telefone, clinica: null, especialidade: null, procedimento: row.procedimento, endereco: null,
+      };
       const v = C.varsDa(c, hoje, t.nome);
       return {
-        agendamento_id,
+        agendamento_id: row.agendamento_id,
         telefone: c.telefone,
         pais: "BR",
         nome: v.nome,
         data: c.data,
         hora: c.hora,
+        origem: row.origem,
         texto: C.preencher(cfg.textos.mensagem, v),
         template: C.variaveisTemplate(v, cfg.template.parametros),
       };
     });
-    req.log.info({ tenant: t.id, inicio, fim, na_asa: daAsa.length, lote: itens.length, teste: cfg.teste.ativo }, "confirmação: lote entregue");
+    const manuais = itens.filter((i) => i.origem === "manual").length;
+    req.log.info({ tenant: t.id, inicio, fim, na_asa: daAsa.length, lote: itens.length, manuais, teste: cfg.teste.ativo }, "confirmação: lote entregue");
     return { ...base, total: itens.length, itens };
+  });
+
+  // Botão "Enviar confirmação" do atendente: põe a consulta na fila e aciona a automação de disparo
+  // na hora (captura de webhook da Kentro). A consulta precisa ser futura e do paciente buscado.
+  app.post<{ Body: { agendamento_id?: unknown; busca?: Busca; usuario?: unknown } }>("/v1/confirmacao/enviar", async (req, reply) => {
+    const id = String(req.body?.agendamento_id ?? "");
+    if (!idValido(id)) return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
+    const ctx = await tenantComCredencial(req, reply);
+    if (!ctx) return;
+    const { tenant, credencial } = ctx;
+    const busca = req.body?.busca;
+
+    const cons = await consultaDoPaciente(credencial, busca, id);
+    if (!cons.ok) return reply.code(cons.status).send({ erro: cons.erro });
+    const hoje = C.hojeEm(new Date());
+    if (!cons.consulta.data || cons.consulta.data < hoje) return reply.code(409).send({ erro: "CONSULTA_PASSADA" });
+
+    // Telefone e nome do cadastro da Asa, não da tela.
+    const cpf = String(busca?.cpf ?? "").replace(/\D/g, "");
+    const tel = N.telefoneAsa(String(busca?.telefone ?? ""));
+    const rp = await chamarAsa<any>(credencial, "api-agendamento-paciente-instituicao", cpf.length === 11 ? { cpf } : { telefone: tel ?? "" });
+    if (!rp.ok && !naoEncontrado(rp)) return falha(reply, rp);
+    const pac = rp.ok ? N.paciente(rp.dados) : null;
+    const telefone = C.telefoneKentro(String(pac?.telefone ?? ""));
+    if (!telefone) return reply.code(422).send({ erro: "SEM_TELEFONE" });
+
+    const { rows: cfgRows } = await pool!.query<{ confirmacao: unknown; disparo_url: string | null }>(
+      "SELECT confirmacao, disparo_url FROM tenants WHERE id = $1",
+      [tenant.id],
+    );
+    const cfg = C.lerConfig(cfgRows[0]?.confirmacao);
+    if (cfg.teste.ativo && !cfg.teste.telefones.includes(telefone)) return reply.code(409).send({ erro: "MODO_TESTE" });
+
+    const { rows: atual } = await pool!.query<{ estado: string; resposta: string | null }>(
+      "SELECT estado, resposta FROM confirmacoes WHERE tenant_id = $1 AND agendamento_id = $2",
+      [tenant.id, id],
+    );
+    if (atual[0]?.estado === "respondido") return reply.code(409).send({ erro: "JA_RESPONDIDA", resposta: atual[0].resposta });
+    if (atual[0]?.estado === "reservado") return reply.code(409).send({ erro: "EM_ENVIO" });
+
+    const usuario = String(req.body?.usuario ?? "").slice(0, 120) || null;
+    await pool!.query(
+      `INSERT INTO confirmacoes (tenant_id, agendamento_id, telefone, data, hora, prestador, estado, origem, nome, procedimento, solicitado_por)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pendente', 'manual', $7, $8, $9)
+       ON CONFLICT (tenant_id, agendamento_id) DO UPDATE SET
+         telefone = EXCLUDED.telefone, data = EXCLUDED.data, hora = EXCLUDED.hora, prestador = EXCLUDED.prestador,
+         estado = 'pendente', origem = 'manual', nome = EXCLUDED.nome, procedimento = EXCLUDED.procedimento,
+         solicitado_por = EXCLUDED.solicitado_por, tentativas = 0, erro = NULL, reservado_ate = NULL, atualizado_em = now()`,
+      [
+        tenant.id, id, telefone, cons.consulta.data, cons.consulta.hora, cons.consulta.prestador,
+        C.primeiroNome(pac?.nome ?? null) || null, cons.consulta.procedimentos.join(", ") || null, usuario,
+      ],
+    );
+
+    const url = cfgRows[0]?.disparo_url;
+    let disparo: "imediato" | "proxima_rodada" | "falhou" = "proxima_rodada";
+    if (url) {
+      try {
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ origem: "manual" }),
+          signal: AbortSignal.timeout(10000),
+        });
+        disparo = r.ok ? "imediato" : "falhou";
+      } catch {
+        disparo = "falhou";
+      }
+    }
+    req.log.info({ tenant: tenant.id, agendamento: id, usuario, disparo }, "confirmação manual pedida");
+    return { ok: true, disparo };
   });
 
   // Resultado da rodada. Só o que saiu é marcado em `disparados` na Asa, que não tem volta.

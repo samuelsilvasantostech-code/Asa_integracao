@@ -93,6 +93,18 @@ export async function adminRoutes(app: FastifyInstance) {
     return { agendamentos: rows };
   });
 
+  // Captura de webhook da Kentro que roda a automação de disparo na hora (botão "Enviar confirmação").
+  // Só aceita o formato de captura da Kentro: o Conector faz POST nesse endereço.
+  app.put<{ Params: { id: string }; Body: { url?: string } }>("/admin/tenants/:id/disparo", async (req, reply) => {
+    const url = String(req.body?.url ?? "").trim();
+    if (url && !/^https:\/\/[a-z0-9.-]+\/webhookcapture\/capture\/[A-Za-z0-9._~-]{8,140}$/.test(url)) {
+      return reply.code(400).send({ erro: "URL_INVALIDA" });
+    }
+    const { rowCount } = await pool!.query("UPDATE tenants SET disparo_url = $1, atualizado_em = now() WHERE id = $2", [url || null, req.params.id]);
+    if (!rowCount) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+    return { ok: true, disparo_url: url || null };
+  });
+
   // Gera uma chave nova e invalida a anterior.
   app.post<{ Params: { id: string } }>("/admin/tenants/:id/rotacionar-chave", async (req, reply) => {
     const chave = "asa_" + randomBytes(24).toString("base64url");

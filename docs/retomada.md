@@ -11,6 +11,15 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.16.6**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
+## 30/10: "Enviar confirmação" pelo atendente (0.17.0)
+
+- Botão **Enviar confirmação** (ou Reenviar) na consulta futura: no painel lateral da Agenda em tela cheia e nos cartões da aba Consultas do painel da conversa.
+- `POST /v1/confirmacao/enviar`: confere que a consulta é futura e do paciente buscado, pega o celular do cadastro da Asa, respeita o modo teste, grava a consulta em `confirmacoes` como `origem = manual` (migração 008) e aciona a captura de webhook da automação de disparo (`tenants.disparo_url`, cadastrada por `PUT /admin/tenants/:id/disparo`). Sem captura, sai na próxima rodada.
+- O lote passa a trazer os pedidos manuais primeiro, mesmo com o envio automático de véspera desligado.
+- Andamento visível: selo e linha "Confirmação" com "Confirmação na fila", "Aguardando resposta", "Confirmada pelo paciente", "Pediu para remarcar", "Cancelada pelo paciente" ou "Confirmação não entregue". Agenda (`/v1/agenda/dia`) e aba Consultas se atualizam sozinhas a cada minuto enquanto há resposta pendente.
+- Correção: desde a 0.15.0 o resumo do painel lateral não sumia ao abrir uma consulta (`.side__empty` com `display:flex` vencia o `hidden`).
+- **Para funcionar de ponta a ponta falta montar a confirmação na Kentro** (fluxos de disparo e resposta, template aprovado na fila 19, chave da automação, captura de webhook).
+
 ## 30/10: paciente cadastrado precisa de nome, nascimento e telefone (0.16.6)
 
 - **Validado pelo usuário em 30/10: a marcação funciona** (paciente cadastrado, tela mostra a consulta).

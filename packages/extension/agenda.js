@@ -331,8 +331,11 @@
     body.appendChild(who);
     if (a.procedimentos.length) body.appendChild(el('span', 'slot__proc', a.procedimentos.join(', ')));
     b.appendChild(body);
-    var seal = el('span', 'seal', info.label);
-    seal.setAttribute('data-tone', info.tone);
+    // Consulta ainda "agendada" com confirmação pedida: o selo mostra que espera a resposta.
+    var cf = C.confirmationState(a.confirmacao);
+    var seal = el('span', 'seal', info.key === 'agendado' && cf ? cf.label : info.label);
+    seal.setAttribute('data-tone', info.key === 'agendado' && cf ? cf.tone : info.tone);
+    if (cf) b.title = info.label + ' · ' + cf.label;
     b.appendChild(seal);
     b.addEventListener('click', function () { markSelected(li); showAppt(a, c); });
     li.appendChild(b);
@@ -374,6 +377,8 @@
     if (a.procedimentos.length) fact(dl, 'Procedimento', a.procedimentos.join(', '));
     if (a.paciente.etiqueta) fact(dl, 'Etiqueta', a.paciente.etiqueta);
     if (a.obs) fact(dl, 'Observação', a.obs);
+    var cf = C.confirmationState(a.confirmacao);
+    if (cf) fact(dl, 'Confirmação', cf.label);
     fact(dl, 'Nº na Asa', a.id);
     status('sa-status', '');
     apptActions(a, info, c);
@@ -390,6 +395,10 @@
     if (info.key !== 'ausente' && info.key !== 'atendido' && c.day <= today) {
       box.appendChild(button('Marcar falta', null, function (ev) { setStatus(a, 'ausente', ev.currentTarget, c); }));
     }
+    var cf = C.confirmationState(a.confirmacao);
+    if (c.day >= today && a.paciente.telefone && info.key !== 'confirmado' && info.key !== 'atendido' && !(cf && cf.answered)) {
+      box.appendChild(button(cf ? 'Reenviar confirmação' : 'Enviar confirmação', null, function (ev) { sendConfirmation(a, ev.currentTarget, c); }));
+    }
     if (c.day >= today && a.paciente.telefone) box.appendChild(button('Remarcar', null, function (ev) { rescheduleFromAppt(a, ev.currentTarget); }));
     if (a.paciente.telefone && C.canCharge(fin, userType)) box.appendChild(button('Lançar cobrança', null, function (ev) { chargeFromAppt(a, ev.currentTarget, c); }));
     if (c.day >= today) {
@@ -400,6 +409,33 @@
         box.appendChild(button('Não', null, function () { apptActions(a, info, c); }));
       }));
     }
+  }
+
+  // Pede a confirmação ao paciente (mensagem com os botões Confirmar, Remarcar e Cancelar).
+  function sendConfirmation(a, btn, c) {
+    var box = $('sa-actions');
+    Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
+    btn.textContent = 'Enviando…';
+    api.sendConfirmation({ agendamento_id: a.id, busca: { telefone: a.paciente.telefone }, usuario: userLabel || undefined }).then(function (r) {
+      if (r.status === 200 && r.body && r.body.ok) {
+        a.confirmacao = { estado: 'fila', resposta: null };
+        showAppt(a, c);
+        status('sa-status', C.confirmationSent(r.body));
+        if (cols.indexOf(c) >= 0) renderCol(c);
+        return;
+      }
+      apptActions(a, C.statusInfo(a.status), c);
+      status('sa-status', C.confirmationError(r.status, r.body), 'err');
+    });
+  }
+
+  // Enquanto houver confirmação esperando resposta na tela, a agenda se atualiza sozinha a cada minuto.
+  function refreshWaiting() {
+    if (document.hidden || !$('s-book').hidden || !$('s-review').hidden) return;
+    var waiting = cols.some(function (c) {
+      return c.data && (c.data.agendados || []).some(function (a) { var cf = C.confirmationState(a.confirmacao); return cf && cf.waiting; });
+    });
+    if (waiting) loadView();
   }
 
   var DONE = { confirmado: 'Presença confirmada na Asa.', ausente: 'Falta registrada na Asa.', cancelado: 'Consulta cancelada na Asa.' };
@@ -857,6 +893,7 @@
     setView(recall('view'));
     side('s-empty');
     root.setInterval(tickNow, 60000);
+    root.setInterval(refreshWaiting, 60000);
     connect();
   });
 })(this);

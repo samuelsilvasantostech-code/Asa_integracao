@@ -130,6 +130,40 @@
   }
 
   // Resposta de POST /v1/agendamentos → mensagem para o atendente.
+  // Andamento da confirmação (véspera ou botão do atendente) → selo. null = nada a mostrar.
+  var CONFIRMATION = {
+    confirmar: ['Confirmada pelo paciente', 'ok'],
+    remarcar: ['Pediu para remarcar', 'warn'],
+    cancelar: ['Cancelada pelo paciente', 'err']
+  };
+  function confirmationState(cf) {
+    if (!cf) return null;
+    if (cf.estado === 'respondido' && CONFIRMATION[cf.resposta]) return { label: CONFIRMATION[cf.resposta][0], tone: CONFIRMATION[cf.resposta][1], waiting: false, answered: true };
+    if (cf.estado === 'enviado') return { label: 'Aguardando resposta', tone: 'idle', waiting: true, answered: false };
+    if (cf.estado === 'fila') return { label: 'Confirmação na fila', tone: 'idle', waiting: true, answered: false };
+    if (cf.estado === 'falhou') return { label: 'Confirmação não entregue', tone: 'err', waiting: false, answered: false };
+    return null;
+  }
+
+  function confirmationError(status, body) {
+    var erro = body && body.erro;
+    if (erro === 'MODO_TESTE') return 'A confirmação está em modo teste e o telefone deste paciente não está na lista de teste (tela Confirmação Asa).';
+    if (erro === 'SEM_TELEFONE') return 'O cadastro do paciente na Asa está sem um celular válido para receber a mensagem.';
+    if (erro === 'JA_RESPONDIDA') return 'O paciente já respondeu a confirmação desta consulta.';
+    if (erro === 'EM_ENVIO') return 'A confirmação desta consulta está saindo agora. Aguarde um instante.';
+    if (erro === 'CONSULTA_PASSADA') return 'Só é possível pedir confirmação de consulta futura.';
+    if (erro === 'CONSULTA_NAO_ENCONTRADA') return 'Essa consulta não está mais na lista do paciente na Asa.';
+    return readError(status, body);
+  }
+
+  // Resultado do pedido de confirmação → texto para o atendente.
+  function confirmationSent(body) {
+    var d = body && body.disparo;
+    if (d === 'imediato') return 'Confirmação enviada ao paciente. A resposta aparece aqui quando ele tocar num dos botões.';
+    if (d === 'falhou') return 'Confirmação na fila. O envio imediato não respondeu; ela sai na próxima rodada da automação.';
+    return 'Confirmação na fila. Ela sai na próxima rodada da automação.';
+  }
+
   function bookingError(status, body) {
     var erro = body && body.erro;
     if (erro === 'HORARIO_INDISPONIVEL') return 'Esse horário acabou de ser ocupado. Escolha outro.';
@@ -275,7 +309,7 @@
     return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   }
 
-  var api = { queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, bookingError: bookingError, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
+  var api = { queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, bookingError: bookingError, confirmationState: confirmationState, confirmationError: confirmationError, confirmationSent: confirmationSent, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
     todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, weekDays: weekDays, weekLabel: weekLabel, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
     fold: fold, paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError };
