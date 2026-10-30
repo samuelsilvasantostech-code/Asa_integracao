@@ -79,7 +79,7 @@ L = leitura, **E = grava na Asa**.
 
 | Rota | Tipo | Parâmetros | Retorno |
 |---|---|---|---|
-| `api-agendamento-agendar-instituicao` | **E** | `prestador_id`, `data` (`DD/MM/YYYY`), `horario`, `agenda_id`, `convenio_id`, `convenio_procedimento_id`, paciente (`paciente_id` ou `cpf`+`nome`+`nascimento`+`telefone`); `agendamento` para **remarcar**; `obs`, `ddi` | `{paciente, agendamento, setor, clínica, endereco}` |
+| `api-agendamento-agendar-instituicao` | **E** | `prestador_id`, `data` (`DD/MM/YYYY`), `horario`, `agenda_id`, `convenio_id`, `convenio_procedimento_id`, paciente: `nome`+`nascimento`+`telefone` **sempre obrigatórios** (mesmo com `paciente_id`; recusa "The given data was invalid." com HTTP de sucesso), mais `paciente_id` ou `cpf`; `agendamento` para **remarcar**; `obs`, `ddi` | `{paciente, agendamento, setor, clínica, endereco}` |
 | `api-agendamento-status` | **E** | `status` ∈ `confirmado, cancelado, desistencia, ausente, remarcar`; `agendamento` **ou** `telefone` | dados do agendamento. Com `telefone`, atua no agendamento do próximo dia útil (sexta → segunda; feriado → próximo dia útil) |
 | `api-proximos-agendamento` | L | `data_inicio`, `data_fim` (`YYYY-MM-DD`), `envio_final_semana` (1 = sexta pega segunda) | `agendamentos[]` **ainda não disparados**: `{id, data, profissional, paciente, telefone1, cpf, especialidade, clinica, clinica_endereco, procedimentos}` |
 | `api-agendamento-disparados` | **E** | `agendamentos[]` (até 50 ids) | `{status}` — marca como já disparado; some de `proximos-agendamento` |

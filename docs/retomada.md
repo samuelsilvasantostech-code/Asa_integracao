@@ -11,6 +11,11 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.16.5**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
+## 30/10: paciente cadastrado precisa de nome, nascimento e telefone (0.16.6)
+
+- A 0.16.5 mostrou o campo recusado: com `paciente_id`, a Asa exige também `nome`, `nascimento` e `telefone` ("preencha os campos indicados com *"). A marcação validada na 0.7 (nº 42655586) foi de paciente novo, que já manda esses campos.
+- 0.16.6: para paciente cadastrado, o Conector relê o cadastro na Asa (`paciente-instituicao`, pela busca de CPF/telefone que o painel agora envia), confere o id e manda nome, nascimento (AAAA-MM-DD, como no paciente novo), telefone e CPF **do próprio cadastro**, para não alterar o paciente. Cadastro sem nascimento ou telefone: `PACIENTE_INCOMPLETO`.
+
 ## 30/10: causa da marcação que "dava certo" sem gravar (0.16.5)
 
 - Diagnóstico da 0.16.4: a Asa respondeu em 383 ms com `"The given data was invalid."` (validação do Laravel), sem HTTP de erro. O Conector tratava isso como sucesso: era o "marcado" que não aparecia.

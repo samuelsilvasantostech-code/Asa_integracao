@@ -558,7 +558,7 @@
     var who;
     if (b.original && !(patient && patient.id)) { status('b-status', 'Para remarcar, o paciente precisa estar identificado na aba Paciente.', 'err'); return; }
     if (patient) {
-      b.patient = { paciente_id: patient.id };
+      b.patient = { paciente_id: patient.id, busca: lastLookup };
       who = patient.nome;
     } else {
       var np = C.newPatient({ nome: $('b-nome').value, cpf: $('b-cpf').value, nascimento: $('b-nasc').value, telefone: $('b-tel').value });

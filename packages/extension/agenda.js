@@ -702,7 +702,7 @@
     if (!b) return;
     var who;
     if (b.known) {
-      b.patient = { paciente_id: b.known.id };
+      b.patient = { paciente_id: b.known.id, busca: b.busca };
       who = b.known.nome;
     } else if (!$('sb-new').hidden) {
       var np = C.newPatient({ nome: $('sb-nome').value, cpf: $('sb-cpf').value, nascimento: $('sb-nasc').value, telefone: $('sb-tel').value });

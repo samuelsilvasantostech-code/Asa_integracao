@@ -136,6 +136,9 @@
     if (erro === 'AGENDAMENTO_INCERTO') return 'A Asa não confirmou e a consulta ainda não aparece na agenda do profissional. Ela pode ser gravada nos próximos instantes: aguarde um pouco e toque em "Conferir na Asa". Isso só confere, não marca de novo.' + (body.detalhe ? ' Diagnóstico: ' + body.detalhe + '.' : '');
     if (status === 0 && !erro) return 'O Conector não respondeu a tempo e a consulta pode ter sido gravada. Toque em "Conferir na Asa": isso só confere, não marca de novo.';
     if (erro === 'AGENDAMENTO_SEM_NUMERO') return 'A Asa respondeu sem o número da consulta' + (body.msg ? ' ("' + body.msg + '")' : '') + ', então não dá para garantir que foi marcada. Confira na agenda do profissional antes de tentar de novo.';
+    if (erro === 'PACIENTE_INCOMPLETO') return 'O cadastro do paciente na Asa está sem ' + ((body.faltam || []).join(' e ') || 'dados obrigatórios') + ', que a Asa exige para marcar. Complete o cadastro na Asa e tente de novo.';
+    if (erro === 'PACIENTE_NAO_CONFERE') return 'O paciente escolhido não confere com o cadastro da Asa. Busque o paciente de novo e tente outra vez.';
+    if (erro === 'BUSCA_AUSENTE') return 'Busque o paciente de novo (por CPF ou telefone) antes de marcar.';
     if (erro === 'AGENDAMENTO_EM_ANDAMENTO') return 'Este agendamento já está sendo gravado. Aguarde alguns segundos.';
     if (erro === 'PACIENTE_INVALIDO') return 'Confira nome, CPF, nascimento e telefone do paciente.';
     if (erro === 'DADOS_INVALIDOS') return 'Faltam dados do agendamento. Escolha de novo convênio e procedimento.';

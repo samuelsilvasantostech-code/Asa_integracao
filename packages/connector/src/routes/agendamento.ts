@@ -38,6 +38,7 @@ interface PedidoAgendamento extends Vaga {
   convenio_procedimento_id?: string;
   paciente_id?: string;
   paciente?: { nome?: string; cpf?: string; nascimento?: string; telefone?: string };
+  busca?: Busca; // como o paciente cadastrado foi achado (CPF ou telefone): o Conector relê o cadastro na Asa
   obs?: string;
   usuario?: string; // quem pediu no Kentro, só para a trilha
   remarcar?: { agendamento_id?: string; busca?: Busca }; // presente = remarcar esta consulta
@@ -163,6 +164,28 @@ async function consultaDoPaciente(
   return { ok: false, erro: "CONSULTA_NAO_ENCONTRADA", status: 409 };
 }
 
+// A Asa exige nome, nascimento e telefone na marcação mesmo com paciente_id ("preencha os campos
+// indicados com *"). Os dados vêm do próprio cadastro na Asa, relido pela busca, e não da tela:
+// assim a marcação não altera o cadastro do paciente.
+async function dadosDoCadastro(
+  credencial: CredencialAsa,
+  busca: Busca | undefined,
+  pacienteId: string,
+): Promise<{ ok: true; campos: Record<string, string> } | { ok: false; erro: string; status: number; faltam?: string[]; r?: Extract<RespostaAsa<unknown>, { ok: false }> }> {
+  const cpfBusca = String(busca?.cpf ?? "").replace(/\D/g, "");
+  const telBusca = busca?.telefone ? N.telefoneAsa(String(busca.telefone)) : null;
+  if (cpfBusca.length !== 11 && !telBusca) return { ok: false, erro: "BUSCA_AUSENTE", status: 400 };
+  const r = await chamarAsa<any>(credencial, "api-agendamento-paciente-instituicao", cpfBusca.length === 11 ? { cpf: cpfBusca } : { telefone: telBusca! });
+  if (!r.ok && !naoEncontrado(r)) return { ok: false, erro: r.erro, status: 502, r };
+  const p = r.ok ? N.paciente(r.dados) : null;
+  if (!p || p.id !== pacienteId) return { ok: false, erro: "PACIENTE_NAO_CONFERE", status: 409 };
+  const telefone = p.telefone ? N.telefoneAsa(p.telefone) : null;
+  const cpf = String(p.cpf ?? "").replace(/\D/g, "");
+  const faltam = [!p.nascimento && "nascimento", !telefone && "telefone"].filter(Boolean) as string[];
+  if (faltam.length) return { ok: false, erro: "PACIENTE_INCOMPLETO", status: 422, faltam };
+  return { ok: true, campos: { paciente_id: pacienteId, nome: p.nome, nascimento: p.nascimento!, telefone: telefone!, ...(cpf.length === 11 ? { cpf } : {}) } };
+}
+
 export async function agendamentoRoutes(app: FastifyInstance) {
   app.get<{ Querystring: Vaga }>("/v1/agenda/convenios", async (req, reply) => {
     if (!vagaValida(req.query)) return reply.code(400).send({ erro: "VAGA_INVALIDA" });
@@ -235,6 +258,13 @@ export async function agendamentoRoutes(app: FastifyInstance) {
     const ctx = await tenantComCredencial(req, reply);
     if (!ctx) return;
     const { tenant, credencial } = ctx;
+
+    // Paciente cadastrado: a Asa exige também nome, nascimento e telefone, relidos do cadastro dela.
+    if (paciente.paciente_id) {
+      const d = await dadosDoCadastro(credencial, b.busca ?? remarcar?.busca, paciente.paciente_id);
+      if (!d.ok) return d.r ? falha(reply, d.r) : reply.code(d.status).send({ erro: d.erro, faltam: d.faltam });
+      paciente = d.campos;
+    }
 
     const reserva = await reservar(tenant.id, chave, {
       tipo: remarcar ? "remarcar" : "criar",
