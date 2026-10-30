@@ -93,8 +93,8 @@ async function falhaAoGravar(
 ) {
   if (r.erro === "ASA_FORA_DO_AR" && r.status === 0) {
     await pool!.query("UPDATE agendamentos SET situacao = 'incerto', atualizado_em = now() WHERE tenant_id = $1 AND chave = $2", [tenantId, chave]);
-    req.log.error({ tenant: tenantId, chave }, "gravação sem resposta da Asa");
-    return reply.code(504).send({ erro: "AGENDAMENTO_INCERTO" });
+    req.log.error({ tenant: tenantId, chave, detalhe: r.msg }, "gravação sem resposta da Asa");
+    return reply.code(504).send({ erro: "AGENDAMENTO_INCERTO", detalhe: r.msg });
   }
   await liberar(tenantId, chave);
   req.log.warn({ erro: r.erro, status: r.status, msg: r.msg }, "Asa recusou a gravação");

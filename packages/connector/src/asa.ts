@@ -47,14 +47,17 @@ export async function chamarAsa<T>(
   const url = `${BASE}/${rota}${qs.size ? "?" + qs.toString() : ""}`;
 
   let resp: Response;
+  const inicio = Date.now();
   try {
     resp = await fetch(url, {
       method: "POST",
       headers: { Authorization: authorization(credencial), "User-Agent": USER_AGENT, Accept: "application/json" },
       signal: AbortSignal.timeout(15000),
     });
-  } catch {
-    return { ok: false, erro: "ASA_FORA_DO_AR", status: 0 };
+  } catch (err: any) {
+    // Distingue tempo esgotado (TimeoutError) de conexão recusada ou cortada (causa com código de rede).
+    const causa = err?.cause?.code ?? err?.cause?.name ?? "";
+    return { ok: false, erro: "ASA_FORA_DO_AR", status: 0, msg: `${err?.name ?? "erro"}${causa ? " " + causa : ""} em ${Date.now() - inicio} ms` };
   }
 
   const texto = await resp.text();

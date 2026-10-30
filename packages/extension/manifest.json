@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "kentro.asa-saude",
   "name": "Asa Saúde",
-  "version": "0.16.1",
+  "version": "0.16.2",
   "description": "Pacientes, consultas e agenda da clínica na Asa Saúde: no atendimento e em tela cheia.",
   "author": {
     "name": "Kentro"
