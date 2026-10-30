@@ -14,6 +14,13 @@ const POR_PAGINA = 100; // a Asa pagina de 100 em 100
 const MAX_PAGINAS = 60;
 const LOTE = 6;
 const cache = new Map<string, { em: number; exames: N.Exame[] }>();
+// Cada busca digitada vira uma entrada: sem teto, a memória do Conector (512 MB, todas as clínicas) cresce sem parar.
+const MAX_CACHE = 50;
+function guardar(chave: string, exames: N.Exame[]) {
+  cache.delete(chave);
+  cache.set(chave, { em: Date.now(), exames });
+  while (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value!);
+}
 
 export async function examesRoutes(app: FastifyInstance) {
   // Procedimentos com agenda online, a lista inteira (até 6.000), em ordem alfabética: o painel mostra numa
@@ -45,7 +52,7 @@ export async function examesRoutes(app: FastifyInstance) {
       }
     }
     const exames = [...porId.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-    if (completa) cache.set(chave, { em: Date.now(), exames });
+    if (completa) guardar(chave, exames);
     req.log.info({ tenant: ctx.tenant.id, itens: exames.length, completa }, "exames: lista carregada da Asa");
     return { exames, completa };
   });

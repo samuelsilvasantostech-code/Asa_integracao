@@ -23,6 +23,9 @@ export function naoEncontrado(r: RespostaAsa<any>): boolean {
   return r.erro === "ASA_RECUSOU" && /encontrad|localizad|n[ãa]o possui|nenhum/i.test(r.msg ?? "");
 }
 
+const AGENDA_CACHE_MS = 5 * 60 * 1000;
+const cacheAgenda = new Map<string, { em: number; corpo: unknown }>();
+
 export async function consultaRoutes(app: FastifyInstance) {
   // Paciente da conversa (por telefone ou CPF) e os próximos agendamentos dele.
   app.get<{ Querystring: { telefone?: string; cpf?: string } }>("/v1/paciente", async (req, reply) => {
@@ -75,12 +78,15 @@ export async function consultaRoutes(app: FastifyInstance) {
   });
 
   // Especialidades e prestadores com agenda online.
+  // Muda pouco e é pedida a cada abertura do painel e da Agenda: fica 5 min por clínica.
   app.get("/v1/agenda", async (req, reply) => {
-    const credencial = await credencialDaRequisicao(req, reply);
-    if (!credencial) return;
-    const r = await chamarAsa<any>(credencial, "api-agendamento");
+    const ctx = await tenantComCredencial(req, reply);
+    if (!ctx) return;
+    const guardado = cacheAgenda.get(ctx.tenant.id);
+    if (guardado && Date.now() - guardado.em < AGENDA_CACHE_MS) return guardado.corpo;
+    const r = await chamarAsa<any>(ctx.credencial, "api-agendamento");
     if (!r.ok) return falha(reply, r);
-    return {
+    const corpo = {
       especialidades: N.lista(r.dados.especialidades).map((e: any) => ({ id: String(e.id), nome: String(e.descricao ?? "") })),
       prestadores: N.lista(r.dados.prestadores).map((p: any) => ({
         id: String(p.id),
@@ -90,6 +96,8 @@ export async function consultaRoutes(app: FastifyInstance) {
         ordem_chegada: !!Number(p.ordem_chegada),
       })),
     };
+    cacheAgenda.set(ctx.tenant.id, { em: Date.now(), corpo });
+    return corpo;
   });
 
   // Dias com atendimento do prestador (até 60 dias à frente).
