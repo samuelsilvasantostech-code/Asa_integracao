@@ -7,9 +7,19 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Item | Situação |
 |---|---|
 | Último commit | **0.16.0**: confirmação configurável e revisão de segurança, no GitHub |
-| Conector no Doca | **0.18.0** (deploy em 30/10) |
+| Conector no Doca | **0.18.0** (deploy em 30/10); **0.18.1** no GitHub, aguardando deploy |
 | Instalação 29 (`apresentacao`) | **0.18.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
+
+## 30/10: busca de exame num campo só (0.18.1)
+
+- No painel da conversa, Agenda › Por exame: o campo de texto e a lista de seleção viraram um campo só, com lupa e botão de limpar. A lista de resultados abre logo abaixo enquanto se digita.
+- Detalhes da busca:
+  - aceita palavras em qualquer ordem e ignora acentos;
+  - quem começa com o termo digitado vem primeiro;
+  - mostra até 60 resultados;
+  - funciona pelo teclado: setas, Enter e Esc.
+- Mudar o texto depois de escolher desfaz a escolha e os passos seguintes.
 
 ## 30/10: visual novo e Painel da clínica (0.18.0)
 

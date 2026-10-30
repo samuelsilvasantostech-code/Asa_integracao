@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde</title>
-<link rel="stylesheet" href="styles.css?v=0.18.0">
+<link rel="stylesheet" href="styles.css?v=0.18.1">
 </head>
 <body>
 <div class="app">
@@ -107,11 +107,16 @@
             </label>
           </div>
           <div id="a-by-exam" hidden>
-            <label class="field" id="ex-wrap">
-              <span>Exame ou procedimento</span>
-              <input id="ex-q" maxlength="60" placeholder="Digite para filtrar (ex.: hemograma)">
-              <select id="ex-sel"><option value="">Carregando…</option></select>
-            </label>
+            <div class="field" id="ex-wrap">
+              <label for="ex-q">Exame ou procedimento</label>
+              <div class="combo">
+                <svg class="combo__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>
+                <input id="ex-q" maxlength="60" autocomplete="off" spellcheck="false" placeholder="Buscar exame ou procedimento" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ex-list">
+                <button class="combo__clear" id="ex-clear" type="button" aria-label="Limpar a busca" hidden>×</button>
+              </div>
+              <ul class="combo__list" id="ex-list" role="listbox" aria-label="Procedimentos" hidden></ul>
+              <span class="combo__hint" id="ex-hint"></span>
+            </div>
             <label class="field" id="ex-conv-wrap" hidden>
               <span>Convênio</span>
               <select id="ex-conv"></select>
@@ -193,10 +198,10 @@
     </section>
   </main>
 </div>
-<script src="core.js?v=0.18.0"></script>
-<script src="api.js?v=0.18.0"></script>
-<script src="bridge.js?v=0.18.0"></script>
-<script src="cobranca.js?v=0.18.0"></script>
-<script src="app.js?v=0.18.0"></script>
+<script src="core.js?v=0.18.1"></script>
+<script src="api.js?v=0.18.1"></script>
+<script src="bridge.js?v=0.18.1"></script>
+<script src="cobranca.js?v=0.18.1"></script>
+<script src="app.js?v=0.18.1"></script>
 </body>
 </html>

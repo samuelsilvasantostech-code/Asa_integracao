@@ -598,3 +598,20 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .tip { position: fixed; z-index: 20; max-width: 300px; padding: 6px 9px; border-radius: var(--r-sm); background: var(--text); color: var(--bg); font-size: 12px; line-height: 1.35; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .18); }
 .tip[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .slot__btn { transition: none; } }
+
+/* ---------- busca de exame: um campo só, com lupa, e a lista logo abaixo ---------- */
+.combo { position: relative; display: flex; align-items: center; }
+.combo__icon { position: absolute; left: 10px; width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 2.2; stroke-linecap: round; pointer-events: none; }
+.combo:focus-within .combo__icon { stroke: var(--brand); }
+.field .combo input { flex: 1; min-width: 0; padding-left: 34px; padding-right: 32px; }
+.combo__clear { position: absolute; right: 4px; width: 26px; height: 26px; border: 0; border-radius: 50%; background: none; color: var(--muted); font: inherit; font-size: 17px; line-height: 1; cursor: pointer; }
+.combo__clear:hover { background: var(--surface); color: var(--text); }
+.combo__clear[hidden] { display: none; }
+.combo__list { list-style: none; margin: 2px 0 0; padding: 4px; max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); box-shadow: var(--lift); font-weight: 400; }
+.combo__list[hidden] { display: none; }
+.combo__opt { padding: 7px 9px; border-radius: 5px; color: var(--text); font-size: 13px; line-height: 1.3; cursor: pointer; }
+.combo__opt:hover { background: var(--surface); }
+.combo__opt[aria-selected="true"] { background: var(--brand-soft); color: var(--brand); }
+.combo__opt mark { background: none; color: inherit; font-weight: 700; }
+.combo__hint { font-weight: 400; font-size: 11.5px; }
+.combo__hint:empty { display: none; }

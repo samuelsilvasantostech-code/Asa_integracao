@@ -430,14 +430,18 @@
   function loadExams() {
     var e = exam;
     if (examList) { e.results = examList; renderExams(); return; }
-    $('ex-sel').textContent = '';
-    $('ex-sel').appendChild(option('', 'Carregando a lista da Asa…'));
-    $('ex-sel').disabled = true;
+    $('ex-q').value = '';
+    $('ex-clear').hidden = true;
+    $('ex-q').disabled = true;
+    $('ex-q').placeholder = 'Carregando a lista da Asa…';
+    $('ex-hint').textContent = '';
     fetchExams().then(function (r) {
       if (exam !== e) return;
+      $('ex-q').disabled = false;
+      $('ex-q').placeholder = 'Buscar exame ou procedimento';
       if (r.status !== 200 || !r.body) {
-        $('ex-sel').textContent = '';
-        $('ex-sel').appendChild(option('', 'Indisponível'));
+        $('ex-q').disabled = true;
+        $('ex-q').placeholder = 'Lista indisponível';
         status('a-status', C.readError(r.status, r.body), 'err');
         return;
       }
@@ -448,23 +452,111 @@
   }
 
   // O "tipo" da Asa não é confiável (exame de laboratório vem como "consulta"): lista única, em ordem
-  // alfabética, e o filtro digitado (sem acento) estreita na hora.
+  // alfabética. Um campo só: o que se digita (sem acento) filtra a lista logo abaixo, e o toque escolhe.
+  var COMBO_MAX = 60;
+  var combo = { list: [], active: -1 };
   function renderExams() {
-    var e = exam, sel = $('ex-sel'), term = C.fold($('ex-q').value.trim());
+    var e = exam;
     if (!e) return;
-    var list = e.results.filter(function (x) { return !term || C.fold(x.nome).indexOf(term) >= 0; });
-    sel.textContent = '';
-    sel.disabled = !e.results.length;
-    if (!e.results.length) { sel.appendChild(option('', 'Nenhum procedimento com agenda online')); B.fitHeight(); return; }
-    sel.appendChild(option('', !list.length ? 'Nada com esse nome' : term ? list.length + ' encontrado(s). Escolha…' : 'Escolha… (' + list.length + ' procedimentos)'));
-    list.forEach(function (x) { sel.appendChild(option(x.id, x.nome)); });
-    if (e.item && list.some(function (x) { return x.id === e.item.id; })) sel.value = e.item.id;
-    else if (term && list.length === 1) { sel.value = list[0].id; onExam(); }
+    var raw = $('ex-q').value.trim(), term = C.fold(raw);
+    $('ex-clear').hidden = !raw;
+    // Texto mudou depois de escolher: a escolha (e o que veio depois dela) deixa de valer.
+    if (e.item && raw !== e.item.nome) { e.item = null; e.insurance = null; hideFrom(0); closeBooking(); status('a-status', ''); }
+    if (!e.results.length) { $('ex-hint').textContent = 'Nenhum procedimento com agenda online.'; closeCombo(); B.fitHeight(); return; }
+    // Palavras em qualquer ordem: "glicose jejum" acha "Glicemia de jejum (glicose)".
+    var words = term.split(/\s+/).filter(Boolean);
+    var list = e.results.filter(function (x) {
+      var n = C.fold(x.nome);
+      return words.every(function (w) { return n.indexOf(w) >= 0; });
+    });
+    // Quem começa com o que foi digitado vem primeiro (sort estável: o resto segue alfabético).
+    if (term) list.sort(function (a, b) { return (C.fold(a.nome).indexOf(term) === 0 ? 0 : 1) - (C.fold(b.nome).indexOf(term) === 0 ? 0 : 1); });
+    combo.list = list;
+    combo.active = list.length ? 0 : -1;
+    $('ex-hint').textContent = e.item ? '' : !term ? e.results.length + ' procedimentos. Digite parte do nome.'
+      : !list.length ? 'Nada com esse nome. Tente outra palavra.'
+      : list.length + (list.length === 1 ? ' encontrado' : ' encontrados') + (list.length > COMBO_MAX ? '; mostrando os ' + COMBO_MAX + ' primeiros, continue digitando' : '') + '.';
+    if (e.item || document.activeElement !== $('ex-q')) { closeCombo(); B.fitHeight(); return; }
+    drawCombo(term);
+  }
+
+  function drawCombo(term) {
+    var ul = $('ex-list');
+    ul.textContent = '';
+    combo.list.slice(0, COMBO_MAX).forEach(function (x, i) {
+      var li = el('li', 'combo__opt');
+      li.id = 'ex-opt-' + i;
+      li.setAttribute('role', 'option');
+      mark(li, x.nome, term);
+      // mousedown: escolhe antes de o campo perder o foco (o blur fecha a lista).
+      li.addEventListener('mousedown', function (ev) { ev.preventDefault(); pickExam(x); });
+      ul.appendChild(li);
+    });
+    ul.hidden = !ul.children.length;
+    $('ex-q').setAttribute('aria-expanded', String(!ul.hidden));
+    activeOpt();
     B.fitHeight();
   }
 
-  function onExam() {
-    var e = exam, id = $('ex-sel').value;
+  // Realça o trecho digitado no nome, só com nós de texto (nada de HTML vindo da Asa).
+  function mark(li, nome, term) {
+    var i = term ? C.fold(nome).indexOf(term) : -1;
+    if (i < 0 || C.fold(nome).length !== nome.length) { li.textContent = nome; return; }
+    li.appendChild(document.createTextNode(nome.slice(0, i)));
+    li.appendChild(el('mark', null, nome.slice(i, i + term.length)));
+    li.appendChild(document.createTextNode(nome.slice(i + term.length)));
+  }
+
+  function activeOpt() {
+    var cur = null;
+    Array.prototype.forEach.call($('ex-list').children, function (li, i) {
+      li.setAttribute('aria-selected', String(i === combo.active));
+      if (i === combo.active) cur = li;
+    });
+    if (cur) { $('ex-q').setAttribute('aria-activedescendant', cur.id); cur.scrollIntoView({ block: 'nearest' }); }
+    else $('ex-q').removeAttribute('aria-activedescendant');
+  }
+
+  function closeCombo() {
+    $('ex-list').hidden = true;
+    $('ex-q').setAttribute('aria-expanded', 'false');
+    $('ex-q').removeAttribute('aria-activedescendant');
+  }
+
+  function comboKey(ev) {
+    var open = !$('ex-list').hidden, n = Math.min(combo.list.length, COMBO_MAX);
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      if (!open) { if (!exam || !exam.item) renderExams(); return; }
+      if (!n) return;
+      combo.active = (combo.active + (ev.key === 'ArrowDown' ? 1 : -1) + n) % n;
+      activeOpt();
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      if (open && combo.list[combo.active]) pickExam(combo.list[combo.active]);
+    } else if (ev.key === 'Escape' && open) {
+      ev.preventDefault();
+      closeCombo();
+      B.fitHeight();
+    }
+  }
+
+  function pickExam(x) {
+    $('ex-q').value = x.nome;
+    $('ex-clear').hidden = false;
+    $('ex-hint').textContent = '';
+    closeCombo();
+    onExam(x.id);
+  }
+
+  function clearExam() {
+    $('ex-q').value = '';
+    $('ex-q').focus();
+    renderExams();
+  }
+
+  function onExam(id) {
+    var e = exam;
     if (!e) return;
     e.item = find(e.results, id) || null;
     e.insurance = null;
@@ -747,8 +839,10 @@
     $('a-mode-prof').addEventListener('click', function () { setMode(false); });
     $('a-mode-exam').addEventListener('click', function () { setMode(true); });
     $('ex-q').addEventListener('input', renderExams);
-    $('ex-q').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') ev.preventDefault(); });
-    $('ex-sel').addEventListener('change', onExam);
+    $('ex-q').addEventListener('focus', renderExams);
+    $('ex-q').addEventListener('keydown', comboKey);
+    $('ex-q').addEventListener('blur', function () { closeCombo(); B.fitHeight(); });
+    $('ex-clear').addEventListener('click', clearExam);
     $('ex-conv').addEventListener('change', onExamInsurance);
     $('ex-prest').addEventListener('change', function () { if ($('ex-prest').value) onProvider($('ex-prest').value); });
     $('b-conv').addEventListener('change', onInsurance);
