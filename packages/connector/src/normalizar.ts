@@ -261,3 +261,26 @@ export function prestadoresDoExame(corpo: any, convenioId?: string): PrestadorDo
     })
     .filter((p): p is PrestadorDoExame => !!p.id && !!p.nome);
 }
+
+// Nome para comparação: sem acento, minúsculo, espaços colapsados. null se vazio.
+export function normalizarNome(v: unknown): string | null {
+  const s = String(v ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+  return s || null;
+}
+
+// A consulta que acabamos de pedir, na agenda do dia: mesma hora, ativa, e do mesmo paciente (ou a
+// consulta remarcada). Sem como identificar o paciente, vale a única consulta ativa no horário, que
+// estava livre segundos antes.
+export function consultaNoHorario(
+  lista: Agendado[],
+  alvo: { horario: string; paciente_id?: string; nome?: string; original?: string },
+): Agendado | undefined {
+  const nome = normalizarNome(alvo.nome);
+  const noHorario = lista.filter((a) => a.hora === alvo.horario && !/cancel|desist/.test(a.status ?? ""));
+  return (
+    noHorario.find((a) => alvo.original && a.id === alvo.original) ??
+    noHorario.find((a) => alvo.paciente_id && a.paciente.id === alvo.paciente_id) ??
+    noHorario.find((a) => nome && normalizarNome(a.paciente.nome) === nome) ??
+    (noHorario.length === 1 ? noHorario[0] : undefined)
+  );
+}

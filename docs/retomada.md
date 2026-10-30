@@ -11,6 +11,12 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.16.1**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
+## 30/10: marcação incerta (0.16.3)
+
+- Depois da 0.16.1, a marcação deu `AGENDAMENTO_INCERTO`: a chamada de gravação à Asa ficou sem resposta (tempo esgotado ou conexão caída). O detalhe exato ainda não foi visto (o log do Doca tem "gravação sem confirmação da Asa" com `detalhe`).
+- Correção (0.16.3): a gravação espera até 40 s; sem resposta (ou sem número), o Conector lê `horarios-agendados` do dia e, achando uma consulta ativa no horário do mesmo paciente (ou a única ativa ali), conclui como sucesso. Não achando, continua incerto.
+- O painel: espera 60 s; com resultado incerto ou sem resposta, **mantém a chave** e o botão vira "Conferir na Asa", que só confere (antes, sem resposta do Conector, o painel gerava chave nova e permitia marcar duas vezes).
+
 ## 30/10: marcação "confirmada" que não aparece (0.16.1, em investigação)
 
 - O usuário marcou pela extensão, a tela disse que deu certo, e a consulta não aparece em nenhuma tela.

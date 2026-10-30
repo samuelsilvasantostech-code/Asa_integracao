@@ -38,6 +38,7 @@ export async function chamarAsa<T>(
   credencial: CredencialAsa,
   rota: string,
   params: Record<string, string | number | Array<string | number>> = {},
+  timeoutMs = 15000,
 ): Promise<RespostaAsa<T>> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -52,7 +53,7 @@ export async function chamarAsa<T>(
     resp = await fetch(url, {
       method: "POST",
       headers: { Authorization: authorization(credencial), "User-Agent": USER_AGENT, Accept: "application/json" },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err: any) {
     // Distingue tempo esgotado (TimeoutError) de conexão recusada ou cortada (causa com código de rede).

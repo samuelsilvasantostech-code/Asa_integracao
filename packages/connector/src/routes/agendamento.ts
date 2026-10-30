@@ -83,6 +83,47 @@ const concluir = (tenantId: string, chave: string, resposta: object, pacienteId:
     [tenantId, chave, resposta, pacienteId],
   );
 
+// A gravação de consulta na Asa pode demorar: espera mais que as leituras.
+const TEMPO_GRAVAR_MS = 40000; // + revalidação e conferência ficam abaixo dos 60 s do painel e do proxy
+
+// Depois de uma gravação sem resposta (ou sem número), lê a agenda do prestador naquele dia. O horário
+// estava livre segundos antes, então uma consulta ativa nele agora é a que acabamos de pedir.
+// null = não deu para ler; achou=false = a leitura funcionou e não há consulta ali (ainda).
+async function conferirNaAgenda(
+  credencial: CredencialAsa,
+  b: PedidoAgendamento,
+): Promise<{ achou: true; agendamento_id: string; paciente_id: string | null } | { achou: false } | null> {
+  const r = await chamarAsa<any>(credencial, "api-agendamento-horarios-agendados", { prestador_id: b.prestador_id!, data: b.data! });
+  if (!r.ok) return naoEncontrado(r) ? { achou: false } : null;
+  const nossa = N.consultaNoHorario(N.agendados(r.dados), {
+    horario: b.horario!, paciente_id: b.paciente_id, nome: b.paciente?.nome, original: b.remarcar?.agendamento_id,
+  });
+  return nossa ? { achou: true, agendamento_id: nossa.id, paciente_id: nossa.paciente.id ?? b.paciente_id ?? null } : { achou: false };
+}
+
+// Resultado incerto: confere na agenda antes de responder. Achou: é sucesso. Não achou: continua
+// incerto (a Asa pode gravar depois de não responder) e o painel pode pedir para conferir de novo.
+async function resolverIncerto(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  tenantId: string,
+  chave: string,
+  credencial: CredencialAsa,
+  b: PedidoAgendamento,
+  detalhe?: string,
+) {
+  const c = await conferirNaAgenda(credencial, b);
+  if (c?.achou) {
+    const feito = { agendamento_id: c.agendamento_id, paciente_id: c.paciente_id, setor: null, clinica: null, endereco: null, data: b.data, horario: b.horario, remarcado: !!b.remarcar, conferido: true };
+    await concluir(tenantId, chave, feito, feito.paciente_id);
+    req.log.info({ tenant: tenantId, agendamento: c.agendamento_id, detalhe }, "agendamento incerto confirmado na agenda da Asa");
+    return { ok: true, ...feito };
+  }
+  await pool!.query("UPDATE agendamentos SET situacao = 'incerto', atualizado_em = now() WHERE tenant_id = $1 AND chave = $2", [tenantId, chave]);
+  req.log.error({ tenant: tenantId, chave, detalhe, leu_agenda: c !== null }, "gravação sem confirmação da Asa");
+  return reply.code(504).send({ erro: "AGENDAMENTO_INCERTO", detalhe, conferido: c !== null });
+}
+
 // Falha da Asa ao gravar. Sem resposta, a Asa pode ter gravado: a chave fica "incerto" e não é liberada.
 async function falhaAoGravar(
   req: FastifyRequest,
@@ -196,6 +237,8 @@ export async function agendamentoRoutes(app: FastifyInstance) {
       usuario: b.usuario, prestador_id: b.prestador_id, data: b.data, horario: b.horario,
       paciente_id: b.paciente_id, agendamento_id: original,
     });
+    // Mesmo pedido de novo depois de um resultado incerto: só confere na agenda, nunca grava outra vez.
+    if (!reserva.novo && reserva.situacao === "incerto") return resolverIncerto(req, reply, tenant.id, chave, credencial, b, "conferência repetida");
     if (!reserva.novo) return repetido(reply, reserva);
 
     if (remarcar) {
@@ -228,7 +271,8 @@ export async function agendamentoRoutes(app: FastifyInstance) {
       ...paciente,
       ...(remarcar ? { agendamento: original! } : {}),
       ...(obs ? { obs } : {}),
-    });
+    }, TEMPO_GRAVAR_MS);
+    if (!r.ok && r.erro === "ASA_FORA_DO_AR" && r.status === 0) return resolverIncerto(req, reply, tenant.id, chave, credencial, b, r.msg);
     if (!r.ok) return falhaAoGravar(req, reply, tenant.id, chave, r);
 
     const feito = { ...N.agendamentoFeito(r.dados), data: b.data, horario: b.horario, remarcado: !!remarcar };
@@ -238,7 +282,6 @@ export async function agendamentoRoutes(app: FastifyInstance) {
     if (!feito.agendamento_id) {
       const d: any = r.dados;
       const msg = String(d?.msg ?? d?.message ?? d?.mensagem ?? "").slice(0, 160);
-      await pool!.query("UPDATE agendamentos SET situacao = 'incerto', atualizado_em = now() WHERE tenant_id = $1 AND chave = $2", [tenant.id, chave]);
       req.log.error(
         {
           tenant: tenant.id, tipo: remarcar ? "remarcar" : "criar", prestador: b.prestador_id, data: b.data, horario: b.horario,
@@ -247,7 +290,7 @@ export async function agendamentoRoutes(app: FastifyInstance) {
         },
         "Asa respondeu ao agendamento sem o número da consulta",
       );
-      return reply.code(502).send({ erro: "AGENDAMENTO_SEM_NUMERO", msg });
+      return resolverIncerto(req, reply, tenant.id, chave, credencial, b, "sem número" + (msg ? ": " + msg : ""));
     }
     await concluir(tenant.id, chave, feito, feito.paciente_id);
     req.log.info(

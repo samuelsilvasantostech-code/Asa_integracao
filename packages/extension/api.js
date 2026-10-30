@@ -11,12 +11,12 @@
     var base = String(cfg.apiUrl || DEFAULT_URL).replace(/\/+$/, '');
     var configured = !!(base && usable(key));
 
-    function request(method, path, body) {
+    function request(method, path, body, timeout) {
       if (!configured) return Promise.resolve({ status: -1, body: null });
       return root.omni.http.request({
         url: base + path,
         method: method,
-        timeout: 15000,
+        timeout: timeout || 15000,
         headers: { 'content-type': 'application/json', 'x-install-key': key.trim() },
         body: body ? JSON.stringify(body) : undefined
       }).then(function (r) {
@@ -53,7 +53,8 @@
         return request('GET', '/v1/agenda/procedimentos' + query(Object.assign({ convenio_id: insuranceId }, slot)));
       },
       // ÚNICA chamada que grava na Asa. `chave` torna o pedido idempotente.
-      book: function (payload) { return request('POST', '/v1/agendamentos', payload); },
+      // A Asa pode levar até 40 s para gravar, e o Conector ainda confere a agenda se ela não responder.
+      book: function (payload) { return request('POST', '/v1/agendamentos', payload, 60000); },
       // payload = {chave, busca: {telefone|cpf}, usuario}; a busca prova que a consulta é do paciente.
       cancel: function (id, payload) { return request('POST', '/v1/agendamentos/' + encodeURIComponent(id) + '/cancelar', payload); },
       financeConfig: function () { return request('GET', '/v1/tenant/financeiro'); },

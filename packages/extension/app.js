@@ -596,7 +596,7 @@
     if (!b) return;
     $('b-go').disabled = true;
     $('b-back').disabled = true;
-    status('b-confirm-status', 'Gravando na Asa…');
+    status('b-confirm-status', $('b-go').textContent === 'Conferir na Asa' ? 'Conferindo na agenda da Asa…' : 'Gravando na Asa… pode levar até um minuto.');
     var payload = Object.assign({
       chave: b.key,
       convenio_id: b.conv.id,
@@ -611,9 +611,12 @@
       if (r.status === 200 && r.body && r.body.ok) { bookingDone(b, r.body); return; }
       var erro = r.body && r.body.erro;
       status('b-confirm-status', C.bookingError(r.status, r.body), 'err');
-      // Recusa definitiva: um novo pedido precisa de chave nova. Incerto ou em andamento: mantém.
-      if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') b.key = C.newKey();
-      $('b-go').disabled = erro === 'AGENDAMENTO_INCERTO' || erro === 'HORARIO_INDISPONIVEL';
+      // Recusa definitiva: um novo pedido precisa de chave nova. Incerto, sem resposta ou em andamento:
+      // mantém a chave, e o botão passa a só conferir (o Conector nunca grava duas vezes a mesma chave).
+      var unsure = erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || (r.status === 0 && !erro);
+      if (!unsure) b.key = C.newKey();
+      $('b-go').textContent = unsure ? 'Conferir na Asa' : (b.original ? 'Confirmar remarcação' : 'Confirmar agendamento');
+      $('b-go').disabled = erro === 'HORARIO_INDISPONIVEL';
       if (erro === 'HORARIO_INDISPONIVEL') {
         var day = Array.prototype.filter.call($('a-dias').children, function (c) { return c.getAttribute('aria-pressed') === 'true'; })[0];
         if (day) setTimeout(function () { if (booking === b) pickDay(b.slot.prestador_id, b.slot.data, day); }, 1500);
