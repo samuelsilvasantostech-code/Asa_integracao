@@ -84,7 +84,8 @@ const concluir = (tenantId: string, chave: string, resposta: object, pacienteId:
   );
 
 // A gravação de consulta na Asa pode demorar: espera mais que as leituras.
-const TEMPO_GRAVAR_MS = 40000; // + revalidação e conferência ficam abaixo dos 60 s do painel e do proxy
+// Abaixo do corte do proxy (a resposta precisa chegar à tela); o que passar disso a conferência resolve.
+const TEMPO_GRAVAR_MS = 25000;
 
 // Depois de uma gravação sem resposta (ou sem número), lê a agenda do prestador naquele dia. O horário
 // estava livre segundos antes, então uma consulta ativa nele agora é a que acabamos de pedir.
@@ -119,7 +120,10 @@ async function resolverIncerto(
     req.log.info({ tenant: tenantId, agendamento: c.agendamento_id, detalhe }, "agendamento incerto confirmado na agenda da Asa");
     return { ok: true, ...feito };
   }
-  await pool!.query("UPDATE agendamentos SET situacao = 'incerto', atualizado_em = now() WHERE tenant_id = $1 AND chave = $2", [tenantId, chave]);
+  await pool!.query(
+    "UPDATE agendamentos SET situacao = 'incerto', diagnostico = COALESCE($3, diagnostico), atualizado_em = now() WHERE tenant_id = $1 AND chave = $2",
+    [tenantId, chave, detalhe ?? null],
+  );
   req.log.error({ tenant: tenantId, chave, detalhe, leu_agenda: c !== null }, "gravação sem confirmação da Asa");
   return reply.code(504).send({ erro: "AGENDAMENTO_INCERTO", detalhe, conferido: c !== null });
 }
@@ -238,7 +242,10 @@ export async function agendamentoRoutes(app: FastifyInstance) {
       paciente_id: b.paciente_id, agendamento_id: original,
     });
     // Mesmo pedido de novo depois de um resultado incerto: só confere na agenda, nunca grava outra vez.
-    if (!reserva.novo && reserva.situacao === "incerto") return resolverIncerto(req, reply, tenant.id, chave, credencial, b, "conferência repetida");
+    if (!reserva.novo && reserva.situacao === "incerto") {
+      const { rows } = await pool!.query<{ diagnostico: string | null }>("SELECT diagnostico FROM agendamentos WHERE tenant_id = $1 AND chave = $2", [tenant.id, chave]);
+      return resolverIncerto(req, reply, tenant.id, chave, credencial, b, rows[0]?.diagnostico ?? undefined);
+    }
     if (!reserva.novo) return repetido(reply, reserva);
 
     if (remarcar) {
@@ -250,6 +257,7 @@ export async function agendamentoRoutes(app: FastifyInstance) {
     }
 
     // Revalida o horário imediatamente antes: outra pessoa pode ter ocupado a vaga.
+    const t0 = Date.now();
     const rh = await chamarAsa<any>(credencial, "api-agendamento-horarios-atendimento", {
       prestador_id: b.prestador_id,
       data: `${b.data} 00:00:00`,
@@ -264,6 +272,7 @@ export async function agendamentoRoutes(app: FastifyInstance) {
     }
 
     // Remarcar é o MESMO endpoint de agendar, com `agendamento` = a consulta original.
+    const t1 = Date.now();
     const r = await chamarAsa<any>(credencial, "api-agendamento-agendar-instituicao", {
       ...paramsVaga(b),
       convenio_id: b.convenio_id,
@@ -272,7 +281,17 @@ export async function agendamentoRoutes(app: FastifyInstance) {
       ...(remarcar ? { agendamento: original! } : {}),
       ...(obs ? { obs } : {}),
     }, TEMPO_GRAVAR_MS);
-    if (!r.ok && r.erro === "ASA_FORA_DO_AR" && r.status === 0) return resolverIncerto(req, reply, tenant.id, chave, credencial, b, r.msg);
+    // Sem dados pessoais: tempos, erro de rede e os ids do pedido, para comparar com a marcação que funciona.
+    const diag = [
+      r.ok ? "respondeu" : r.msg ?? r.erro,
+      `revalidação ${t1 - t0} ms`,
+      `gravação ${Date.now() - t1} ms`,
+      `paciente ${paciente.paciente_id ? "existente" : "novo"}`,
+      `convênio ${b.convenio_id}`,
+      `procedimento ${b.convenio_procedimento_id}`,
+      `agenda ${b.agenda_id}`,
+    ].join("; ");
+    if (!r.ok && r.erro === "ASA_FORA_DO_AR" && r.status === 0) return resolverIncerto(req, reply, tenant.id, chave, credencial, b, diag);
     if (!r.ok) return falhaAoGravar(req, reply, tenant.id, chave, r);
 
     const feito = { ...N.agendamentoFeito(r.dados), data: b.data, horario: b.horario, remarcado: !!remarcar };
@@ -290,7 +309,7 @@ export async function agendamentoRoutes(app: FastifyInstance) {
         },
         "Asa respondeu ao agendamento sem o número da consulta",
       );
-      return resolverIncerto(req, reply, tenant.id, chave, credencial, b, "sem número" + (msg ? ": " + msg : ""));
+      return resolverIncerto(req, reply, tenant.id, chave, credencial, b, "sem número" + (msg ? ": " + msg : "") + "; " + diag);
     }
     await concluir(tenant.id, chave, feito, feito.paciente_id);
     req.log.info(

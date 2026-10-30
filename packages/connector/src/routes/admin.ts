@@ -82,6 +82,17 @@ export async function adminRoutes(app: FastifyInstance) {
     return { confirmacoes: rows };
   });
 
+  // Últimas marcações pedidas pelo painel, com o diagnóstico das incertas (sem dados do paciente).
+  app.get<{ Params: { id: string } }>("/admin/tenants/:id/agendamentos", async (req) => {
+    const { rows } = await pool!.query(
+      `SELECT tipo, situacao, prestador_id, to_char(data, 'YYYY-MM-DD') AS data, horario, paciente_id, agendamento_id,
+              resposta->>'agendamento_id' AS numero_asa, diagnostico, criado_em, atualizado_em
+       FROM agendamentos WHERE tenant_id = $1 ORDER BY criado_em DESC LIMIT 30`,
+      [req.params.id],
+    );
+    return { agendamentos: rows };
+  });
+
   // Gera uma chave nova e invalida a anterior.
   app.post<{ Params: { id: string } }>("/admin/tenants/:id/rotacionar-chave", async (req, reply) => {
     const chave = "asa_" + randomBytes(24).toString("base64url");
