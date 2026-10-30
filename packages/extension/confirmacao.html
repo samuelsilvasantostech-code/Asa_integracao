@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confirmação Asa</title>
+<link rel="stylesheet" href="styles.css?v=0.16.0">
+</head>
+<body class="page-config page-rem">
+<div class="app">
+  <header class="hd">
+    <div class="hd__brand">
+      <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg></span>
+      <div>
+        <div class="hd__title">Confirmação de consultas</div>
+        <div class="hd__sub">Lembrete pelo WhatsApp antes da consulta</div>
+      </div>
+    </div>
+    <span class="pill" id="pill" data-tone="idle"><i class="dot"></i><span id="pill-text">Carregando</span></span>
+  </header>
+
+  <main class="body">
+    <p class="conn" id="conn-text">Carregando a configuração…</p>
+
+    <form class="form" id="rem" autocomplete="off" hidden>
+      <p class="hint" id="rem-auto" hidden>A automação de envio ainda não foi montada para esta clínica na Kentro. Você pode deixar tudo configurado, mas nada é enviado enquanto ela não existir.</p>
+
+      <section class="card form" aria-labelledby="h-envio">
+        <h2 class="card__label" id="h-envio">Envio</h2>
+        <label class="check"><input type="checkbox" id="rem-on"> <span>Enviar lembretes</span></label>
+        <div class="row">
+          <label class="field"><span>Quando</span>
+            <select id="rem-days">
+              <option value="1">1 dia antes</option><option value="2">2 dias antes</option><option value="3">3 dias antes</option>
+              <option value="4">4 dias antes</option><option value="5">5 dias antes</option><option value="6">6 dias antes</option><option value="7">7 dias antes</option>
+            </select>
+          </label>
+          <label class="field"><span>Canal da clínica</span>
+            <select id="rem-channel">
+              <option value="oficial">WhatsApp oficial (template)</option>
+              <option value="nao_oficial">WhatsApp não oficial (texto)</option>
+            </select>
+          </label>
+        </div>
+        <label class="check" id="rem-fri-wrap"><input type="checkbox" id="rem-fri"> <span>Na sexta, lembrar também das consultas de sábado a segunda</span></label>
+        <p class="hint">O horário dos envios e a fila ficam na automação da Kentro.</p>
+      </section>
+
+      <section class="card form" aria-labelledby="h-teste">
+        <h2 class="card__label" id="h-teste">Modo teste</h2>
+        <label class="check"><input type="checkbox" id="rem-test"> <span>Enviar só para os telefones abaixo</span></label>
+        <label class="field"><span>Telefones permitidos (um por linha)</span><textarea id="rem-phones" rows="2" spellcheck="false" placeholder="(27) 99999-0000"></textarea></label>
+      </section>
+
+      <section class="card form" id="sec-tpl" aria-labelledby="h-tpl">
+        <h2 class="card__label" id="h-tpl">Template do lembrete</h2>
+        <p class="hint">O template aprovado é escolhido na automação da Kentro. Aqui você define o que entra em cada variável dele, na ordem em que aparecem.</p>
+        <label class="field"><span>Nome do template (para referência)</span><input id="tpl-name" maxlength="80" spellcheck="false" placeholder="lembrete_consulta"></label>
+        <ol class="params" id="tpl-params"></ol>
+        <button class="btn" id="tpl-add" type="button">Adicionar variável</button>
+        <p class="hint">Quantidade de variáveis aqui e no template aprovado precisa ser a mesma. Se mudar, a automação precisa ser ajustada na Kentro.</p>
+      </section>
+
+      <section class="card form" id="sec-msg" aria-labelledby="h-msg" hidden>
+        <h2 class="card__label" id="h-msg">Mensagem do lembrete</h2>
+        <label class="field"><span>Texto</span><textarea id="rem-t-mensagem" rows="4" data-text="mensagem"></textarea></label>
+        <div class="preview" data-preview="mensagem"></div>
+      </section>
+
+      <section class="card form" aria-labelledby="h-resp">
+        <h2 class="card__label" id="h-resp">Respostas ao paciente</h2>
+        <label class="field"><span>Quando confirma</span><textarea id="rem-t-confirmado" rows="2" data-text="confirmado"></textarea></label>
+        <div class="preview" data-preview="confirmado"></div>
+        <label class="field"><span>Quando cancela</span><textarea id="rem-t-cancelado" rows="2" data-text="cancelado"></textarea></label>
+        <div class="preview" data-preview="cancelado"></div>
+        <label class="field"><span>Quando pede para remarcar (depois a conversa vai para a equipe)</span><textarea id="rem-t-remarcar" rows="2" data-text="remarcar"></textarea></label>
+        <div class="preview" data-preview="remarcar"></div>
+        <label class="field"><span>Quando responde de novo</span><textarea id="rem-t-ja_respondido" rows="2" data-text="ja_respondido"></textarea></label>
+        <div class="preview" data-preview="ja_respondido"></div>
+        <label class="field"><span>Quando a Asa está fora do ar</span><textarea id="rem-t-indisponivel" rows="2" data-text="indisponivel"></textarea></label>
+        <div class="preview" data-preview="indisponivel"></div>
+        <p class="hint" id="rem-fields"></p>
+      </section>
+
+      <section class="card form" aria-labelledby="h-btn">
+        <h2 class="card__label" id="h-btn">Respostas aceitas</h2>
+        <p class="hint">Além de Confirmar, Remarcar e Cancelar (e 1, 2, 3, sim, confirmo), conte também estas, separadas por vírgula. Use para botões com outro texto.</p>
+        <label class="field"><span>Contam como confirmar</span><input id="syn-confirmar" placeholder="estarei lá, vou sim" spellcheck="false"></label>
+        <label class="field"><span>Contam como remarcar</span><input id="syn-remarcar" placeholder="outro horário" spellcheck="false"></label>
+        <label class="field"><span>Contam como cancelar</span><input id="syn-cancelar" placeholder="não vou" spellcheck="false"></label>
+      </section>
+
+      <div class="savebar">
+        <p class="conn" id="rem-msg" role="status"></p>
+        <button class="btn btn--primary" id="rem-save" type="submit">Salvar confirmação</button>
+      </div>
+    </form>
+  </main>
+</div>
+<script src="core.js?v=0.16.0"></script>
+<script src="api.js?v=0.16.0"></script>
+<script src="bridge.js?v=0.16.0"></script>
+<script src="confirmacao.js?v=0.16.0"></script>
+</body>
+</html>

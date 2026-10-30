@@ -90,7 +90,7 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
         data: c.data,
         hora: c.hora,
         texto: C.preencher(cfg.textos.mensagem, v),
-        template: C.variaveisTemplate(v),
+        template: C.variaveisTemplate(v, cfg.template.parametros),
       };
     });
     req.log.info({ tenant: t.id, inicio, fim, na_asa: daAsa.length, lote: itens.length, teste: cfg.teste.ativo }, "confirmação: lote entregue");
@@ -159,7 +159,7 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
     if (!t) return;
     const cfg = C.lerConfig(t.confirmacao);
     const id = String(req.body?.agendamento_id ?? "");
-    const acao = C.acaoDoBotao(req.body?.acao);
+    const acao = C.acaoDoBotao(req.body?.acao, cfg.sinonimos);
     const nome = C.primeiroNome(String(req.body?.nome ?? "")) || "tudo bem";
     // Texto livre ou consulta desconhecida: quem resolve é a equipe.
     if (!idValido(id) || !acao) return { acao: null, texto: "", transferir: true };

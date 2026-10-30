@@ -26,50 +26,7 @@
       $('key-help').hidden = !!temClinica;
       $('form').hidden = !semToken;
       $('token-locked').hidden = !temClinica || semToken;
-      if (temClinica && !semToken) { loadReminder(); loadFinance(); }
-    });
-  }
-
-  /* ---------- confirmação de véspera ---------- */
-  var TEXTS = ['mensagem', 'confirmado', 'cancelado', 'remarcar'];
-  var reminder = null; // config gravada no Conector
-
-  function loadReminder() {
-    api.reminderConfig().then(function (r) {
-      if (r.status !== 200 || !r.body || !r.body.config) { $('rem').hidden = true; return; }
-      reminder = r.body.config;
-      $('rem').hidden = false;
-      $('rem-auto').hidden = !!r.body.automacao_configurada;
-      $('rem-on').checked = reminder.ativo;
-      $('rem-fri').checked = reminder.sexta_pega_segunda;
-      $('rem-test').checked = reminder.teste.ativo;
-      $('rem-phones').value = reminder.teste.telefones.map(C.formatPhone).join('\n');
-      TEXTS.forEach(function (k) { $('rem-t-' + k).value = reminder.textos[k]; });
-    });
-  }
-
-  function saveReminder(ev) {
-    ev.preventDefault();
-    if (!reminder) return;
-    var phones = $('rem-phones').value.split(/[\n,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
-    if ($('rem-on').checked && $('rem-test').checked && !phones.length) {
-      msg($('rem-msg'), 'err', 'No modo teste, informe ao menos um telefone. Sem nenhum, nada é enviado.');
-      return;
-    }
-    var next = JSON.parse(JSON.stringify(reminder));
-    next.ativo = $('rem-on').checked;
-    next.sexta_pega_segunda = $('rem-fri').checked;
-    next.teste = { ativo: $('rem-test').checked, telefones: phones };
-    TEXTS.forEach(function (k) { next.textos[k] = $('rem-t-' + k).value; });
-    $('rem-save').disabled = true;
-    msg($('rem-msg'), null, 'Salvando…');
-    api.saveReminderConfig(next, userLabel).then(function (r) {
-      $('rem-save').disabled = false;
-      if (r.status !== 200 || !r.body || !r.body.ok) { msg($('rem-msg'), 'err', 'Não foi possível salvar agora' + (r.status > 0 ? ' (HTTP ' + r.status + ').' : '.')); return; }
-      reminder = r.body.config;
-      var ignored = phones.length - reminder.teste.telefones.length;
-      msg($('rem-msg'), 'ok', (reminder.ativo ? (reminder.teste.ativo ? 'Salvo. Lembretes ligados em modo teste.' : 'Salvo. Lembretes ligados para todos os pacientes.') : 'Salvo. Lembretes desligados.')
-        + (ignored > 0 ? ' ' + ignored + ' telefone(s) fora do formato foram descartados.' : ''));
+      if (temClinica && !semToken) loadFinance();
     });
   }
 
@@ -123,7 +80,6 @@
       }).catch(function () { /* sem usuário: a trilha fica sem nome */ });
     }
     $('form').addEventListener('submit', saveCredential);
-    $('rem').addEventListener('submit', saveReminder);
     $('fin').addEventListener('submit', saveFinance);
     connect().then(refresh);
   });

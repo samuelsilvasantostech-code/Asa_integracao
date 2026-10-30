@@ -9,6 +9,7 @@ import {
   preencher,
   proximos,
   telefoneKentro,
+  variaveisTemplate,
   varsDa,
 } from "../src/confirmacao.js";
 
@@ -45,7 +46,7 @@ test("config: padrão em modo teste e valores inválidos descartados", () => {
 test("próximos agendamentos: lista em objeto indexado, data com hora", () => {
   const r = proximos({
     agendamentos: {
-      "0": { id: 42655586, data: "2026-10-30 08:30:00", profissional: "Dr. Demonstração", paciente: "MARIA APARECIDA", telefone1: "27998124471", clinica: "Clínica X" },
+      "0": { id: 42655586, data: "2026-10-30 08:30:00", profissional: "Dr. Demonstração", paciente: "MARIA APARECIDA", telefone1: "27998124471", clinica: "Clínica X", especialidade: "Cardiologia", clinica_endereco: "Rua A, 1", procedimentos: [{ nome: "Consulta" }, { nome: "ECG" }] },
       "1": { id: null, data: "2026-10-30" },
     },
   });
@@ -58,6 +59,9 @@ test("próximos agendamentos: lista em objeto indexado, data com hora", () => {
     paciente: "MARIA APARECIDA",
     telefone: "5527998124471",
     clinica: "Clínica X",
+    especialidade: "Cardiologia",
+    procedimento: "Consulta, ECG",
+    endereco: "Rua A, 1",
   });
 });
 
@@ -75,4 +79,25 @@ test("botão → ação", () => {
   assert.equal(acaoDoBotao("REMARCAR"), "remarcar");
   assert.equal(acaoDoBotao("Cancelar consulta"), "cancelar");
   assert.equal(acaoDoBotao("qual o endereço?"), null);
+});
+
+test("template: parâmetros na ordem configurada, texto fixo e vazio vira traço", () => {
+  const v = varsDa({ paciente: "JOÃO  DA SILVA", data: "2026-10-30", hora: "08:30", prestador: "Dr. Demo", clinica: null, especialidade: null }, "2026-10-29", "Clínica Demo");
+  assert.deepEqual(variaveisTemplate(v), ["João", "amanhã (30/10)", "08:30", "Dr. Demo", "Clínica Demo"]);
+  const c = lerConfig({ template: { nome: "lembrete_v2", parametros: [{ campo: "nome_completo" }, { campo: "data_curta" }, { campo: "dia_semana" }, { campo: "texto", texto: " Leve\n seus exames " }, { campo: "especialidade" }, { campo: "inexistente" }] } });
+  assert.equal(c.template.nome, "lembrete_v2");
+  assert.equal(c.template.parametros.length, 5);
+  assert.deepEqual(variaveisTemplate(v, c.template.parametros), ["JOÃO DA SILVA", "30/10", "sexta", "Leve seus exames", "-"]);
+  assert.equal(lerConfig({ template: { parametros: [] } }).template.parametros.length, 5);
+  assert.equal(lerConfig({ template: { parametros: Array(15).fill({ campo: "nome" }) } }).template.parametros.length, 10);
+});
+
+test("botão: sinônimos da clínica", () => {
+  const c = lerConfig({ sinonimos: { confirmar: ["Sim, vou!", "  ESTAREI LÁ "], cancelar: "x" } });
+  assert.deepEqual(c.sinonimos.confirmar, ["sim, vou!", "estarei la"]);
+  assert.deepEqual(c.sinonimos.cancelar, []);
+  assert.equal(acaoDoBotao("Estarei lá", c.sinonimos), "confirmar");
+  assert.equal(acaoDoBotao("Estarei lá"), null);
+  assert.equal(lerConfig({ canal: "nao_oficial" }).canal, "nao_oficial");
+  assert.equal(lerConfig({ canal: "x" }).canal, "oficial");
 });

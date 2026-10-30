@@ -20,14 +20,21 @@ Os quatro foram validados na Kentro (`automations_validate_elements`) em 29/10/2
 | `%%FILA_ID%%` | Fila por onde os lembretes saem. Precisa ser do mesmo tipo do modelo |
 | `%%URA_RESPOSTA_ID%%` | Id da URA de resposta, criada **antes** da automação |
 | `%%TEMPLATE_ID%%` | Só no oficial: id do template aprovado (não aceita variável) |
+| `%%TEMPLATE_DATA%%` | Só no oficial: uma entrada por variável do template, na ordem. Com 5 variáveis: `["{{asa_t1}}", "{{asa_t2}}", "{{asa_t3}}", "{{asa_t4}}", "{{asa_t5}}"]` (até `asa_t10`) |
 | `%%DESTINO_REMARCAR%%` | Campos do `transfer`. Exemplos: `destinationType=0` (fila, distribuição normal), `destinationType=0 filter=["<grupo>"]` ou `destinationType=1 destinationId="<usuário>"` |
 
 ## Template do WhatsApp oficial
 
-A clínica cria um template de **utilidade** com 5 variáveis, nesta ordem:
-`{{1}}` nome · `{{2}}` data ("amanhã (30/10)") · `{{3}}` hora · `{{4}}` profissional · `{{5}}` clínica.
-Ele tem três botões de resposta rápida: **Confirmar**, **Remarcar** e **Cancelar**. O Conector entende o texto
-do botão, e também "1/2/3", "sim" e "confirmo".
+A clínica cria um template de **utilidade** com de 1 a 10 variáveis e três botões de resposta rápida (por exemplo
+**Confirmar**, **Remarcar** e **Cancelar**). O que vai em cada variável é escolhido na tela **Confirmação Asa**
+(nome, data, hora, profissional, especialidade, procedimento, clínica, endereço ou um texto fixo). O padrão é
+`{{1}}` nome, `{{2}}` data ("amanhã (30/10)"), `{{3}}` hora, `{{4}}` profissional e `{{5}}` clínica.
+
+O id do template fica na automação, porque a Kentro não aceita variável nele. Trocar de template, ou mudar a
+quantidade de variáveis, é ajustar `%%TEMPLATE_ID%%` e `%%TEMPLATE_DATA%%` no fluxo.
+
+O Conector entende o texto do botão e também "1/2/3", "sim" e "confirmo". Botões com outro texto ("Estarei lá")
+são cadastrados em "Respostas aceitas", na mesma tela.
 
 ## Roteiro de implantação
 
@@ -37,7 +44,7 @@ do botão, e também "1/2/3", "sim" e "confirmo".
 4. Criar a agenda (`automation_schedules_create`): `fk_ivr` = disparo, `fk_queue` = `%%FILA_ID%%`,
    `kind=4`, a cada 15 min, janela das 09:00 às 18:00, de segunda a sexta (ou o que a clínica pedir),
    fuso `America/Sao_Paulo`. Criar **pausada** (`enabled=0`) e ligar só depois do teste.
-5. Em "Configurar Asa Saúde": ligar a confirmação **em modo teste**, só com o telefone de quem testa.
+5. Em "Confirmação Asa": ajustar as variáveis do template e ligar a confirmação **em modo teste**, só com o telefone de quem testa.
 6. Marcar uma consulta de teste para amanhã nesse telefone e rodar a agenda (`automation_schedules_run_now`).
    Conferir a mensagem, as três respostas, o selo na aba Consultas e `GET /admin/tenants/<id>/confirmacoes`.
 7. Desligar o modo teste.

@@ -3,7 +3,7 @@ import { instituicaoDa, listarPrestadores, type CredencialAsa } from "../asa.js"
 import { cifraDisponivel, cifrar, decifrar } from "../crypto.js";
 import { pool } from "../db.js";
 import { tenantDaRequisicao } from "../tenant-auth.js";
-import { lerConfig, TEXTOS_PADRAO } from "../confirmacao.js";
+import { CAMPOS, hojeEm, lerConfig, MAX_PARAMETROS, preencher, TEXTOS_PADRAO, variaveisTemplate, varsDa } from "../confirmacao.js";
 import { adminAutorizado } from "./admin.js";
 
 export async function tenantRoutes(app: FastifyInstance) {
@@ -45,7 +45,30 @@ export async function tenantRoutes(app: FastifyInstance) {
       "SELECT confirmacao, chave_automacao_hash IS NOT NULL AS tem_chave FROM tenants WHERE id = $1",
       [tenant.id],
     );
-    return { config: lerConfig(rows[0]?.confirmacao), padrao: TEXTOS_PADRAO, automacao_configurada: !!rows[0]?.tem_chave };
+    return {
+      config: lerConfig(rows[0]?.confirmacao),
+      padrao: TEXTOS_PADRAO,
+      campos: CAMPOS,
+      max_parametros: MAX_PARAMETROS,
+      automacao_configurada: !!rows[0]?.tem_chave,
+    };
+  });
+
+  // Prévia com uma consulta de exemplo, sem gravar: a tela mostra como a mensagem e o template saem.
+  app.post<{ Body: { config?: unknown } }>("/v1/tenant/confirmacao/previa", async (req, reply) => {
+    const tenant = await tenantDaRequisicao(req, reply);
+    if (!tenant) return;
+    const cfg = lerConfig(req.body?.config);
+    const hoje = hojeEm(new Date());
+    const [a, m, d] = hoje.split("-").map(Number);
+    const amanha = new Date(Date.UTC(a, m - 1, d + cfg.dias_antes)).toISOString().slice(0, 10);
+    const v = varsDa(
+      { paciente: "Maria Aparecida Souza", data: amanha, hora: "08:30", prestador: "Dra. Ana Lima", clinica: null, especialidade: "Cardiologia", procedimento: "Consulta", endereco: "Rua das Flores, 100" },
+      hoje,
+      tenant.nome,
+    );
+    const textos = Object.fromEntries(Object.entries(cfg.textos).map(([k, t]) => [k, preencher(t, v)]));
+    return { config: cfg, textos, template: variaveisTemplate(v, cfg.template.parametros) };
   });
 
   // Grava a configuração inteira, já validada (o que vier fora do formato volta ao padrão).

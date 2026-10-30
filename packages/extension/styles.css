@@ -360,3 +360,34 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
   .field--inline { min-width: 0; flex: 1 1 160px; }
 }
 .side .seal[data-tone="idle"], .side .seal[data-tone="done"], .side .seal:not([data-tone]) { background: var(--bg); }
+
+/* ================= Tela da confirmação ================= */
+.page-rem .app { max-width: 760px; }
+.page-rem h2.card__label { margin: 0; font-size: 13px; color: var(--text); }
+.page-rem .card.form { padding: 12px 14px 14px; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.row[hidden], .check[hidden], .card[hidden] { display: none; }
+
+/* Variáveis do template: o número {{n}} é o canhoto, como a hora na folha da agenda. */
+.params { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.param { display: grid; grid-template-columns: 46px minmax(150px, 1fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; padding-right: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); overflow: hidden; }
+.param:has(input) { grid-template-columns: 46px minmax(150px, 1fr) minmax(120px, 1fr) minmax(0, .8fr) auto; }
+.param__n { align-self: stretch; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; border-right: 1.5px dashed var(--perf); }
+.param select, .param input { min-width: 0; margin: 5px 0; padding: 6px 8px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
+.param select:focus-visible, .param input:focus-visible { outline: 2px solid var(--brand); outline-offset: -1px; border-color: transparent; }
+.param__ex { min-width: 0; color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.param__ex:not(:empty)::before { content: "ex.: "; }
+.param .btn { margin: 0; }
+.params + .btn { align-self: flex-start; margin-top: 0; }
+
+/* Prévia: como o paciente lê, num balão de mensagem. */
+.preview { margin-top: -4px; padding: 8px 11px; border-radius: 4px var(--r-md) var(--r-md) var(--r-md); background: var(--brand-soft); color: var(--text); font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.preview:empty { display: none; }
+
+.savebar { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 10px 0 2px; background: var(--bg); border-top: 1px solid var(--border); }
+.savebar .conn { flex: 1; font-size: 12.5px; }
+.savebar .btn { margin-top: 0; }
+@media (max-width: 560px) {
+  .param, .param:has(input) { grid-template-columns: 40px 1fr auto; }
+  .param input, .param__ex { grid-column: 2 / 3; }
+}

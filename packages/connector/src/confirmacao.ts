@@ -15,12 +15,38 @@ export interface Textos {
   indisponivel: string; // a Asa não respondeu na hora da resposta
 }
 
+// Dados da consulta que podem ir no texto ({campo}) ou num parâmetro do template. "texto" = valor fixo.
+export const CAMPOS = {
+  nome: "Primeiro nome do paciente",
+  nome_completo: "Nome completo do paciente",
+  data: "Data falada: amanhã (30/10)",
+  data_curta: "Data: 30/10",
+  dia_semana: "Dia da semana: sexta",
+  hora: "Hora: 08:30",
+  profissional: "Profissional",
+  especialidade: "Especialidade",
+  procedimento: "Procedimento",
+  clinica: "Nome da clínica",
+  endereco: "Endereço da clínica",
+  texto: "Texto fixo",
+} as const;
+export type Campo = keyof typeof CAMPOS;
+export interface Parametro { campo: Campo; texto?: string }
+
+export type Canal = "oficial" | "nao_oficial";
+
 export interface ConfigConfirmacao {
   ativo: boolean;
+  canal: Canal;
   dias_antes: number;
   sexta_pega_segunda: boolean;
   lote: number;
   textos: Textos;
+  // Só no oficial. O template em si é escolhido na automação (a Kentro não aceita variável no id);
+  // aqui fica o nome, para referência, e o que vai em cada {{1}}, {{2}}…
+  template: { nome: string; parametros: Parametro[] };
+  // Palavras a mais que contam como cada botão, além das que já são reconhecidas.
+  sinonimos: Record<Acao, string[]>;
   teste: { ativo: boolean; telefones: string[] };
 }
 
@@ -34,12 +60,18 @@ export const TEXTOS_PADRAO: Textos = {
   indisponivel: "Recebemos a sua resposta, {nome}. Nossa equipe confirma com você em instantes.",
 };
 
+export const PARAMETROS_PADRAO: Parametro[] = [{ campo: "nome" }, { campo: "data" }, { campo: "hora" }, { campo: "profissional" }, { campo: "clinica" }];
+export const MAX_PARAMETROS = 10;
+
 export const PADRAO: ConfigConfirmacao = {
   ativo: false,
+  canal: "oficial",
   dias_antes: 1,
   sexta_pega_segunda: true,
   lote: 15,
   textos: TEXTOS_PADRAO,
+  template: { nome: "", parametros: PARAMETROS_PADRAO },
+  sinonimos: { confirmar: [], remarcar: [], cancelar: [] },
   // Nasce em modo teste: nada sai para paciente de verdade até alguém desligar.
   teste: { ativo: true, telefones: [] },
 };
@@ -60,13 +92,27 @@ export function lerConfig(gravado: unknown): ConfigConfirmacao {
   const telefones = Array.isArray(g.teste?.telefones)
     ? [...new Set(g.teste.telefones.map((t: unknown) => telefoneKentro(String(t))).filter(Boolean) as string[])].slice(0, 20)
     : [];
+  const parametros = Array.isArray(g.template?.parametros)
+    ? g.template.parametros
+        .filter((p: any) => p && typeof p === "object" && Object.hasOwn(CAMPOS, p.campo))
+        .slice(0, MAX_PARAMETROS)
+        .map((p: any): Parametro => (p.campo === "texto" ? { campo: "texto", texto: String(p.texto ?? "").trim().slice(0, 200) } : { campo: p.campo }))
+    : PARAMETROS_PADRAO;
+  const sinonimos = { ...PADRAO.sinonimos };
+  for (const a of ACOES) {
+    const v = g.sinonimos?.[a];
+    if (Array.isArray(v)) sinonimos[a] = [...new Set(v.map(normalizar).filter((x: string) => x && x.length <= 40))].slice(0, 15) as string[];
+  }
   return {
     ativo: typeof g.ativo === "boolean" ? g.ativo : PADRAO.ativo,
+    canal: g.canal === "nao_oficial" ? "nao_oficial" : "oficial",
     dias_antes: inteiro(g.dias_antes, 1, 7, PADRAO.dias_antes),
     sexta_pega_segunda: typeof g.sexta_pega_segunda === "boolean" ? g.sexta_pega_segunda : PADRAO.sexta_pega_segunda,
     // A Kentro limita uma execução de automação a 100 mensagens e 100 requisições.
     lote: inteiro(g.lote, 1, 40, PADRAO.lote),
     textos,
+    template: { nome: typeof g.template?.nome === "string" ? g.template.nome.trim().slice(0, 80) : "", parametros: parametros.length ? parametros : PARAMETROS_PADRAO },
+    sinonimos,
     teste: { ativo: typeof g.teste?.ativo === "boolean" ? g.teste.ativo : PADRAO.teste.ativo, telefones },
   };
 }
@@ -109,6 +155,9 @@ export interface ConsultaD1 {
   paciente: string | null;
   telefone: string | null; // já no formato da Kentro
   clinica: string | null;
+  especialidade: string | null;
+  procedimento: string | null;
+  endereco: string | null;
 }
 
 const texto = (v: unknown): string | null => {
@@ -129,6 +178,9 @@ export function proximos(corpo: any): ConsultaD1[] {
       paciente: texto(a.paciente ?? a.nome),
       telefone: telefoneKentro(String(a.telefone1 ?? a.telefone ?? "")),
       clinica: texto(a.clinica ?? a["clínica"]),
+      especialidade: texto(a.especialidade),
+      procedimento: texto(lista(a.procedimentos).map((p: any) => (p && typeof p === "object" ? p.nome ?? p.descricao : p)).filter(Boolean).join(", ") || a.procedimento),
+      endereco: texto(a.clinica_endereco ?? a.endereco),
     }))
     .filter((c) => c.agendamento_id && c.data);
 }
@@ -148,21 +200,25 @@ export function dataFalada(iso: string, hoje: string): string {
   return `${SEMANA[diaDaSemana(iso)]} (${dia})`;
 }
 
-export interface Vars {
-  nome: string;
-  data: string;
-  hora: string;
-  profissional: string;
-  clinica: string;
-}
+export type Vars = Record<Exclude<Campo, "texto">, string>;
 
-export function varsDa(c: Pick<ConsultaD1, "paciente" | "data" | "hora" | "prestador" | "clinica">, hoje: string, clinicaPadrao: string): Vars {
+type DadosVars = Pick<ConsultaD1, "paciente" | "data" | "hora" | "prestador" | "clinica"> & Partial<Pick<ConsultaD1, "especialidade" | "procedimento" | "endereco">>;
+
+// Na resposta só há o que o Conector guardou (data, hora, profissional): o resto fica vazio.
+export function varsDa(c: DadosVars, hoje: string, clinicaPadrao: string): Vars {
+  const [, m, d] = c.data.split("-");
   return {
     nome: primeiroNome(c.paciente) || "tudo bem",
+    nome_completo: String(c.paciente ?? "").trim().replace(/\s+/g, " "),
     data: dataFalada(c.data, hoje),
+    data_curta: d && m ? `${d}/${m}` : c.data,
+    dia_semana: SEMANA[diaDaSemana(c.data)] ?? "",
     hora: c.hora ?? "horário marcado",
     profissional: c.prestador ?? "o profissional",
+    especialidade: c.especialidade ?? "",
+    procedimento: c.procedimento ?? "",
     clinica: c.clinica ?? clinicaPadrao,
+    endereco: c.endereco ?? "",
   };
 }
 
@@ -171,20 +227,32 @@ export function preencher(modelo: string, v: Vars): string {
   return modelo.replace(/\{(\w+)\}/g, (inteiro, k: string) => (k in v ? (v as any)[k] : inteiro));
 }
 
-// Ordem fixa das variáveis do template oficial (documentada para a clínica criar o template).
-export function variaveisTemplate(v: Vars): string[] {
-  return [v.nome, v.data, v.hora, v.profissional, v.clinica];
+// Valores de {{1}}, {{2}}… na ordem configurada. O WhatsApp recusa parâmetro vazio, com quebra de
+// linha ou tabulação: espaços são colapsados e vazio vira "-".
+export function variaveisTemplate(v: Vars, parametros: Parametro[] = PARAMETROS_PADRAO): string[] {
+  return parametros.map((p) => {
+    const bruto = p.campo === "texto" ? p.texto ?? "" : v[p.campo];
+    return String(bruto ?? "").replace(/\s+/g, " ").trim().slice(0, 300) || "-";
+  });
 }
 
 // Botão recebido (id ou texto) → ação. Aceita o texto do botão do template e variações comuns.
-export function acaoDoBotao(recebido: unknown): Acao | null {
-  const s = String(recebido ?? "")
+// Sem acento, minúsculo, espaços colapsados.
+export function normalizar(v: unknown): string {
+  return String(v ?? "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
+}
+
+export function acaoDoBotao(recebido: unknown, sinonimos?: Partial<Record<Acao, string[]>>): Acao | null {
+  const s = normalizar(recebido);
   if (!s) return null;
   if ((ACOES as string[]).includes(s)) return s as Acao;
+  // Os sinônimos da clínica vêm antes: "sim, vou" pode ser configurado como confirmar.
+  for (const a of ACOES) if (sinonimos?.[a]?.includes(s)) return a;
   if (/^(confirm|sim\b|1$)/.test(s)) return "confirmar";
   if (/^(remarc|reagend|2$)/.test(s)) return "remarcar";
   if (/^(cancel|desmarc|3$)/.test(s)) return "cancelar";

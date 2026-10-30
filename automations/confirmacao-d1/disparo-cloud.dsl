@@ -23,12 +23,13 @@ laco: loop mode="forEach" list="{{lote_parsedBody.itens}}" itemVar="asa_item" in
     vars.asa_nome = it.nome || '';
     vars.asa_texto = it.texto || '';
     vars.asa_canal = 'cloud';
+    // O que vai em cada variável é configurado na tela "Confirmação Asa"; aqui só se distribui.
     var t = it.template || [];
-    vars.asa_t1 = t[0] || ''; vars.asa_t2 = t[1] || ''; vars.asa_t3 = t[2] || ''; vars.asa_t4 = t[3] || ''; vars.asa_t5 = t[4] || '';
+    for (var n = 1; n <= 10; n++) vars['asa_t' + n] = t[n - 1] || '-';
     vars.asa_chat = '';
     vars.asa_chat_error = '';
     """
-    abrir: openChatCloud countryCode="BR" phoneNumber="{{asa_item.telefone}}" templateId=%%TEMPLATE_ID%% templateData=["{{asa_t1}}", "{{asa_t2}}", "{{asa_t3}}", "{{asa_t4}}", "{{asa_t5}}"] queueId="%%FILA_ID%%" destinationType=2 destinationId="%%URA_RESPOSTA_ID%%" resultVariableName="asa_chat"
+    abrir: openChatCloud countryCode="BR" phoneNumber="{{asa_item.telefone}}" templateId=%%TEMPLATE_ID%% templateData=%%TEMPLATE_DATA%% queueId="%%FILA_ID%%" destinationType=2 destinationId="%%URA_RESPOSTA_ID%%" resultVariableName="asa_chat"
     registrar: jscode code="""
     var lista = JSON.parse(vars.asa_resultado || '[]');
     lista.push({ agendamento_id: vars.asa_agendamento_id, chat_id: vars.asa_chat || '', erro: vars.asa_chat_error || (vars.asa_chat ? '' : 'SEM_ATENDIMENTO') });
