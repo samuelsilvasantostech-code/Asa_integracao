@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asa Saúde: agenda da clínica</title>
-<link rel="stylesheet" href="styles.css?v=0.13.2">
+<link rel="stylesheet" href="styles.css?v=0.14.0">
 </head>
 <body class="page-agenda">
 <div class="app">
@@ -36,11 +36,16 @@
         <span>Especialidade</span>
         <select id="f-esp"><option value="">Carregando…</option></select>
       </label>
-      <label class="field field--inline">
+      <label class="field field--inline" id="f-prest-wrap">
         <span>Profissional</span>
         <select id="f-prest" disabled><option value="">Escolha a especialidade</option></select>
       </label>
-      <div class="daynav" role="group" aria-label="Dia">
+      <div class="seg" role="group" aria-label="Visão da agenda">
+        <button class="seg__btn" type="button" data-view="dia" aria-pressed="true">Dia</button>
+        <button class="seg__btn" type="button" data-view="semana" aria-pressed="false">Semana</button>
+        <button class="seg__btn" type="button" data-view="lado" aria-pressed="false">Lado a lado</button>
+      </div>
+      <div class="daynav" role="group" aria-label="Data">
         <button class="btn btn--icon" id="d-prev" type="button" aria-label="Dia anterior">‹</button>
         <button class="btn" id="d-today" type="button">Hoje</button>
         <button class="btn btn--icon" id="d-next" type="button" aria-label="Próximo dia">›</button>
@@ -59,16 +64,17 @@
 
     <div class="split">
       <section class="day" aria-labelledby="day-title">
-        <h2 class="sr" id="day-title">Consultas do dia</h2>
+        <h2 class="sr" id="day-title">Consultas</h2>
         <p class="day__sum" id="day-sum"></p>
         <p class="muted" id="day-status">Escolha a especialidade e o profissional.</p>
         <ol class="sheet" id="sheet"></ol>
+        <div class="grid" id="grid" hidden></div>
       </section>
 
       <aside class="side" id="side" aria-live="polite">
         <div class="side__empty" id="s-empty">
           <p class="state__title">Nada selecionado</p>
-          <p class="state__text">Clique numa consulta para ver o paciente, ou num horário livre para marcar.</p>
+          <p class="state__text">Clique numa consulta para ver o paciente, ou num horário livre para marcar. Na semana e no lado a lado, o título da coluna abre aquele dia.</p>
         </div>
 
         <!-- consulta do dia -->
@@ -164,10 +170,10 @@
     </div>
   </div>
 </div>
-<script src="core.js?v=0.13.2"></script>
-<script src="api.js?v=0.13.2"></script>
-<script src="bridge.js?v=0.13.2"></script>
-<script src="cobranca.js?v=0.13.2"></script>
-<script src="agenda.js?v=0.13.2"></script>
+<script src="core.js?v=0.14.0"></script>
+<script src="api.js?v=0.14.0"></script>
+<script src="bridge.js?v=0.14.0"></script>
+<script src="cobranca.js?v=0.14.0"></script>
+<script src="agenda.js?v=0.14.0"></script>
 </body>
 </html>

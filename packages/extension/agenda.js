@@ -1,5 +1,5 @@
-/* Asa Saúde em tela cheia — agenda do dia por profissional, busca de paciente, marcar, remarcar,
- * confirmar presença, marcar falta e cancelar. Mesma lógica de negócio do painel (core.js/api.js). */
+/* Asa Saúde em tela cheia — agenda por profissional (dia, semana ou profissionais lado a lado), busca de
+ * paciente, marcar, remarcar, confirmar presença, marcar falta e cancelar. Mesma lógica de negócio do painel (core.js/api.js). */
 (function (root) {
   'use strict';
 
@@ -7,8 +7,11 @@
   var cfg = {}, api = null, userLabel = '';
   var userType = null, fin = null;          // perfil do usuário (0 = administrador) e financeiro da clínica
   var sched = null;                         // especialidades e prestadores
-  var sel = { esp: '', prest: '', day: C.todayIso() };
-  var day = null, daySeq = 0;               // dia carregado: {data, agendados, livres}
+  var sel = { esp: '', prest: '', day: C.todayIso(), view: 'dia' };
+  // Colunas na tela: {prest, day, data: {data, agendados, livres} | null, erro}. Dia = 1 coluna,
+  // semana = 7 (um profissional), lado a lado = os profissionais da especialidade num dia.
+  var cols = [], viewSeq = 0;
+  var MAX_LADO = 8, PARALELO = 3;           // colunas no lado a lado; pedidos simultâneos ao Conector
   var pac = null;                           // paciente buscado: {paciente, consultas, busca}
   var rescheduling = null;                  // {consulta, paciente, busca}
   var booking = null;
@@ -88,67 +91,182 @@
   function setProvider(id) {
     sel.prest = id;
     if (id) remember('prest', id);
-    loadDay();
+    loadView();
   }
 
   function setDay(iso) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
     sel.day = iso;
-    loadDay();
+    loadView();
+  }
+
+  function step(n) { setDay(C.shiftDay(sel.day, sel.view === 'semana' ? 7 * n : n)); }
+
+  function setView(v) {
+    if (v !== 'dia' && v !== 'semana' && v !== 'lado') v = 'dia';
+    sel.view = v;
+    remember('view', v);
+    Array.prototype.forEach.call(document.querySelectorAll('.seg__btn'), function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-view') === v));
+    });
+    $('f-prest-wrap').hidden = v === 'lado'; // lado a lado mostra todos os profissionais da especialidade
+    var semana = v === 'semana';
+    $('d-prev').setAttribute('aria-label', semana ? 'Semana anterior' : 'Dia anterior');
+    $('d-next').setAttribute('aria-label', semana ? 'Próxima semana' : 'Próximo dia');
+    if (sched) loadView(); else renderDayLabel();
+  }
+
+  // Abre um dia de um profissional na visão Dia (título de coluna da semana ou do lado a lado).
+  function openDay(prest, iso) {
+    if (prest !== sel.prest && find(sched.prestadores, prest)) {
+      $('f-prest').value = prest;
+      sel.prest = prest;
+      remember('prest', prest);
+    }
+    sel.day = iso;
+    setView('dia');
   }
 
   function renderDayLabel() {
     var l = C.longDay(sel.day), today = C.todayIso();
-    $('d-wd').textContent = sel.day === today ? 'Hoje, ' + l.weekday : sel.day === C.shiftDay(today, 1) ? 'Amanhã, ' + l.weekday : l.weekday;
-    $('d-date').textContent = l.date;
+    if (sel.view === 'semana') {
+      var w = C.weekDays(sel.day), now = w.indexOf(today) >= 0;
+      $('d-wd').textContent = now ? 'Esta semana' : 'Semana';
+      $('d-date').textContent = C.weekLabel(w);
+      $('d-today').disabled = now;
+    } else {
+      $('d-wd').textContent = sel.day === today ? 'Hoje, ' + l.weekday : sel.day === C.shiftDay(today, 1) ? 'Amanhã, ' + l.weekday : l.weekday;
+      $('d-date').textContent = l.date;
+      $('d-today').disabled = sel.day === today;
+    }
     $('d-pick').value = sel.day;
-    $('d-today').disabled = sel.day === today;
   }
 
-  /* ---------- a folha do dia ---------- */
-  function loadDay() {
+  /* ---------- a folha: uma coluna (dia) ou várias (semana, lado a lado) ---------- */
+  function columns() {
+    if (sel.view === 'semana') return sel.prest ? C.weekDays(sel.day).map(function (d) { return { prest: sel.prest, day: d }; }) : [];
+    if (sel.view === 'lado') {
+      if (!sched || !sel.esp) return [];
+      return sched.prestadores.filter(function (p) { return p.especialidade_id === sel.esp; }).slice(0, MAX_LADO)
+        .map(function (p) { return { prest: p.id, day: sel.day }; });
+    }
+    return sel.prest ? [{ prest: sel.prest, day: sel.day }] : [];
+  }
+
+  // Roda fn em cada item, no máximo n de cada vez (cada coluna custa 2 chamadas à Asa).
+  function queue(items, n, fn) {
+    var i = 0;
+    function next() {
+      if (i >= items.length) return null;
+      return Promise.resolve(fn(items[i++])).then(next, next);
+    }
+    for (var k = 0; k < Math.min(n, items.length); k++) next();
+  }
+
+  function loadView() {
     renderDayLabel();
-    var s = ++daySeq, sheet = $('sheet');
-    day = null;
-    sheet.textContent = '';
+    var s = ++viewSeq, list = columns(), multi = sel.view !== 'dia';
+    cols = list;
+    $('sheet').textContent = '';
+    $('grid').textContent = '';
     $('day-sum').textContent = '';
-    if (!sel.prest) { status('day-status', 'Escolha a especialidade e o profissional.'); return; }
+    $('sheet').hidden = multi;
+    $('grid').hidden = !multi;
+    if (!list.length) {
+      status('day-status', sel.view === 'lado' ? 'Escolha a especialidade.' : 'Escolha a especialidade e o profissional.');
+      return;
+    }
     status('day-status', 'Carregando a agenda…');
-    sheet.setAttribute('aria-busy', 'true');
-    api.day(sel.prest, sel.day).then(function (r) {
-      if (s !== daySeq) return;
-      sheet.removeAttribute('aria-busy');
-      if (r.status !== 200 || !r.body) { status('day-status', C.readError(r.status, r.body), 'err'); return; }
-      day = r.body;
-      renderDay();
+    if (multi) list.forEach(function (c) { $('grid').appendChild(colNode(c)); });
+    else $('sheet').setAttribute('aria-busy', 'true');
+    queue(list, PARALELO, function (c) {
+      if (s !== viewSeq) return null; // a visão mudou: o resto da fila não é mais pedido
+      return api.day(c.prest, c.day).then(function (r) {
+        if (s !== viewSeq) return;
+        if (r.status === 200 && r.body) c.data = r.body; else c.erro = C.readError(r.status, r.body);
+        renderCol(c);
+        if (list.every(function (x) { return x.data || x.erro; })) viewStatus();
+      });
     });
   }
 
-  function renderDay() {
-    var sheet = $('sheet'), rows = C.dayRows(day.agendados, day.livres), past = sel.day < C.todayIso();
-    sheet.textContent = '';
-    var t = C.daySummary(day.agendados, day.livres);
-    var parts = [t.consultas === 1 ? '1 consulta' : t.consultas + ' consultas'];
-    if (t.confirmadas) parts.push(t.confirmadas + (t.confirmadas === 1 ? ' confirmada' : ' confirmadas'));
-    if (t.faltas) parts.push(t.faltas + (t.faltas === 1 ? ' falta' : ' faltas'));
-    if (t.canceladas) parts.push(t.canceladas + (t.canceladas === 1 ? ' cancelada' : ' canceladas'));
-    if (!past) parts.push(t.livres === 1 ? '1 horário livre' : t.livres + ' horários livres');
-    $('day-sum').textContent = providerName(sel.prest) + ': ' + parts.join(', ') + '.';
+  function renderAll() { cols.forEach(function (c) { if (c.data) renderCol(c); }); }
 
-    if (!rows.length) {
-      status('day-status', past ? 'Nenhuma consulta neste dia.' : 'Nenhuma consulta e nenhum horário livre neste dia.');
-      return;
+  function summaryParts(c, short) {
+    var t = C.daySummary(c.data.agendados, c.data.livres), past = c.day < C.todayIso();
+    var parts = [t.consultas === 1 ? '1 consulta' : t.consultas + ' consultas'];
+    if (!short) {
+      if (t.confirmadas) parts.push(t.confirmadas + (t.confirmadas === 1 ? ' confirmada' : ' confirmadas'));
+      if (t.faltas) parts.push(t.faltas + (t.faltas === 1 ? ' falta' : ' faltas'));
+      if (t.canceladas) parts.push(t.canceladas + (t.canceladas === 1 ? ' cancelada' : ' canceladas'));
     }
-    status('day-status', day.livres_ok === false ? 'Os horários livres não vieram da Asa agora. As consultas marcadas estão abaixo.' : '', day.livres_ok === false ? 'err' : null);
-    rows.forEach(function (row) { sheet.appendChild(row.kind === 'appt' ? apptRow(row.appt) : freeRow(row.slot)); });
+    if (!past) parts.push(t.livres === 1 ? (short ? '1 livre' : '1 horário livre') : t.livres + (short ? ' livres' : ' horários livres'));
+    return parts;
   }
 
-  function apptRow(a) {
+  // Situação geral, depois que todas as colunas responderam.
+  function viewStatus() {
+    if (sel.view === 'dia') {
+      var c = cols[0];
+      if (c.erro) { status('day-status', c.erro, 'err'); return; }
+      if (!C.dayRows(c.data.agendados, c.data.livres).length) {
+        status('day-status', c.day < C.todayIso() ? 'Nenhuma consulta neste dia.' : 'Nenhuma consulta e nenhum horário livre neste dia.');
+        return;
+      }
+      status('day-status', c.data.livres_ok === false ? 'Os horários livres não vieram da Asa agora. As consultas marcadas estão abaixo.' : '', c.data.livres_ok === false ? 'err' : null);
+      return;
+    }
+    var erros = cols.filter(function (x) { return x.erro; }).length;
+    var semLivres = cols.some(function (x) { return x.data && x.data.livres_ok === false; });
+    var total = sel.view === 'lado' ? sched.prestadores.filter(function (p) { return p.especialidade_id === sel.esp; }).length : 0;
+    var msg = [];
+    if (erros) msg.push(erros === 1 ? 'Uma coluna não carregou.' : erros + ' colunas não carregaram.');
+    if (semLivres) msg.push('Em algumas colunas os horários livres não vieram da Asa agora.');
+    if (total > MAX_LADO) msg.push('Mostrando ' + MAX_LADO + ' de ' + total + ' profissionais desta especialidade.');
+    status('day-status', msg.join(' '), erros || semLivres ? 'err' : null);
+  }
+
+  function colNode(c) {
+    var today = C.todayIso(), n = el('section', 'col');
+    if (sel.view === 'semana' && c.day === today) n.classList.add('col--today');
+    var hd = el('header', 'col__hd');
+    var t = el('button', 'col__title', sel.view === 'semana' ? C.formatDay(c.day) : providerName(c.prest));
+    t.type = 'button';
+    t.title = 'Abrir este dia';
+    t.addEventListener('click', function () { openDay(c.prest, c.day); });
+    hd.appendChild(t);
+    c.sumNode = hd.appendChild(el('div', 'col__sum', 'Carregando…'));
+    n.appendChild(hd);
+    c.list = n.appendChild(el('ol', 'sheet sheet--compact'));
+    return n;
+  }
+
+  function renderCol(c) {
+    if (sel.view === 'dia') { renderDay(c); return; }
+    c.list.textContent = '';
+    if (c.erro) { c.sumNode.textContent = c.erro; c.sumNode.setAttribute('data-tone', 'err'); return; }
+    c.sumNode.removeAttribute('data-tone');
+    var rows = C.dayRows(c.data.agendados, c.data.livres);
+    c.sumNode.textContent = rows.length ? summaryParts(c, true).join(' · ') : 'Sem agenda';
+    rows.forEach(function (row) { c.list.appendChild(row.kind === 'appt' ? apptRow(row.appt, c) : freeRow(row.slot, c)); });
+  }
+
+  function renderDay(c) {
+    var sheet = $('sheet');
+    sheet.removeAttribute('aria-busy');
+    sheet.textContent = '';
+    if (c.erro) return;
+    $('day-sum').textContent = providerName(c.prest) + ': ' + summaryParts(c).join(', ') + '.';
+    C.dayRows(c.data.agendados, c.data.livres).forEach(function (row) { sheet.appendChild(row.kind === 'appt' ? apptRow(row.appt, c) : freeRow(row.slot, c)); });
+  }
+
+  function apptRow(a, c) {
     var info = C.statusInfo(a.status), li = el('li', 'slot slot--appt');
     li.setAttribute('data-tone', info.tone);
     if (!info.active) li.classList.add('slot--off');
     var b = el('button', 'slot__btn');
     b.type = 'button';
+    b.title = info.label; // nas colunas estreitas o selo some; o tom fica na hora
     b.appendChild(el('span', 'slot__time', a.hora || '--:--'));
     var body = el('span', 'slot__body');
     var who = el('span', 'slot__who', a.paciente.nome || 'Paciente sem nome');
@@ -159,12 +277,12 @@
     var seal = el('span', 'seal', info.label);
     seal.setAttribute('data-tone', info.tone);
     b.appendChild(seal);
-    b.addEventListener('click', function () { markSelected(li); showAppt(a); });
+    b.addEventListener('click', function () { markSelected(li); showAppt(a, c); });
     li.appendChild(b);
     return li;
   }
 
-  function freeRow(h) {
+  function freeRow(h, c) {
     var li = el('li', 'slot slot--free'), b = el('button', 'slot__btn');
     b.type = 'button';
     b.appendChild(el('span', 'slot__time', h.horario));
@@ -172,21 +290,21 @@
     b.appendChild(el('span', 'slot__cta', rescheduling ? 'Remarcar' : 'Marcar'));
     b.addEventListener('click', function () {
       markSelected(li);
-      openBooking({ prestador_id: sel.prest, data: sel.day, horario: h.horario, agenda_id: h.agenda_id });
+      openBooking({ prestador_id: c.prest, data: c.day, horario: h.horario, agenda_id: h.agenda_id });
     });
     li.appendChild(b);
     return li;
   }
 
   function markSelected(li) {
-    Array.prototype.forEach.call($('sheet').children, function (c) { c.classList.toggle('slot--sel', c === li); });
+    Array.prototype.forEach.call(document.querySelectorAll('.slot'), function (x) { x.classList.toggle('slot--sel', x === li); });
   }
 
   /* ---------- consulta do dia: confirmar, falta, cancelar, remarcar ---------- */
-  function showAppt(a) {
+  function showAppt(a, c) {
     var info = C.statusInfo(a.status);
     side('s-appt');
-    $('sa-time').textContent = C.formatDay(sel.day) + ' · ' + (a.hora || '--:--');
+    $('sa-time').textContent = C.formatDay(c.day) + ' · ' + (a.hora || '--:--');
     $('sa-seal').textContent = info.label;
     $('sa-seal').setAttribute('data-tone', info.tone);
     $('sa-name').textContent = a.paciente.nome || 'Paciente sem nome';
@@ -194,60 +312,60 @@
     dl.textContent = '';
     if (a.paciente.idade != null) fact(dl, 'Idade', a.paciente.idade + ' anos');
     if (a.paciente.telefone) fact(dl, 'Telefone', C.formatPhone(a.paciente.telefone));
-    fact(dl, 'Profissional', providerName(sel.prest));
+    fact(dl, 'Profissional', providerName(c.prest));
     if (a.procedimentos.length) fact(dl, 'Procedimento', a.procedimentos.join(', '));
     if (a.paciente.etiqueta) fact(dl, 'Etiqueta', a.paciente.etiqueta);
     if (a.obs) fact(dl, 'Observação', a.obs);
     fact(dl, 'Nº na Asa', a.id);
     status('sa-status', '');
-    apptActions(a, info);
+    apptActions(a, info, c);
   }
 
-  function apptActions(a, info) {
+  function apptActions(a, info, c) {
     var box = $('sa-actions');
     box.textContent = '';
     if (!info.active) { status('sa-status', 'Consulta ' + info.label.toLowerCase() + ': sem ações.'); return; }
     var today = C.todayIso();
-    if (info.key !== 'confirmado' && info.key !== 'atendido' && sel.day >= today) {
-      box.appendChild(button('Confirmar presença', 'btn--primary', function (ev) { setStatus(a, 'confirmado', ev.currentTarget); }));
+    if (info.key !== 'confirmado' && info.key !== 'atendido' && c.day >= today) {
+      box.appendChild(button('Confirmar presença', 'btn--primary', function (ev) { setStatus(a, 'confirmado', ev.currentTarget, c); }));
     }
-    if (info.key !== 'ausente' && info.key !== 'atendido' && sel.day <= today) {
-      box.appendChild(button('Marcar falta', null, function (ev) { setStatus(a, 'ausente', ev.currentTarget); }));
+    if (info.key !== 'ausente' && info.key !== 'atendido' && c.day <= today) {
+      box.appendChild(button('Marcar falta', null, function (ev) { setStatus(a, 'ausente', ev.currentTarget, c); }));
     }
-    if (sel.day >= today && a.paciente.telefone) box.appendChild(button('Remarcar', null, function (ev) { rescheduleFromAppt(a, ev.currentTarget); }));
-    if (a.paciente.telefone && C.canCharge(fin, userType)) box.appendChild(button('Lançar cobrança', null, function (ev) { chargeFromAppt(a, ev.currentTarget); }));
-    if (sel.day >= today) {
+    if (c.day >= today && a.paciente.telefone) box.appendChild(button('Remarcar', null, function (ev) { rescheduleFromAppt(a, ev.currentTarget); }));
+    if (a.paciente.telefone && C.canCharge(fin, userType)) box.appendChild(button('Lançar cobrança', null, function (ev) { chargeFromAppt(a, ev.currentTarget, c); }));
+    if (c.day >= today) {
       box.appendChild(button('Cancelar', 'btn--danger', function () {
         box.textContent = '';
         box.appendChild(el('span', 'item__ask', 'Cancelar a consulta de ' + (a.paciente.nome || 'este paciente') + ' na Asa?'));
-        box.appendChild(button('Sim, cancelar', 'btn--danger', function (ev) { setStatus(a, 'cancelado', ev.currentTarget); }));
-        box.appendChild(button('Não', null, function () { apptActions(a, info); }));
+        box.appendChild(button('Sim, cancelar', 'btn--danger', function (ev) { setStatus(a, 'cancelado', ev.currentTarget, c); }));
+        box.appendChild(button('Não', null, function () { apptActions(a, info, c); }));
       }));
     }
   }
 
   var DONE = { confirmado: 'Presença confirmada na Asa.', ausente: 'Falta registrada na Asa.', cancelado: 'Consulta cancelada na Asa.' };
-  function setStatus(a, st, btn) {
+  function setStatus(a, st, btn, c) {
     var box = $('sa-actions');
     Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
     btn.textContent = 'Gravando…';
     a.keys = a.keys || {};
     var key = a.keys[st] || (a.keys[st] = C.newKey()); // a mesma chave numa nova tentativa
-    api.setStatus(a.id, { chave: key, status: st, prestador_id: sel.prest, data: sel.day, usuario: userLabel || undefined }).then(function (r) {
+    api.setStatus(a.id, { chave: key, status: st, prestador_id: c.prest, data: c.day, usuario: userLabel || undefined }).then(function (r) {
       if (r.status === 200 && r.body && r.body.ok) {
         a.status = st;
-        showAppt(a);
+        showAppt(a, c);
         status('sa-status', DONE[st]);
-        renderDay();
+        if (cols.indexOf(c) >= 0) renderCol(c); // a coluna ainda está na tela
         return;
       }
       var erro = r.body && r.body.erro;
       if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') a.keys[st] = null;
-      apptActions(a, C.statusInfo(a.status));
+      apptActions(a, C.statusInfo(a.status), c);
       status('sa-status', erro === 'CONSULTA_NAO_ENCONTRADA'
         ? 'Essa consulta não está mais na agenda deste dia na Asa. A agenda foi atualizada.'
         : C.bookingError(r.status, r.body), 'err');
-      if (erro === 'CONSULTA_NAO_ENCONTRADA') loadDay();
+      if (erro === 'CONSULTA_NAO_ENCONTRADA') loadView();
     });
   }
 
@@ -270,7 +388,7 @@
 
   /* ---------- financeiro: lançar cobrança (grava na Asa, sem volta) ---------- */
   // Pela folha do dia: acha o paciente pelo telefone (horarios-agendados não traz o id dele).
-  function chargeFromAppt(a, btn) {
+  function chargeFromAppt(a, btn, c) {
     btn.disabled = true;
     btn.textContent = 'Buscando o paciente…';
     var busca = { telefone: a.paciente.telefone };
@@ -281,8 +399,8 @@
         status('sa-status', r.status === 200 ? 'Não achei o paciente pelo telefone desta consulta. Busque pelo CPF e lance por lá.' : C.readError(r.status, r.body), 'err');
         return;
       }
-      var label = C.formatDay(sel.day) + ' às ' + (a.hora || '--:--') + ' — ' + providerName(sel.prest);
-      openCharge(r.body.paciente, busca, [{ id: a.id, label: label, prestador_id: sel.prest, data: sel.day }], a.id, function () { showAppt(a); });
+      var label = C.formatDay(c.day) + ' às ' + (a.hora || '--:--') + ' — ' + providerName(c.prest);
+      openCharge(r.body.paciente, busca, [{ id: a.id, label: label, prestador_id: c.prest, data: c.day }], a.id, function () { showAppt(a, c); });
     });
   }
 
@@ -303,14 +421,14 @@
     $('rs-text').textContent = 'Remarcando ' + paciente.nome + ': ' + whenText(c) + (c.prestador ? ' com ' + c.prestador : '') + '. Escolha um horário livre.';
     $('rs-banner').hidden = false;
     side('s-empty');
-    if (day) renderDay();
+    renderAll();
   }
 
   function stopReschedule() {
     rescheduling = null;
     $('rs-banner').hidden = true;
     if (booking && booking.original) closeSide();
-    if (day) renderDay();
+    renderAll();
   }
 
   function closeSide() {
@@ -410,7 +528,7 @@
     var key = c.cancelKey || (c.cancelKey = C.newKey());
     var busca = pac.busca;
     api.cancel(c.id, { chave: key, busca: busca, usuario: userLabel || undefined }).then(function (r) {
-      if (r.status === 200 && r.body && r.body.ok) { refreshPatient(busca, 'Consulta de ' + whenText(c) + ' cancelada na Asa.'); loadDay(); return; }
+      if (r.status === 200 && r.body && r.body.ok) { refreshPatient(busca, 'Consulta de ' + whenText(c) + ' cancelada na Asa.'); loadView(); return; }
       var erro = r.body && r.body.erro;
       if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') c.cancelKey = null;
       box.textContent = '';
@@ -585,7 +703,7 @@
       // Recusa definitiva: um novo pedido precisa de chave nova. Incerto ou em andamento: mantém.
       if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') b.key = C.newKey();
       $('sr-go').disabled = erro === 'AGENDAMENTO_INCERTO' || erro === 'HORARIO_INDISPONIVEL';
-      if (erro === 'HORARIO_INDISPONIVEL') setTimeout(loadDay, 1500);
+      if (erro === 'HORARIO_INDISPONIVEL') setTimeout(loadView, 1500);
     });
   }
 
@@ -603,7 +721,7 @@
     booking = null;
     if (b.original) { rescheduling = null; $('rs-banner').hidden = true; }
     if (pac && b.busca && pac.busca === b.busca) refreshPatient(b.busca);
-    loadDay();
+    loadView();
   }
 
   /* ---------- conexão e início ---------- */
@@ -627,7 +745,7 @@
       $('ws').hidden = false;
       $('q-form').hidden = false;
       if (!fin) loadFinance();
-      if (!sched) loadSchedule(); else loadDay();
+      if (!sched) loadSchedule(); else loadView();
     });
   }
 
@@ -654,8 +772,11 @@
     });
     $('f-esp').addEventListener('change', function () { onSpecialty(); });
     $('f-prest').addEventListener('change', function () { setProvider($('f-prest').value); });
-    $('d-prev').addEventListener('click', function () { setDay(C.shiftDay(sel.day, -1)); });
-    $('d-next').addEventListener('click', function () { setDay(C.shiftDay(sel.day, 1)); });
+    $('d-prev').addEventListener('click', function () { step(-1); });
+    $('d-next').addEventListener('click', function () { step(1); });
+    Array.prototype.forEach.call(document.querySelectorAll('.seg__btn'), function (b) {
+      b.addEventListener('click', function () { setView(b.getAttribute('data-view')); });
+    });
     $('d-today').addEventListener('click', function () { setDay(C.todayIso()); });
     $('d-pick').addEventListener('change', function () { setDay($('d-pick').value); });
     $('q-form').addEventListener('submit', searchPatient);
@@ -672,7 +793,7 @@
     $('sd-close').addEventListener('click', closeSide);
     $('g-retry').addEventListener('click', connect);
 
-    renderDayLabel();
+    setView(recall('view'));
     side('s-empty');
     connect();
   });

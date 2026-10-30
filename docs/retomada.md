@@ -1,15 +1,25 @@
 # Retomada: Asa Saúde × Kentro
 
-Situação em **29/10/2026**, quando o trabalho parou. A visão geral do projeto está em [`visao-geral.md`](visao-geral.md), e o que a API não entrega e o que falta validar está em [`pendencias.md`](pendencias.md) (P1 a P35).
+Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto está em [`visao-geral.md`](visao-geral.md), e o que a API não entrega e o que falta validar está em [`pendencias.md`](pendencias.md) (P1 a P37). A implantação em vários clientes, ainda em aberto, está em [`implantacao-clientes.md`](implantacao-clientes.md).
 
 ## Onde paramos
 
 | Item | Situação |
 |---|---|
-| Último commit | **0.12.0**: Financeiro (lançar cobrança), no GitHub |
-| Conector no Doca | **0.12.0** (deploy feito em 29/10) |
-| Instalação 29 (`apresentacao`) | **0.12.0**, ativa, para os usuários 508 e 509. Financeiro ainda **desligado** |
+| Último commit | **0.14.0**: Agenda em semana e com profissionais lado a lado, no GitHub |
+| Conector no Doca | **0.13.2**. A 0.14.0 ainda precisa de deploy |
+| Instalação 29 (`apresentacao`) | **0.13.2**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
+
+## 30/10: semana e lado a lado (0.14.0)
+
+- Na tela cheia, um seletor **Dia | Semana | Lado a lado** fica ao lado do profissional. A escolha é lembrada no navegador.
+  - **Semana**: o profissional escolhido, de segunda a domingo. As setas andam uma semana.
+  - **Lado a lado**: todos os profissionais da especialidade no dia, até 8 colunas (o aviso diz quantos ficaram de fora).
+  - O título de cada coluna abre aquele dia na visão Dia. Consultas e horários livres funcionam nas colunas como no dia: confirmar, falta, remarcar, cancelar, cobrar e marcar.
+- **Só na extensão.** Cada coluna usa a rota `/v1/agenda/dia`, que já existia, com no máximo 3 pedidos ao mesmo tempo. Uma semana custa até 14 chamadas à Asa.
+- Testado localmente com dados falsos (Chrome headless). Falta o teste na Kentro com dados reais.
+- O usuário definiu que a extensão será instalada para **todos os clientes**. A estrutura de implantação (chave por cliente, vínculo com a instância) ficou registrada em `implantacao-clientes.md`, para ser desenhada.
 
 ## O que foi feito nesta sessão (29/10)
 
@@ -39,6 +49,8 @@ Situação em **29/10/2026**, quando o trabalho parou. A visão geral do projeto
   - o que o `status` 0/1 da Asa significa (pago ou em aberto). Hoje ele não é enviado.
 
 ## Próximos passos, em ordem
+
+> Atualizado em 30/10: deploy da 0.14.0 e refresh da 29; o usuário testa semana e lado a lado e, depois, decide o desenho da implantação em vários clientes (`implantacao-clientes.md`). Os itens abaixo são de 29/10. Os itens 1 (deploy da 0.12.0), "visão da semana", "vários profissionais" e "agendar exame" já foram feitos.
 
 1. Fazer o deploy da 0.12.0 no Doca e rodar `extension_installs_refresh_manifest` na 29. Ligar o Financeiro em Configurar.
 2. O usuário testa a tela cheia com o login 509, **só com consultas próprias**, porque tudo grava na Asa:

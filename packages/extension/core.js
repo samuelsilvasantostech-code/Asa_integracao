@@ -162,6 +162,24 @@
     return { weekday: WEEKDAYS_LONG[d.getDay()], date: Number(m[3]) + ' de ' + MONTHS_LONG[d.getMonth()] };
   }
 
+  // Semana (segunda a domingo) que contém o dia → 7 datas YYYY-MM-DD.
+  function weekDays(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    if (!m) return [];
+    var wd = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getDay();
+    var monday = shiftDay(iso, wd === 0 ? -6 : 1 - wd), out = [];
+    for (var i = 0; i < 7; i++) out.push(shiftDay(monday, i));
+    return out;
+  }
+
+  // ["2026-10-26", …, "2026-11-01"] → "26 de outubro a 1 de novembro"
+  function weekLabel(days) {
+    if (!days || !days.length) return '';
+    var a = longDay(days[0]).date, b = longDay(days[days.length - 1]).date;
+    var ma = a.split(' de ')[1], mb = b.split(' de ')[1];
+    return (ma === mb ? a.split(' de ')[0] : a) + ' a ' + b;
+  }
+
   // Status da Asa (texto livre, minúsculo) → rótulo e tom. "ativa" = ainda conta como consulta do dia.
   function statusInfo(st) {
     var s = String(st || '').toLowerCase();
@@ -253,7 +271,7 @@
 
   var api = { queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, bookingError: bookingError, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
-    todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
+    todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, weekDays: weekDays, weekLabel: weekLabel, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
     fold: fold, paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;
 })(this);
