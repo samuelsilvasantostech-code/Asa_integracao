@@ -7,9 +7,15 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Item | Situação |
 |---|---|
 | Último commit | **0.16.0**: confirmação configurável e revisão de segurança, no GitHub |
-| Conector no Doca | **0.16.0** (deploy em 30/10) |
-| Instalação 29 (`apresentacao`) | **0.16.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
+| Conector no Doca | **0.16.1** (deploy em 30/10) |
+| Instalação 29 (`apresentacao`) | **0.16.1**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
+
+## 30/10: marcação "confirmada" que não aparece (0.16.1, em investigação)
+
+- O usuário marcou pela extensão, a tela disse que deu certo, e a consulta não aparece em nenhuma tela.
+- Causa provável: o Conector tratava qualquer resposta 200 da Asa como sucesso, mesmo sem o número da consulta.
+- Na 0.16.1, sem o número a resposta é `AGENDAMENTO_SEM_NUMERO` (a tela pede para conferir a agenda), a tentativa fica `incerto` e o log registra o formato da resposta ("Asa respondeu ao agendamento sem o número da consulta"). Falta reproduzir e ler a mensagem da Asa.
 
 ## 30/10: confirmação configurável e revisão (0.16.0)
 
