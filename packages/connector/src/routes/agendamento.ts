@@ -232,6 +232,23 @@ export async function agendamentoRoutes(app: FastifyInstance) {
     if (!r.ok) return falhaAoGravar(req, reply, tenant.id, chave, r);
 
     const feito = { ...N.agendamentoFeito(r.dados), data: b.data, horario: b.horario, remarcado: !!remarcar };
+    // Sem o número da consulta não há prova de que a Asa gravou: ela já respondeu 200 com uma recusa
+    // fora do formato de erro. Não se diz "marcada"; a tentativa fica como incerta, e o formato da
+    // resposta vai para o log (sem dados do paciente) para entender o que veio.
+    if (!feito.agendamento_id) {
+      const d: any = r.dados;
+      const msg = String(d?.msg ?? d?.message ?? d?.mensagem ?? "").slice(0, 160);
+      await pool!.query("UPDATE agendamentos SET situacao = 'incerto', atualizado_em = now() WHERE tenant_id = $1 AND chave = $2", [tenant.id, chave]);
+      req.log.error(
+        {
+          tenant: tenant.id, tipo: remarcar ? "remarcar" : "criar", prestador: b.prestador_id, data: b.data, horario: b.horario,
+          chaves: d && typeof d === "object" ? Object.keys(d) : typeof d,
+          status_asa: d?.status, agendamento_tipo: typeof d?.agendamento, msg,
+        },
+        "Asa respondeu ao agendamento sem o número da consulta",
+      );
+      return reply.code(502).send({ erro: "AGENDAMENTO_SEM_NUMERO", msg });
+    }
     await concluir(tenant.id, chave, feito, feito.paciente_id);
     req.log.info(
       {

@@ -134,6 +134,7 @@
     var erro = body && body.erro;
     if (erro === 'HORARIO_INDISPONIVEL') return 'Esse horário acabou de ser ocupado. Escolha outro.';
     if (erro === 'AGENDAMENTO_INCERTO') return 'A Asa não confirmou a tempo e a consulta pode ter sido gravada. Confira na aba Consultas antes de tentar de novo.';
+    if (erro === 'AGENDAMENTO_SEM_NUMERO') return 'A Asa respondeu sem o número da consulta' + (body.msg ? ' ("' + body.msg + '")' : '') + ', então não dá para garantir que foi marcada. Confira na agenda do profissional antes de tentar de novo.';
     if (erro === 'AGENDAMENTO_EM_ANDAMENTO') return 'Este agendamento já está sendo gravado. Aguarde alguns segundos.';
     if (erro === 'PACIENTE_INVALIDO') return 'Confira nome, CPF, nascimento e telefone do paciente.';
     if (erro === 'DADOS_INVALIDOS') return 'Faltam dados do agendamento. Escolha de novo convênio e procedimento.';
