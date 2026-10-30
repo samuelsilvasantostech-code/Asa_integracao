@@ -1,5 +1,5 @@
 // Confirmação de véspera (D-1): configuração por clínica, datas e textos. Funções puras.
-import { dataIso, horaCurta, lista } from "./normalizar.js";
+import { dataIso, horaCurta, lista, nomeProcedimento } from "./normalizar.js";
 
 export type Acao = "confirmar" | "remarcar" | "cancelar";
 export const ACOES: Acao[] = ["confirmar", "remarcar", "cancelar"];
@@ -98,10 +98,13 @@ export function lerConfig(gravado: unknown): ConfigConfirmacao {
         .slice(0, MAX_PARAMETROS)
         .map((p: any): Parametro => (p.campo === "texto" ? { campo: "texto", texto: String(p.texto ?? "").trim().slice(0, 200) } : { campo: p.campo }))
     : PARAMETROS_PADRAO;
+  // Cada palavra conta para um botão só: repetida em outro, ou igual ao nome de um botão, é descartada.
   const sinonimos = { ...PADRAO.sinonimos };
+  const usados = new Set<string>(ACOES);
   for (const a of ACOES) {
     const v = g.sinonimos?.[a];
-    if (Array.isArray(v)) sinonimos[a] = [...new Set(v.map(normalizar).filter((x: string) => x && x.length <= 40))].slice(0, 15) as string[];
+    if (!Array.isArray(v)) continue;
+    sinonimos[a] = v.map(normalizar).filter((x: string) => x && x.length <= 40 && !usados.has(x) && (usados.add(x), true)).slice(0, 15);
   }
   return {
     ativo: typeof g.ativo === "boolean" ? g.ativo : PADRAO.ativo,
@@ -138,12 +141,13 @@ function somarDias(iso: string, n: number): string {
 
 const diaDaSemana = (iso: string) => new Date(iso + "T12:00:00Z").getUTCDay(); // 0 = domingo
 
-// Intervalo de datas das consultas a lembrar hoje. Com sexta_pega_segunda e dias_antes = 1, a sexta
-// cobre sábado, domingo e segunda (a clínica não dispara no fim de semana).
+// Intervalo de datas das consultas a lembrar hoje. Com sexta_pega_segunda, a sexta também manda os
+// lembretes que sairiam no sábado e no domingo (a clínica não dispara no fim de semana), seja qual for a
+// antecedência: com 1 dia cobre sábado a segunda; com 2, domingo a terça.
 export function datasAlvo(hoje: string, cfg: Pick<ConfigConfirmacao, "dias_antes" | "sexta_pega_segunda">) {
   const inicio = somarDias(hoje, cfg.dias_antes);
   let fim = inicio;
-  if (cfg.sexta_pega_segunda && cfg.dias_antes === 1 && diaDaSemana(hoje) === 5) fim = somarDias(hoje, 3);
+  if (cfg.sexta_pega_segunda && diaDaSemana(hoje) === 5) fim = somarDias(hoje, cfg.dias_antes + 2);
   return { inicio, fim };
 }
 
@@ -179,7 +183,7 @@ export function proximos(corpo: any): ConsultaD1[] {
       telefone: telefoneKentro(String(a.telefone1 ?? a.telefone ?? "")),
       clinica: texto(a.clinica ?? a["clínica"]),
       especialidade: texto(a.especialidade),
-      procedimento: texto(lista(a.procedimentos).map((p: any) => (p && typeof p === "object" ? p.nome ?? p.descricao : p)).filter(Boolean).join(", ") || a.procedimento),
+      procedimento: texto(lista(a.procedimentos).map(nomeProcedimento).filter(Boolean).join(", ")) ?? nomeProcedimento(a.procedimento),
       endereco: texto(a.clinica_endereco ?? a.endereco),
     }))
     .filter((c) => c.agendamento_id && c.data);
@@ -204,7 +208,6 @@ export type Vars = Record<Exclude<Campo, "texto">, string>;
 
 type DadosVars = Pick<ConsultaD1, "paciente" | "data" | "hora" | "prestador" | "clinica"> & Partial<Pick<ConsultaD1, "especialidade" | "procedimento" | "endereco">>;
 
-// Na resposta só há o que o Conector guardou (data, hora, profissional): o resto fica vazio.
 export function varsDa(c: DadosVars, hoje: string, clinicaPadrao: string): Vars {
   const [, m, d] = c.data.split("-");
   return {
@@ -220,6 +223,13 @@ export function varsDa(c: DadosVars, hoje: string, clinicaPadrao: string): Vars 
     clinica: c.clinica ?? clinicaPadrao,
     endereco: c.endereco ?? "",
   };
+}
+
+// Na resposta do paciente só há o que o Conector guardou da consulta (data, hora, profissional) e o
+// primeiro nome que a automação devolve. O resto fica vazio, e a prévia usa esta mesma função.
+export function varsResposta(linha: { data: string; hora: string | null; prestador: string | null }, nome: string, hoje: string, clinica: string): Vars {
+  const v = varsDa({ paciente: nome, data: linha.data, hora: linha.hora, prestador: linha.prestador, clinica }, hoje, clinica);
+  return { ...v, nome: primeiroNome(nome) || "tudo bem", nome_completo: "", especialidade: "", procedimento: "", endereco: "" };
 }
 
 // Troca {nome}, {data}… pelos valores. Marcador desconhecido fica como está.

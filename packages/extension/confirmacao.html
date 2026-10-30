@@ -42,7 +42,7 @@
             </select>
           </label>
         </div>
-        <label class="check" id="rem-fri-wrap"><input type="checkbox" id="rem-fri"> <span>Na sexta, lembrar também das consultas de sábado a segunda</span></label>
+        <label class="check" id="rem-fri-wrap"><input type="checkbox" id="rem-fri"> <span>Na sexta, mandar também os lembretes que cairiam no sábado e no domingo</span></label>
         <p class="hint">O horário dos envios e a fila ficam na automação da Kentro.</p>
       </section>
 
@@ -84,10 +84,10 @@
 
       <section class="card form" aria-labelledby="h-btn">
         <h2 class="card__label" id="h-btn">Respostas aceitas</h2>
-        <p class="hint">Além de Confirmar, Remarcar e Cancelar (e 1, 2, 3, sim, confirmo), conte também estas, separadas por vírgula. Use para botões com outro texto.</p>
-        <label class="field"><span>Contam como confirmar</span><input id="syn-confirmar" placeholder="estarei lá, vou sim" spellcheck="false"></label>
-        <label class="field"><span>Contam como remarcar</span><input id="syn-remarcar" placeholder="outro horário" spellcheck="false"></label>
-        <label class="field"><span>Contam como cancelar</span><input id="syn-cancelar" placeholder="não vou" spellcheck="false"></label>
+        <p class="hint">Além de Confirmar, Remarcar e Cancelar (e 1, 2, 3, sim, confirmo), conte também estas respostas, uma por linha. A resposta precisa ser igual, sem contar acentos e maiúsculas. Use para botões com outro texto.</p>
+        <label class="field"><span>Contam como confirmar</span><textarea id="syn-confirmar" rows="2" placeholder="Sim, estarei lá" spellcheck="false"></textarea></label>
+        <label class="field"><span>Contam como remarcar</span><textarea id="syn-remarcar" rows="2" placeholder="Preciso de outro horário" spellcheck="false"></textarea></label>
+        <label class="field"><span>Contam como cancelar</span><textarea id="syn-cancelar" rows="2" placeholder="Não vou poder ir" spellcheck="false"></textarea></label>
       </section>
 
       <div class="savebar">

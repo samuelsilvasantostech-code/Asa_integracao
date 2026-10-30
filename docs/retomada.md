@@ -1,15 +1,28 @@
 # Retomada: Asa Saúde × Kentro
 
-Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto está em [`visao-geral.md`](visao-geral.md), e o que a API não entrega e o que falta validar está em [`pendencias.md`](pendencias.md) (P1 a P37). A implantação em vários clientes, ainda em aberto, está em [`implantacao-clientes.md`](implantacao-clientes.md).
+Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto está em [`visao-geral.md`](visao-geral.md), e o que a API não entrega e o que falta validar está em [`pendencias.md`](pendencias.md) (P1 a P40). A implantação em vários clientes, ainda em aberto, está em [`implantacao-clientes.md`](implantacao-clientes.md).
 
 ## Onde paramos
 
 | Item | Situação |
 |---|---|
-| Último commit | **0.15.0**: acabamento visual da Agenda, no GitHub |
-| Conector no Doca | **0.15.0** (deploy em 30/10) |
+| Último commit | **0.16.0**: confirmação configurável e revisão de segurança, no GitHub |
+| Conector no Doca | **0.15.0** (deploy em 30/10). A 0.16.0 ainda precisa de deploy |
 | Instalação 29 (`apresentacao`) | **0.15.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
+
+## 30/10: confirmação configurável e revisão (0.16.0)
+
+- **Lista de espera fora do escopo por enquanto** (decisão do usuário).
+- **Tela própria "Confirmação Asa"** (admin, supervisor e atendente, por decisão do usuário). Configurar ficou só com token e financeiro.
+  - Variáveis do template oficial (1 a 10): cada uma recebe um campo da consulta ou um texto fixo. O **id do template continua no fluxo** (a Kentro não aceita variável nele, e o SDK não lista templates; decisão: "template fixo, parâmetros livres").
+  - Antecedência de 1 a 7 dias, canal, modo teste, as cinco respostas com prévia e "respostas aceitas" (sinônimos dos botões, um por linha, sem repetir entre botões).
+  - Na sexta, com a opção ligada, saem também os lembretes que cairiam no sábado e no domingo, para qualquer antecedência.
+  - As respostas ao paciente só têm nome, data, hora, profissional e clínica; a prévia mostra exatamente isso.
+- Fluxo `disparo-cloud.dsl`: distribui até 10 variáveis (`%%TEMPLATE_DATA%%`), validado na Kentro.
+- **Segurança:** o log de requisição não leva a query string (CPF e telefone da busca de paciente), o 404 não repete a URL, e erro inesperado responde `ERRO_INTERNO`. `npm audit`: 0 vulnerabilidades.
+- **Desempenho:** especialidades e prestadores em cache por 5 min por clínica; o cache de exames tem teto de 50 buscas.
+- Revisão de código (code-review high) aplicada, menos o ponto da permissão, que é decisão do usuário.
 
 ## 30/10: acabamento visual da Agenda (0.15.0)
 

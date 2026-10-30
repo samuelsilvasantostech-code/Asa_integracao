@@ -18,6 +18,8 @@ test("datas alvo: dia seguinte, e sexta cobre até segunda", () => {
   assert.deepEqual(datasAlvo("2026-10-30", { dias_antes: 1, sexta_pega_segunda: true }), { inicio: "2026-10-31", fim: "2026-11-02" });
   assert.deepEqual(datasAlvo("2026-10-30", { dias_antes: 1, sexta_pega_segunda: false }), { inicio: "2026-10-31", fim: "2026-10-31" });
   assert.deepEqual(datasAlvo("2026-12-31", { dias_antes: 2, sexta_pega_segunda: true }), { inicio: "2027-01-02", fim: "2027-01-02" });
+  // Sexta com 2 dias: domingo a terça (os envios de sábado e domingo não acontecem).
+  assert.deepEqual(datasAlvo("2026-10-30", { dias_antes: 2, sexta_pega_segunda: true }), { inicio: "2026-11-01", fim: "2026-11-03" });
 });
 
 test("hoje no fuso de São Paulo, não em UTC", () => {
@@ -96,6 +98,9 @@ test("botão: sinônimos da clínica", () => {
   const c = lerConfig({ sinonimos: { confirmar: ["Sim, vou!", "  ESTAREI LÁ "], cancelar: "x" } });
   assert.deepEqual(c.sinonimos.confirmar, ["sim, vou!", "estarei la"]);
   assert.deepEqual(c.sinonimos.cancelar, []);
+  const d = lerConfig({ sinonimos: { remarcar: ["nao posso", "cancelar"], cancelar: ["Não posso", "desisto"] } });
+  assert.deepEqual(d.sinonimos.remarcar, ["nao posso"]);
+  assert.deepEqual(d.sinonimos.cancelar, ["desisto"]);
   assert.equal(acaoDoBotao("Estarei lá", c.sinonimos), "confirmar");
   assert.equal(acaoDoBotao("Estarei lá"), null);
   assert.equal(lerConfig({ canal: "nao_oficial" }).canal, "nao_oficial");

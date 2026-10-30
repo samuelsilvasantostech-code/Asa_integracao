@@ -65,4 +65,7 @@ Legenda: **API** = a Asa não entrega · **Asa** = a Asa entrega, mas com compor
 | P33 | Teste | Tela cheia: marcar, confirmar presença, remarcar, marcar falta, cancelar e buscar paciente | 0.11.x |
 | P34 | Teste | Financeiro: ligar em Configurar, lançar cobrança e ver como fica na Asa (fecha P3 e P22) | 0.12.0 |
 | P35 | Teste | Confirmação D-1: criar os fluxos na fila 19 e testar só com o número do usuário | 0.10.0 |
+| P38 | Nosso | Sem limite de chamadas por clínica: quem tem a chave da instalação (todo atendente) pode disparar chamadas à Asa sem teto. | Proposto: limite por clínica no Conector. Aguarda aprovação. |
+| P39 | Nosso | `confirmacoes` guarda o telefone do paciente sem prazo. | Proposto: apagar depois de 90 dias (LGPD). Aguarda aprovação. |
+| P40 | Nosso | Qualquer atendente altera a confirmação (inclusive ligar para todos os pacientes), e o nome gravado na trilha vem do navegador. | Decisão do usuário em 30/10. Reavaliar se houver incidente. |
 | P36 | Teste | Agendar por exame: o procedimento buscado já deve vir escolhido no formulário. A Asa pode não trazer o id do procedimento no horário; nesse caso, ele é casado pelo nome | 0.13.0 |

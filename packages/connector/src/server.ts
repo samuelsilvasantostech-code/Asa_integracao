@@ -22,6 +22,9 @@ const app = Fastify({
   },
 });
 
+// 404 sem repetir a URL na resposta nem no log (o tratamento padrão do Fastify faz os dois, com a query).
+app.setNotFoundHandler((_req, reply) => reply.code(404).send({ erro: "NAO_ENCONTRADO" }));
+
 // Erro inesperado (banco, bug) vira resposta genérica; o detalhe fica só no log. Erros 4xx do próprio
 // Fastify (JSON inválido, corpo grande demais) continuam com o código certo.
 app.setErrorHandler((err: { statusCode?: number; code?: string }, req, reply) => {

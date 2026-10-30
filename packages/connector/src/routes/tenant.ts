@@ -3,7 +3,7 @@ import { instituicaoDa, listarPrestadores, type CredencialAsa } from "../asa.js"
 import { cifraDisponivel, cifrar, decifrar } from "../crypto.js";
 import { pool } from "../db.js";
 import { tenantDaRequisicao } from "../tenant-auth.js";
-import { CAMPOS, hojeEm, lerConfig, MAX_PARAMETROS, preencher, TEXTOS_PADRAO, variaveisTemplate, varsDa } from "../confirmacao.js";
+import { CAMPOS, datasAlvo, hojeEm, lerConfig, MAX_PARAMETROS, preencher, TEXTOS_PADRAO, variaveisTemplate, varsDa, varsResposta } from "../confirmacao.js";
 import { adminAutorizado } from "./admin.js";
 
 export async function tenantRoutes(app: FastifyInstance) {
@@ -60,14 +60,15 @@ export async function tenantRoutes(app: FastifyInstance) {
     if (!tenant) return;
     const cfg = lerConfig(req.body?.config);
     const hoje = hojeEm(new Date());
-    const [a, m, d] = hoje.split("-").map(Number);
-    const amanha = new Date(Date.UTC(a, m - 1, d + cfg.dias_antes)).toISOString().slice(0, 10);
+    const data = datasAlvo(hoje, cfg).inicio;
     const v = varsDa(
-      { paciente: "Maria Aparecida Souza", data: amanha, hora: "08:30", prestador: "Dra. Ana Lima", clinica: null, especialidade: "Cardiologia", procedimento: "Consulta", endereco: "Rua das Flores, 100" },
+      { paciente: "Maria Aparecida Souza", data, hora: "08:30", prestador: "Dra. Ana Lima", clinica: null, especialidade: "Cardiologia", procedimento: "Consulta", endereco: "Rua das Flores, 100" },
       hoje,
       tenant.nome,
     );
-    const textos = Object.fromEntries(Object.entries(cfg.textos).map(([k, t]) => [k, preencher(t, v)]));
+    // As respostas saem com os dados que a rota de resposta realmente tem.
+    const vr = varsResposta({ data, hora: "08:30", prestador: "Dra. Ana Lima" }, "Maria", hoje, tenant.nome);
+    const textos = Object.fromEntries(Object.entries(cfg.textos).map(([k, t]) => [k, preencher(t, k === "mensagem" ? v : vr)]));
     return { config: cfg, textos, template: variaveisTemplate(v, cfg.template.parametros) };
   });
 

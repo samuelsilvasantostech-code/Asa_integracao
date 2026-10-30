@@ -135,7 +135,7 @@ export function convenios(corpo: any): Convenio[] {
 }
 
 // Nome do procedimento: texto solto ou dentro de um objeto (às vezes aninhado em "procedimento").
-function nomeProcedimento(v: any): string | null {
+export function nomeProcedimento(v: any): string | null {
   if (!v || typeof v !== "object") return texto(v);
   return texto(v.descricao ?? v.nome ?? null) ?? nomeProcedimento(v.procedimento);
 }

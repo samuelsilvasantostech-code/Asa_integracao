@@ -19,7 +19,7 @@
   }
   function pill(tone, text) { $('pill').setAttribute('data-tone', tone); $('pill-text').textContent = text; }
   function msg(node, tone, text) { if (tone) node.setAttribute('data-tone', tone); else node.removeAttribute('data-tone'); node.textContent = text; }
-  function words(v) { return v.split(',').map(function (s) { return s.trim(); }).filter(Boolean); }
+  function lines(v) { return v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); }
 
   function statePill(c) {
     if (!c.ativo) pill('idle', 'Desligada');
@@ -69,7 +69,6 @@
     var official = $('rem-channel').value === 'oficial';
     $('sec-tpl').hidden = !official;
     $('sec-msg').hidden = official;
-    $('rem-fri-wrap').hidden = $('rem-days').value !== '1';
   }
 
   /* ---------- ler e gravar ---------- */
@@ -83,7 +82,7 @@
     $('tpl-name').value = c.template.nome;
     params = c.template.parametros.map(function (p) { return { campo: p.campo, texto: p.texto }; });
     TEXTS.forEach(function (k) { $('rem-t-' + k).value = c.textos[k]; });
-    ACTIONS.forEach(function (a) { $('syn-' + a).value = c.sinonimos[a].join(', '); });
+    ACTIONS.forEach(function (a) { $('syn-' + a).value = c.sinonimos[a].join('\n'); });
     renderParams();
     renderChannel();
     statePill(c);
@@ -98,7 +97,7 @@
     c.teste = { ativo: $('rem-test').checked, telefones: $('rem-phones').value.split(/[\n,;]+/).map(function (s) { return s.trim(); }).filter(Boolean) };
     c.template = { nome: $('tpl-name').value, parametros: params.map(function (p) { return p.campo === 'texto' ? { campo: 'texto', texto: p.texto || '' } : { campo: p.campo }; }) };
     TEXTS.forEach(function (k) { c.textos[k] = $('rem-t-' + k).value; });
-    ACTIONS.forEach(function (a) { c.sinonimos[a] = words($('syn-' + a).value); });
+    ACTIONS.forEach(function (a) { c.sinonimos[a] = lines($('syn-' + a).value); });
     return c;
   }
 
@@ -180,7 +179,11 @@
       }).catch(function () { /* sem usuário: a trilha fica sem nome */ });
     }
     $('rem').addEventListener('submit', save);
-    $('rem').addEventListener('input', schedulePreview);
+    // Só o que muda a prévia pede uma nova ao Conector.
+    $('rem').addEventListener('input', function (ev) {
+      var t = ev.target;
+      if (t.hasAttribute('data-text') || t.id === 'rem-days' || t.closest('.params')) schedulePreview();
+    });
     $('rem-channel').addEventListener('change', renderChannel);
     $('rem-days').addEventListener('change', renderChannel);
     $('tpl-add').addEventListener('click', function () {

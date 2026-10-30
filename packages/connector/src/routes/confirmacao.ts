@@ -171,8 +171,7 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
     const linha = rows[0];
     if (!linha || !["enviado", "respondido"].includes(linha.estado)) return { acao, texto: "", transferir: true };
     const hoje = C.hojeEm(new Date());
-    const v = C.varsDa({ paciente: nome, data: linha.data, hora: linha.hora, prestador: linha.prestador, clinica: null }, hoje, t.nome);
-    v.nome = nome;
+    const v = C.varsResposta(linha, nome, hoje, t.nome);
     if (linha.estado === "respondido" || linha.data < hoje) {
       return { acao, texto: C.preencher(cfg.textos.ja_respondido, v), transferir: true };
     }
