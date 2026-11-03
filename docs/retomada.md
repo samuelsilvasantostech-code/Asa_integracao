@@ -7,11 +7,11 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Item | Situação |
 |---|---|
 | Último commit | **0.16.0**: confirmação configurável e revisão de segurança, no GitHub |
-| Conector no Doca | **0.18.1** (deploy em 30/10) |
-| Instalação 29 (`apresentacao`) | **0.18.1**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
+| Conector no Doca | **0.18.2** (deploy em 03/11) |
+| Instalação 29 (`apresentacao`) | **0.18.2**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
-## 03/11: grupos de procedimentos e pedido financeiro (0.18.2, aguardando deploy)
+## 03/11: grupos de procedimentos e pedido financeiro (0.18.2, no ar em 03/11; falta o teste do usuário)
 
 - Agenda › Por exame ganhou o filtro **Grupo** (Clínico, Cardiologia…), antes da busca. Escolhido o grupo, a lista abre com os procedimentos dele, e a busca filtra só dentro do grupo.
   - Conector: `GET /v1/exames/grupos` (`api-agendamento-grupos-procedimentos`) e `GET /v1/exames/grupos/:id` (`api-agendamento-procedimentos-grupo`), guardados por 1 h.
