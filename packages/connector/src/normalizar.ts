@@ -225,6 +225,20 @@ export function exames(corpo: any): Exame[] {
     .filter((p): p is Exame => !!p.id && !!p.nome);
 }
 
+export interface GrupoExame {
+  id: string;
+  nome: string;
+}
+
+// api-agendamento-grupos-procedimentos: {grupos_procedimentos: [{id, nome, tipo}]}. Só aparecem grupos com
+// algum procedimento de agenda online. Os procedimentos do grupo vêm no formato de exames().
+export function gruposExames(corpo: any): GrupoExame[] {
+  return lista(corpo?.grupos_procedimentos ?? corpo)
+    .map((g: any) => ({ id: texto(g?.id), nome: texto(g?.nome ?? g?.descricao) }))
+    .filter((g): g is GrupoExame => !!g.id && !!g.nome)
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
 export interface ConvenioValor extends Convenio {
   valor: number | null;
 }

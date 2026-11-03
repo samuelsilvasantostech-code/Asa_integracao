@@ -394,7 +394,7 @@
   }
 
   /* ---------- agendar por exame: procedimento → convênio → quem faz → dias e horários ---------- */
-  var exam = null; // {results, item, insurances, insurance, providers}; null no modo "por profissional"
+  var exam = null; // {results, group, item, insurances, insurance, providers}; null no modo "por profissional"
   var EXAM_STEPS = ['ex-conv-wrap', 'ex-prest-wrap', 'a-dias-wrap', 'a-horas-wrap'];
   var examList = null; // lista completa de procedimentos: carregada uma vez por painel
   function hideFrom(i) { EXAM_STEPS.slice(i).forEach(function (id) { $(id).hidden = true; }); }
@@ -405,7 +405,7 @@
     $('a-mode-exam').setAttribute('aria-pressed', String(byExam));
     $('a-by-prof').hidden = byExam;
     $('a-by-exam').hidden = !byExam;
-    exam = byExam ? { results: [], item: null, insurances: [], insurance: null, providers: [] } : null;
+    exam = byExam ? { results: [], group: null, item: null, insurances: [], insurance: null, providers: [] } : null;
     hideFrom(0);
     $('a-prest').value = '';
     closeBooking();
@@ -429,6 +429,9 @@
 
   function loadExams() {
     var e = exam;
+    $('ex-grp').value = '';
+    $('ex-q').placeholder = 'Buscar exame ou procedimento';
+    loadGroups();
     if (examList) { e.results = examList; renderExams(); return; }
     $('ex-q').value = '';
     $('ex-clear').hidden = true;
@@ -436,7 +439,8 @@
     $('ex-q').placeholder = 'Carregando a lista da Asa…';
     $('ex-hint').textContent = '';
     fetchExams().then(function (r) {
-      if (exam !== e) return;
+      // Se um grupo foi escolhido enquanto a lista inteira carregava, a tela já mostra o grupo.
+      if (exam !== e || e.group) return;
       $('ex-q').disabled = false;
       $('ex-q').placeholder = 'Buscar exame ou procedimento';
       if (r.status !== 200 || !r.body) {
@@ -451,6 +455,64 @@
     });
   }
 
+  // Grupos da Asa (Clínico, Cardiologia…): um filtro opcional antes da busca. Se a clínica não tiver grupos,
+  // ou a Asa não tiver a rota, o filtro não aparece e a busca segue na lista inteira.
+  var groupsReq = null, groupLists = {};
+  function loadGroups() {
+    if (!groupsReq) {
+      groupsReq = api.examGroups().then(function (r) {
+        var list = r.status === 200 && r.body && r.body.grupos || [];
+        if (r.status !== 200) groupsReq = null;
+        var sel = $('ex-grp');
+        while (sel.options.length > 1) sel.remove(1);
+        list.forEach(function (g) { sel.appendChild(option(g.id, g.nome)); });
+        $('ex-grp-wrap').hidden = !list.length;
+        B.fitHeight();
+      });
+    }
+    return groupsReq;
+  }
+
+  function onGroup() {
+    var e = exam, sel = $('ex-grp'), id = sel.value;
+    if (!e) return;
+    $('ex-q').value = '';
+    if (!id) {
+      e.group = null;
+      if (!examList) { loadExams(); return; } // a lista inteira ainda não chegou (ou falhou): busca de novo
+      e.results = examList;
+      $('ex-q').placeholder = 'Buscar exame ou procedimento';
+      renderExams();
+      return;
+    }
+    var g = { id: id, nome: sel.options[sel.selectedIndex].text };
+    e.group = g;
+    var show = function (list) {
+      if (exam !== e || e.group !== g) return;
+      e.results = list;
+      $('ex-q').disabled = false;
+      $('ex-q').placeholder = 'Buscar em ' + g.nome;
+      $('ex-q').focus();
+      renderExams();
+    };
+    if (groupLists[id]) { show(groupLists[id]); return; }
+    e.results = [];
+    $('ex-q').disabled = true;
+    $('ex-hint').textContent = 'Carregando ' + g.nome + '…';
+    closeCombo();
+    api.examGroup(id).then(function (r) {
+      if (r.status !== 200 || !r.body) {
+        if (exam !== e || e.group !== g) return;
+        $('ex-q').disabled = false;
+        $('ex-hint').textContent = '';
+        status('a-status', C.readError(r.status, r.body), 'err');
+        return;
+      }
+      groupLists[id] = r.body.exames || [];
+      show(groupLists[id]);
+    });
+  }
+
   // O "tipo" da Asa não é confiável (exame de laboratório vem como "consulta"): lista única, em ordem
   // alfabética. Um campo só: o que se digita (sem acento) filtra a lista logo abaixo, e o toque escolhe.
   var COMBO_MAX = 60;
@@ -462,7 +524,7 @@
     $('ex-clear').hidden = !raw;
     // Texto mudou depois de escolher: a escolha (e o que veio depois dela) deixa de valer.
     if (e.item && raw !== e.item.nome) { e.item = null; e.insurance = null; hideFrom(0); closeBooking(); status('a-status', ''); }
-    if (!e.results.length) { $('ex-hint').textContent = 'Nenhum procedimento com agenda online.'; closeCombo(); B.fitHeight(); return; }
+    if (!e.results.length) { $('ex-hint').textContent = e.group ? 'Nenhum procedimento com agenda online em ' + e.group.nome + '.' : 'Nenhum procedimento com agenda online.'; closeCombo(); B.fitHeight(); return; }
     // Palavras em qualquer ordem: "glicose jejum" acha "Glicemia de jejum (glicose)".
     var words = term.split(/\s+/).filter(Boolean);
     var list = e.results.filter(function (x) {
@@ -473,7 +535,7 @@
     if (term) list.sort(function (a, b) { return (C.fold(a.nome).indexOf(term) === 0 ? 0 : 1) - (C.fold(b.nome).indexOf(term) === 0 ? 0 : 1); });
     combo.list = list;
     combo.active = list.length ? 0 : -1;
-    $('ex-hint').textContent = e.item ? '' : !term ? e.results.length + ' procedimentos. Digite parte do nome.'
+    $('ex-hint').textContent = e.item ? '' : !term ? e.results.length + (e.results.length === 1 ? ' procedimento' : ' procedimentos') + (e.group ? ' em ' + e.group.nome + '. Escolha na lista ou digite parte do nome.' : '. Digite parte do nome.')
       : !list.length ? 'Nada com esse nome. Tente outra palavra.'
       : list.length + (list.length === 1 ? ' encontrado' : ' encontrados') + (list.length > COMBO_MAX ? '; mostrando os ' + COMBO_MAX + ' primeiros, continue digitando' : '') + '.';
     if (e.item || document.activeElement !== $('ex-q')) { closeCombo(); B.fitHeight(); return; }
@@ -838,6 +900,7 @@
     $('c-next').addEventListener('click', function () { selectTab('consultas'); });
     $('a-mode-prof').addEventListener('click', function () { setMode(false); });
     $('a-mode-exam').addEventListener('click', function () { setMode(true); });
+    $('ex-grp').addEventListener('change', onGroup);
     $('ex-q').addEventListener('input', renderExams);
     $('ex-q').addEventListener('focus', renderExams);
     $('ex-q').addEventListener('keydown', comboKey);

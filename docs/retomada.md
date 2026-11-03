@@ -11,6 +11,13 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.18.1**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
+## 03/11: grupos de procedimentos e pedido financeiro (0.18.2, aguardando deploy)
+
+- Agenda › Por exame ganhou o filtro **Grupo** (Clínico, Cardiologia…), antes da busca. Escolhido o grupo, a lista abre com os procedimentos dele, e a busca filtra só dentro do grupo.
+  - Conector: `GET /v1/exames/grupos` (`api-agendamento-grupos-procedimentos`) e `GET /v1/exames/grupos/:id` (`api-agendamento-procedimentos-grupo`), guardados por 1 h.
+  - As duas rotas estão na coleção da Asa, mas não foram testadas em produção. Se a Asa não as tiver, ou a clínica não tiver grupos, o filtro não aparece e a busca segue como antes.
+- Pedido de rotas financeiras à Asa em `pedido-financeiro-asa.pdf` (rascunho em `financeiro-endpoints.md`). Por decisão do usuário, o único pedido à Asa por enquanto é o financeiro.
+
 ## 30/10: busca de exame num campo só (0.18.1)
 
 - No painel da conversa, Agenda › Por exame: o campo de texto e a lista de seleção viraram um campo só, com lupa e botão de limpar. A lista de resultados abre logo abaixo enquanto se digita.

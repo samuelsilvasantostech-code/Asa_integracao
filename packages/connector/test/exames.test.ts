@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { conveniosDoExame, exames, prestadoresDoExame, procedimentos } from "../src/normalizar.js";
+import { conveniosDoExame, exames, gruposExames, prestadoresDoExame, procedimentos } from "../src/normalizar.js";
 
 // Exemplos da coleção pública da Asa (Postman).
 test("exames: lista de procedimentos com tipo", () => {
@@ -34,4 +34,16 @@ test("procedimentos do horário: guarda o id do procedimento para casar com o ex
   const [p] = procedimentos({ procedimentos: [{ convenio_procedimento_id: 9, valor: "0", procedimento_instituicao: { id: 77, procedimento_id: 41982, descricao: "RM" } }] });
   assert.equal(p.id, "9");
   assert.equal(p.procedimento_id, "41982");
+});
+
+test("gruposExames: grupos de procedimentos em ordem alfabética", () => {
+  const r = gruposExames({ grupos_procedimentos: [{ id: 22, nome: "Cardiologia", tipo: null }, { id: 21, nome: "Clínico", tipo: null }, { id: 759, nome: "Ginecologia" }, { id: 3 }, { nome: "Sem id" }] });
+  assert.deepEqual(r, [{ id: "22", nome: "Cardiologia" }, { id: "21", nome: "Clínico" }, { id: "759", nome: "Ginecologia" }]);
+  assert.deepEqual(gruposExames({}), []);
+  assert.deepEqual(gruposExames(null), []);
+});
+
+test("exames: procedimentos de um grupo (mesmo formato da lista)", () => {
+  const r = exames({ status: "success", grupo: { id: 22, nome: "Cardiologia" }, procedimentos: [{ id: 12539, descricao: "Eletrocardiograma", tipo: "exame", odontologico: false }] });
+  assert.deepEqual(r, [{ id: "12539", nome: "Eletrocardiograma", tipo: "exame" }]);
 });

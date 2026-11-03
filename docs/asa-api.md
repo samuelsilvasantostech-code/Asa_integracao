@@ -64,8 +64,8 @@ L = leitura, **E = grava na Asa**.
 | `api-agendamento-procedimentos` | L | `descricao`, `page` (100/pág.), `convenio_id`? | `procedimentos[] {id, descricao, tipo: consulta\|exame, odontologico}` |
 | `api-agendamento-get-convenios-procedimento` | L | `procedimento_id`, `prestador_id`? | `convenios[] {id, nome, valor}` |
 | `api-agendamento-get-prestadores-procedimento` | L | `procedimento_id`, `convenio_id`? | `prestadores[] {id, nome, especialidade, ordem_chegada, convenios[] {convenio_id, convenio_nome, valor_procedimento}}` |
-| ★ `api-agendamento-grupos-procedimentos` | L | — | `grupos_procedimentos[]` |
-| ★ `api-agendamento-procedimentos-grupo` | L | `grupo_id` | `grupo`, `procedimentos[]` |
+| ★ `api-agendamento-grupos-procedimentos` | L | — | `grupos_procedimentos[] {id, nome, tipo}` — usada no filtro Grupo (0.18.2) |
+| ★ `api-agendamento-procedimentos-grupo` | L | `grupo_id` | `grupo {id, nome}`, `procedimentos[] {id, descricao, tipo, odontologico}` — mesmo formato de `procedimentos` |
 
 ### Paciente
 

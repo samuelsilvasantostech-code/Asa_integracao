@@ -22,6 +22,14 @@ function guardar(chave: string, exames: N.Exame[]) {
   while (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value!);
 }
 
+// Grupos e procedimentos por grupo: pequenos, mesma hora de validade e o mesmo teto de entradas.
+const grupos = new Map<string, { em: number; dados: any[] }>();
+function guardarGrupo(chave: string, dados: any[]) {
+  grupos.delete(chave);
+  grupos.set(chave, { em: Date.now(), dados });
+  while (grupos.size > MAX_CACHE * 4) grupos.delete(grupos.keys().next().value!);
+}
+
 export async function examesRoutes(app: FastifyInstance) {
   // Procedimentos com agenda online, a lista inteira (até 6.000), em ordem alfabética: o painel mostra numa
   // lista de seleção com filtro local. Com `busca`, filtrada pelo nome na própria Asa.
@@ -55,6 +63,38 @@ export async function examesRoutes(app: FastifyInstance) {
     if (completa) guardar(chave, exames);
     req.log.info({ tenant: ctx.tenant.id, itens: exames.length, completa }, "exames: lista carregada da Asa");
     return { exames, completa };
+  });
+
+  // Grupos de procedimentos (Clínico, Cardiologia…), para o painel navegar a lista por grupo. A rota está
+  // documentada na coleção da Asa; se a Asa não a tiver, volta lista vazia e o painel esconde o filtro.
+  app.get("/v1/exames/grupos", async (req, reply) => {
+    const ctx = await tenantComCredencial(req, reply);
+    if (!ctx) return;
+    const chave = ctx.tenant.id + "|grupos";
+    const guardado = grupos.get(chave);
+    if (guardado && Date.now() - guardado.em < CACHE_MS) return { grupos: guardado.dados };
+    const r = await chamarAsa<any>(ctx.credencial, "api-agendamento-grupos-procedimentos", {});
+    if (naoEncontrado(r)) return { grupos: [] };
+    if (!r.ok) return falha(reply, r);
+    const dados = N.gruposExames(r.dados);
+    guardarGrupo(chave, dados);
+    return { grupos: dados };
+  });
+
+  // Procedimentos de um grupo, no mesmo formato de /v1/exames.
+  app.get<{ Params: { id: string } }>("/v1/exames/grupos/:id", async (req, reply) => {
+    if (!idValido(req.params.id)) return reply.code(400).send({ erro: "GRUPO_INVALIDO" });
+    const ctx = await tenantComCredencial(req, reply);
+    if (!ctx) return;
+    const chave = ctx.tenant.id + "|grupo|" + req.params.id;
+    const guardado = grupos.get(chave);
+    if (guardado && Date.now() - guardado.em < CACHE_MS) return { exames: guardado.dados };
+    const r = await chamarAsa<any>(ctx.credencial, "api-agendamento-procedimentos-grupo", { grupo_id: req.params.id });
+    if (naoEncontrado(r)) return { exames: [] };
+    if (!r.ok) return falha(reply, r);
+    const dados = N.exames(r.dados).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    guardarGrupo(chave, dados);
+    return { exames: dados };
   });
 
   // Convênios que cobrem o procedimento, com o valor.
