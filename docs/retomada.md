@@ -7,11 +7,11 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Item | Situação |
 |---|---|
 | Último commit | **0.16.0**: confirmação configurável e revisão de segurança, no GitHub |
-| Conector no Doca | **0.18.2** (deploy em 03/11) |
-| Instalação 29 (`apresentacao`) | **0.18.2**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
+| Conector no Doca | **0.19.0** (deploy em 03/11) |
+| Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
-## 03/11: implantação multi-cliente e segurança (0.19.0, aguardando deploy)
+## 03/11: implantação multi-cliente e segurança (0.19.0, no ar em 03/11; falta cadastrar o vínculo da clínica de teste)
 
 Detalhes e roteiro em [`implantacao-clientes.md`](implantacao-clientes.md).
 
