@@ -17,8 +17,9 @@ export function adminAutorizado(req: FastifyRequest): boolean {
 // Cadastro de clientes pela implantação. A chave da instalação é devolvida uma única vez;
 // o banco guarda só o hash.
 export async function adminRoutes(app: FastifyInstance) {
+  // O hook fica preso a este plugin (sem fastify-plugin), então vale só nas rotas daqui. Não filtrar por
+  // req.url: ela chega crua (/%61dmin/...) e o roteador decodifica, o que abria as rotas sem chave.
   app.addHook("onRequest", async (req, reply) => {
-    if (!req.url.startsWith("/admin/")) return;
     if (!adminAutorizado(req)) return reply.code(401).send({ erro: "NAO_AUTORIZADO" });
     if (!pool) return reply.code(503).send({ erro: "BANCO_NAO_CONFIGURADO" });
   });
