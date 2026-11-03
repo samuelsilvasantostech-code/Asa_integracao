@@ -3,6 +3,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import type { CredencialAsa } from "./asa.js";
 import { decifrar } from "./crypto.js";
 import { pool } from "./db.js";
+import { precisaMarcarUso } from "./implantacao.js";
 
 const hash = (valor: string) => createHash("sha256").update(valor).digest("hex");
 
@@ -23,14 +24,20 @@ export async function tenantDaRequisicao(req: FastifyRequest, reply: FastifyRepl
     reply.code(503).send({ erro: "BANCO_NAO_CONFIGURADO" });
     return null;
   }
-  const { rows } = await pool.query<{ id: string; nome: string; ativo: boolean; asa_credencial_cifrada: Buffer | null }>(
-    "SELECT id, nome, ativo, asa_credencial_cifrada FROM tenants WHERE chave_instalacao_hash = $1",
+  const { rows } = await pool.query<{ id: string; nome: string; ativo: boolean; asa_credencial_cifrada: Buffer | null; ultimo_uso_em: Date | null }>(
+    "SELECT id, nome, ativo, asa_credencial_cifrada, ultimo_uso_em FROM tenants WHERE chave_instalacao_hash = $1",
     [hash(chave)],
   );
   const t = rows[0];
   if (!t || !t.ativo) {
     reply.code(401).send({ erro: "CHAVE_INVALIDA" });
     return null;
+  }
+  // Último uso, para a página de implantação. Sem esperar: uma falha aqui não derruba a chamada.
+  if (precisaMarcarUso(t.ultimo_uso_em, new Date())) {
+    pool.query("UPDATE tenants SET ultimo_uso_em = now() WHERE id = $1", [t.id]).catch((err) => {
+      req.log.warn({ err, tenant: t.id }, "falha ao marcar o último uso");
+    });
   }
   return { id: t.id, nome: t.nome, credencial: t.asa_credencial_cifrada };
 }

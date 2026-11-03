@@ -3,6 +3,7 @@ import { chamarAsa, type RespostaAsa } from "../asa.js";
 import * as N from "../normalizar.js";
 import { pool } from "../db.js";
 import { hojeEm } from "../confirmacao.js";
+import { Limite } from "../limite.js";
 import { credencialDaRequisicao, tenantComCredencial } from "../tenant-auth.js";
 
 // Rotas de LEITURA da Asa para o painel. Nada aqui grava na Asa.
@@ -22,6 +23,10 @@ export function naoEncontrado(r: RespostaAsa<any>): boolean {
   if (r.erro === "ASA_ROTA_INEXISTENTE") return true;
   return r.erro === "ASA_RECUSOU" && /encontrad|localizad|n[ãa]o possui|nenhum/i.test(r.msg ?? "");
 }
+
+// Busca de paciente por clínica: o painel busca ao abrir cada conversa, então 300 por minuto cobre uma
+// equipe grande no pico; mais que isso é varredura de CPF/telefone com uma chave vazada.
+const buscasPorClinica = new Limite(300, 60 * 1000);
 
 const AGENDA_CACHE_MS = 5 * 60 * 1000;
 const cacheAgenda = new Map<string, { em: number; corpo: unknown }>();
@@ -54,6 +59,10 @@ export async function consultaRoutes(app: FastifyInstance) {
     const ctx = await tenantComCredencial(req, reply);
     if (!ctx) return;
     const { tenant, credencial } = ctx;
+    if (!buscasPorClinica.registrar(tenant.id)) {
+      req.log.warn({ tenant: tenant.id }, "busca de paciente: limite por minuto atingido");
+      return reply.code(429).send({ erro: "MUITAS_BUSCAS" });
+    }
 
     const busca: Record<string, string> = cpf ? { cpf } : { telefone: telefone! };
     const [rp, rc] = await Promise.all([

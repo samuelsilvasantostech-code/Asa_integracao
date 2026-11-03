@@ -53,6 +53,7 @@
     if (erro === 'ASA_CREDENCIAL_INVALIDA') return { tone: 'err', text: 'A Asa recusou esse token. Confira se foi copiado inteiro, sem espaços.' };
     if (erro === 'DADOS_INVALIDOS') return { tone: 'err', text: 'Cole o token da Asa (sem espaços ou quebras de linha).' };
     if (erro === 'CREDENCIAL_JA_CADASTRADA') return { tone: 'err', text: 'Esta clínica já tem um token cadastrado. Para trocar, fale com a implantação.' };
+    if (erro === 'INSTITUICAO_DIVERGENTE') return { tone: 'err', text: 'Este token é de outra instituição da Asa. Confira com a implantação.' };
     if (erro === 'CIFRA_NAO_CONFIGURADA') return { tone: 'err', text: 'O Conector ainda não está pronto para guardar credenciais (falta a chave de cifra).' };
     if (status === 401) return { tone: 'err', text: 'A chave da instalação não foi reconhecida pelo Conector.' };
     return { tone: 'err', text: 'Não foi possível validar agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '. Tente de novo.' };
@@ -102,6 +103,8 @@
     if (erro === 'ASA_CREDENCIAL_INVALIDA') return 'A Asa recusou a credencial cadastrada.';
     if (erro === 'TELEFONE_INVALIDO') return 'O telefone do contato não está num formato que a Asa aceite.';
     if (erro === 'CPF_INVALIDO') return 'Informe um CPF com 11 dígitos.';
+    if (erro === 'MUITAS_BUSCAS') return 'Muitas buscas de paciente em pouco tempo. Aguarde um minuto e tente de novo.';
+    if (status === 429) return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo.';
     if (status === 401) return 'A chave da instalação não foi reconhecida pelo Conector.';
     return 'A Asa não respondeu agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '.';
   }

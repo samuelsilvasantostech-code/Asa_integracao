@@ -29,4 +29,24 @@ export const config = {
     .split(",")
     .map((h) => h.trim().toLowerCase())
     .filter(Boolean),
+  // Proxy na frente (o do Doca): sem isto, req.ip é o IP do proxy e o limite por IP valeria para todos
+  // os clientes juntos. Número = quantos saltos de proxy confiar; vazio = nenhum (limite por IP desligado).
+  trustProxy: lerTrustProxy(process.env.TRUST_PROXY),
 };
+
+export function lerTrustProxy(v: string | undefined): number | false {
+  const s = String(v ?? "").trim().toLowerCase();
+  if (s === "true") return 1;
+  return /^[1-9]\d?$/.test(s) ? Number(s) : false;
+}
+
+// Configuração que impede o Conector de subir. A chave de administrador abre todas as clínicas:
+// curta, cai por tentativa.
+export const ADMIN_KEY_MINIMO = 32;
+export function problemaDeConfig(c: { adminKey: string }): string | null {
+  if (c.adminKey && c.adminKey.length < ADMIN_KEY_MINIMO) {
+    return `ADMIN_KEY tem ${c.adminKey.length} caracteres; o mínimo é ${ADMIN_KEY_MINIMO}. Gere outra com ` +
+      `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))" ou deixe vazia para desligar o /admin.`;
+  }
+  return null;
+}

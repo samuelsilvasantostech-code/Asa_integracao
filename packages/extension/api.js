@@ -60,12 +60,10 @@
       // payload = {chave, busca: {telefone|cpf}, usuario}; a busca prova que a consulta é do paciente.
       cancel: function (id, payload) { return request('POST', '/v1/agendamentos/' + encodeURIComponent(id) + '/cancelar', payload); },
       financeConfig: function () { return request('GET', '/v1/tenant/financeiro'); },
-      saveFinanceConfig: function (config, usuario) { return request('PUT', '/v1/tenant/financeiro', { config: config, usuario: usuario }); },
       charges: function (patientId) { return request('GET', '/v1/cobrancas' + query({ paciente_id: patientId })); },
       // Grava na Asa SEM VOLTA (conta a receber). payload = {chave, paciente_id, busca, valor, forma, vencimento?, agendamento?, usuario}
       charge: function (payload) { return request('POST', '/v1/cobrancas', payload); },
       reminderConfig: function () { return request('GET', '/v1/tenant/confirmacao'); },
-      saveReminderConfig: function (config, usuario) { return request('PUT', '/v1/tenant/confirmacao', { config: config, usuario: usuario }); },
       // payload = {agendamento_id, busca: {telefone|cpf}, usuario}: põe na fila e aciona o envio da confirmação.
       sendConfirmation: function (payload) { return request('POST', '/v1/confirmacao/enviar', payload, 30000); },
       // Números do painel do administrador nos últimos `dias` dias (1, 7, 15, 30 ou 90).

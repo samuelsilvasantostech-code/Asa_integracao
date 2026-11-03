@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Implantação · Asa Saúde × Kentro</title>
+<link rel="stylesheet" href="/implantacao/implantacao.css">
+</head>
+<body>
+<header class="topo">
+  <h1>Implantação · Asa Saúde × Kentro</h1>
+  <p>Cadastro e acompanhamento das clínicas no Conector. Exige a chave de administrador.</p>
+</header>
+
+<main>
+  <section class="cartao" aria-labelledby="h-acesso">
+    <h2 id="h-acesso">Acesso</h2>
+    <form id="f-acesso" class="linha" autocomplete="off">
+      <label class="campo">
+        <span>Chave de administrador</span>
+        <input id="admin-key" type="password" autocomplete="off" spellcheck="false" required>
+      </label>
+      <button type="submit" class="btn btn--primario" id="b-entrar">Entrar</button>
+      <button type="button" class="btn" id="b-sair" hidden>Sair</button>
+    </form>
+    <p class="dica">A chave fica só nesta aba, enquanto ela estiver aberta. Não é gravada no navegador.</p>
+    <p class="msg" id="m-acesso" role="status"></p>
+  </section>
+
+  <section class="cartao" aria-labelledby="h-roteiro">
+    <h2 id="h-roteiro">Roteiro de implantação</h2>
+    <ol class="roteiro">
+      <li><strong>Criar o cliente</strong> aqui (nome, instância da Kentro e instituição da Asa). Copie a chave da instalação: ela aparece uma vez só.</li>
+      <li><strong>Instalar a extensão na Kentro</strong> da clínica pela URL do manifest (<code>/extensao/manifest.json</code> deste Conector). Na instalação, cole a chave em <code>apiKey</code>, preencha <code>queueIds</code> e <strong>restrinja o público</strong> a quem vai testar.</li>
+      <li>Anote aqui o <strong>id da instalação</strong> (Editar vínculo).</li>
+      <li>A <strong>clínica cola o token da Asa</strong> em <em>Configurar Asa Saúde</em> (menu superior da Kentro, só administradores).</li>
+      <li><strong>Conferir aqui</strong>: credencial ok (origem "clínica") e último uso preenchido.</li>
+      <li>Configurar financeiro e confirmação, se a clínica for usar, e então <strong>abrir o público</strong> da instalação para toda a equipe.</li>
+    </ol>
+  </section>
+
+  <div id="area" hidden>
+    <section class="cartao" aria-labelledby="h-clientes">
+      <div class="cabeca">
+        <h2 id="h-clientes">Clientes</h2>
+        <button type="button" class="btn" id="b-atualizar">Atualizar</button>
+      </div>
+      <div class="tabela-rolagem">
+        <table class="tabela">
+          <caption class="sr">Clínicas cadastradas no Conector</caption>
+          <thead>
+            <tr><th scope="col">Cliente</th><th scope="col">Situação</th><th scope="col">Credencial da Asa</th><th scope="col">Instituição</th><th scope="col">Instância · instalação</th><th scope="col">Último uso</th><th scope="col"><span class="sr">Ações</span></th></tr>
+          </thead>
+          <tbody id="lista"></tbody>
+        </table>
+      </div>
+      <p class="msg" id="m-lista" role="status"></p>
+    </section>
+
+    <section class="cartao" aria-labelledby="h-novo">
+      <h2 id="h-novo">Novo cliente</h2>
+      <form id="f-novo" class="grade" autocomplete="off">
+        <label class="campo"><span>Nome da clínica</span><input id="n-nome" maxlength="120" required></label>
+        <label class="campo"><span>Instância da Kentro</span><input id="n-instancia" placeholder="clinica.atenderbem.com" spellcheck="false"></label>
+        <label class="campo"><span>Instituição da Asa (número)</span><input id="n-instituicao" inputmode="numeric" pattern="\d*" maxlength="12"></label>
+        <label class="campo"><span>Implantado por</span><input id="n-por" maxlength="120"></label>
+        <div class="acoes"><button type="submit" class="btn btn--primario">Criar cliente</button></div>
+      </form>
+      <p class="msg" id="m-novo" role="status"></p>
+      <div id="s-novo"></div>
+    </section>
+
+    <section class="cartao" id="detalhe" aria-labelledby="h-detalhe" hidden>
+      <div class="cabeca">
+        <h2 id="h-detalhe">Cliente</h2>
+        <button type="button" class="btn" id="b-fechar">Fechar</button>
+      </div>
+      <dl class="resumo" id="resumo"></dl>
+
+      <form id="f-vinculo" class="bloco grade" autocomplete="off">
+        <h3>Vínculo e observação</h3>
+        <label class="campo"><span>Nome</span><input id="v-nome" maxlength="120" required></label>
+        <label class="campo"><span>Instância da Kentro</span><input id="v-instancia" spellcheck="false" placeholder="clinica.atenderbem.com"></label>
+        <label class="campo"><span>Id da instalação na Kentro</span><input id="v-instalacao" inputmode="numeric" pattern="\d*" maxlength="10"></label>
+        <label class="campo"><span>Instituição da Asa</span><input id="v-instituicao" inputmode="numeric" pattern="\d*" maxlength="12"></label>
+        <label class="campo campo--largo"><span>Observação</span><textarea id="v-obs" rows="2" maxlength="1000"></textarea></label>
+        <div class="acoes"><button type="submit" class="btn btn--primario">Salvar vínculo</button></div>
+        <p class="msg" id="m-vinculo" role="status"></p>
+      </form>
+
+      <form id="f-token" class="bloco" autocomplete="off">
+        <h3>Token da Asa</h3>
+        <p class="dica">Normalmente a própria clínica cola o token em <em>Configurar Asa Saúde</em>. Use aqui para trocar um token já gravado. Ele é validado na Asa e guardado cifrado; não volta para esta tela.</p>
+        <div class="linha">
+          <label class="campo"><span>Token</span><input id="t-token" type="password" autocomplete="off" spellcheck="false" required></label>
+          <button type="submit" class="btn btn--primario">Validar e gravar</button>
+        </div>
+        <p class="msg" id="m-token" role="status"></p>
+      </form>
+
+      <form id="f-fin" class="bloco" autocomplete="off">
+        <h3>Financeiro</h3>
+        <p class="dica">Permite lançar conta a receber do paciente na Asa pelo painel. A conta criada não pode ser editada nem excluída pela Kentro. "Quem pode lançar" é só uma regra da tela da extensão: o Conector não sabe quem é o usuário da Kentro.</p>
+        <label class="marca"><input type="checkbox" id="fin-on"> <span>Permitir lançar cobrança</span></label>
+        <label class="campo"><span>Quem pode lançar</span>
+          <select id="fin-quem"><option value="admin">Só administradores</option><option value="todos">Todos os atendentes</option></select>
+        </label>
+        <div class="acoes"><button type="submit" class="btn btn--primario">Salvar financeiro</button></div>
+        <p class="msg" id="m-fin" role="status"></p>
+      </form>
+
+      <form id="f-conf" class="bloco" autocomplete="off">
+        <h3>Confirmação de véspera</h3>
+        <fieldset>
+          <legend>Envio</legend>
+          <label class="marca"><input type="checkbox" id="c-on"> <span>Enviar lembretes</span></label>
+          <div class="grade">
+            <label class="campo"><span>Quando</span>
+              <select id="c-dias">
+                <option value="1">1 dia antes</option><option value="2">2 dias antes</option><option value="3">3 dias antes</option><option value="4">4 dias antes</option>
+                <option value="5">5 dias antes</option><option value="6">6 dias antes</option><option value="7">7 dias antes</option>
+              </select>
+            </label>
+            <label class="campo"><span>Canal da clínica</span>
+              <select id="c-canal"><option value="oficial">WhatsApp oficial (template)</option><option value="nao_oficial">WhatsApp não oficial (texto)</option></select>
+            </label>
+          </div>
+          <label class="marca"><input type="checkbox" id="c-sexta"> <span>Na sexta, mandar também os lembretes que cairiam no sábado e no domingo</span></label>
+        </fieldset>
+        <fieldset>
+          <legend>Modo teste</legend>
+          <label class="marca"><input type="checkbox" id="c-teste"> <span>Enviar só para os telefones abaixo</span></label>
+          <label class="campo"><span>Telefones permitidos (um por linha)</span><textarea id="c-telefones" rows="2" spellcheck="false"></textarea></label>
+        </fieldset>
+        <fieldset id="c-sec-tpl">
+          <legend>Template do lembrete</legend>
+          <label class="campo"><span>Nome do template (referência)</span><input id="c-tpl-nome" maxlength="80" spellcheck="false"></label>
+          <ol class="params" id="c-params"></ol>
+          <button type="button" class="btn" id="c-param-add">Adicionar variável</button>
+        </fieldset>
+        <fieldset>
+          <legend>Textos</legend>
+          <label class="campo" id="c-wrap-mensagem"><span>Mensagem do lembrete (canal não oficial)</span><textarea id="c-t-mensagem" rows="3"></textarea></label>
+          <label class="campo"><span>Quando confirma</span><textarea id="c-t-confirmado" rows="2"></textarea></label>
+          <label class="campo"><span>Quando cancela</span><textarea id="c-t-cancelado" rows="2"></textarea></label>
+          <label class="campo"><span>Quando pede para remarcar</span><textarea id="c-t-remarcar" rows="2"></textarea></label>
+          <label class="campo"><span>Quando responde de novo</span><textarea id="c-t-ja_respondido" rows="2"></textarea></label>
+          <label class="campo"><span>Quando a Asa está fora do ar</span><textarea id="c-t-indisponivel" rows="2"></textarea></label>
+          <p class="dica" id="c-campos"></p>
+        </fieldset>
+        <fieldset>
+          <legend>Respostas aceitas (além de Confirmar, Remarcar e Cancelar), uma por linha</legend>
+          <label class="campo"><span>Contam como confirmar</span><textarea id="c-s-confirmar" rows="2" spellcheck="false"></textarea></label>
+          <label class="campo"><span>Contam como remarcar</span><textarea id="c-s-remarcar" rows="2" spellcheck="false"></textarea></label>
+          <label class="campo"><span>Contam como cancelar</span><textarea id="c-s-cancelar" rows="2" spellcheck="false"></textarea></label>
+        </fieldset>
+        <div class="acoes"><button type="submit" class="btn btn--primario">Salvar confirmação</button></div>
+        <p class="msg" id="m-conf" role="status"></p>
+      </form>
+
+      <form id="f-disparo" class="bloco" autocomplete="off">
+        <h3>URL de disparo</h3>
+        <p class="dica">Captura de webhook da Kentro que roda a automação de disparo na hora (botão "Enviar confirmação"). Só endereço <code>https://…/webhookcapture/capture/…</code> em <code>*.atenderbem.com</code> ou <code>*.kentro.com.br</code>. Vazio remove.</p>
+        <div class="linha">
+          <label class="campo campo--largo"><span>URL</span><input id="d-url" type="url" spellcheck="false"></label>
+          <button type="submit" class="btn btn--primario">Salvar URL</button>
+        </div>
+        <p class="msg" id="m-disparo" role="status"></p>
+      </form>
+
+      <div class="bloco">
+        <h3>Chaves</h3>
+        <p class="dica">Cada chave aparece uma vez só. Gerar de novo invalida a anterior na hora: a chave da instalação precisa ser colada de novo na Kentro; a da automação, no fluxo de confirmação.</p>
+        <div class="linha">
+          <button type="button" class="btn" id="b-rotacionar">Gerar nova chave da instalação</button>
+          <button type="button" class="btn" id="b-automacao">Gerar chave da automação</button>
+        </div>
+        <p class="msg" id="m-chaves" role="status"></p>
+        <div id="s-chaves"></div>
+      </div>
+
+      <form id="f-desligar" class="bloco perigo" autocomplete="off">
+        <h3>Desligar cliente</h3>
+        <p class="dica">Desativa o cliente e apaga o token da Asa, a chave da automação e a URL de disparo. A chave da instalação deixa de valer. O histórico fica até ser apagado abaixo.</p>
+        <div class="linha">
+          <label class="campo"><span>Digite o nome do cliente para confirmar</span><input id="x-nome" autocomplete="off" spellcheck="false"></label>
+          <button type="submit" class="btn btn--perigo">Desligar</button>
+        </div>
+        <p class="msg" id="m-desligar" role="status"></p>
+      </form>
+
+      <form id="f-historico" class="bloco perigo" autocomplete="off" hidden>
+        <h3>Apagar histórico</h3>
+        <p class="dica">Apaga de vez as trilhas deste cliente (agendamentos, confirmações e cobranças). Não tem volta. O cadastro do cliente continua na lista, desligado.</p>
+        <div class="linha">
+          <label class="campo"><span>Digite o nome do cliente para confirmar</span><input id="h-nome" autocomplete="off" spellcheck="false"></label>
+          <button type="submit" class="btn btn--perigo">Apagar histórico</button>
+        </div>
+        <p class="msg" id="m-historico" role="status"></p>
+      </form>
+    </section>
+  </div>
+</main>
+<script src="/implantacao/implantacao.js"></script>
+</body>
+</html>

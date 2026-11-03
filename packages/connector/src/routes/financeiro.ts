@@ -65,7 +65,8 @@ async function conferir(
 }
 
 export async function financeiroRoutes(app: FastifyInstance) {
-  // Configuração do financeiro da clínica, pela tela "Configurar Asa Saúde" e pelo painel.
+  // Configuração do financeiro da clínica: a tela "Configurar Asa Saúde" e o painel só leem. Quem grava é a
+  // implantação (PUT /admin/tenants/:id/financeiro), com a chave de administrador.
   app.get("/v1/tenant/financeiro", async (req, reply) => {
     const tenant = await tenantDaRequisicao(req, reply);
     if (!tenant) return;
@@ -73,15 +74,9 @@ export async function financeiroRoutes(app: FastifyInstance) {
     return { config: lerFinanceiro(rows[0]?.financeiro), formas: FORMAS };
   });
 
-  app.put<{ Body: { config?: unknown; usuario?: string } }>("/v1/tenant/financeiro", async (req, reply) => {
-    const tenant = await tenantDaRequisicao(req, reply);
-    if (!tenant) return;
-    if (!req.body?.config || typeof req.body.config !== "object") return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
-    const cfg = lerFinanceiro(req.body.config);
-    await pool!.query("UPDATE tenants SET financeiro = $1, atualizado_em = now() WHERE id = $2", [cfg, tenant.id]);
-    req.log.info({ tenant: tenant.id, usuario: req.body.usuario, ...cfg }, "financeiro: configuração gravada");
-    return { ok: true, config: cfg };
-  });
+  // Ligar o financeiro é só da implantação (0.19.0): a chave da instalação está no navegador de todo
+  // atendente. A rota fica só para a extensão antiga receber um erro claro.
+  app.put("/v1/tenant/financeiro", async (_req, reply) => reply.code(403).send({ erro: "SO_IMPLANTACAO" }));
 
   // Contas lançadas pelo painel para o paciente. A Asa não devolve as contas: esta é a trilha local.
   app.get<{ Querystring: { paciente_id?: string } }>("/v1/cobrancas", async (req, reply) => {
@@ -115,6 +110,9 @@ export async function financeiroRoutes(app: FastifyInstance) {
     if (!ctx) return;
     const { tenant, credencial } = ctx;
     const { rows: cfgRows } = await pool!.query<{ financeiro: unknown }>("SELECT financeiro FROM tenants WHERE id = $1", [tenant.id]);
+    // `quem` (só administradores ou todos) NÃO é conferido aqui: o Conector não sabe quem é o usuário da
+    // Kentro (`usuario` vem da extensão, só para a trilha). Essa regra é só da tela. O controle de verdade é
+    // que só a implantação liga o financeiro.
     if (!lerFinanceiro(cfgRows[0]?.financeiro).ativo) return reply.code(403).send({ erro: "FINANCEIRO_DESLIGADO" });
 
     // A mesma chave nunca chama a Asa duas vezes.

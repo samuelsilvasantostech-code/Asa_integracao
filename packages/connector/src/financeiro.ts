@@ -4,7 +4,8 @@ export type QuemLanca = "admin" | "todos";
 
 export interface ConfigFinanceiro {
   ativo: boolean;
-  quem: QuemLanca; // quem vê o botão de lançar; a regra é aplicada no painel (o Conector não conhece o usuário)
+  // Quem vê o botão de lançar. Regra SÓ da tela: o Conector não conhece o usuário da Kentro e não a confere.
+  quem: QuemLanca;
 }
 
 // Nasce desligado: lançar conta é gravação sem volta na Asa, a clínica liga quando quiser.

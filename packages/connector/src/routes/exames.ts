@@ -14,7 +14,8 @@ const POR_PAGINA = 100; // a Asa pagina de 100 em 100
 const MAX_PAGINAS = 60;
 const LOTE = 6;
 const cache = new Map<string, { em: number; exames: N.Exame[] }>();
-// Cada busca digitada vira uma entrada: sem teto, a memória do Conector (512 MB, todas as clínicas) cresce sem parar.
+// Só a lista inteira de cada clínica é guardada (busca digitada não entra); o teto protege a memória do
+// Conector (512 MB, todas as clínicas).
 const MAX_CACHE = 50;
 function guardar(chave: string, exames: N.Exame[]) {
   cache.delete(chave);
@@ -32,13 +33,13 @@ function guardarGrupo(chave: string, dados: any[]) {
 
 export async function examesRoutes(app: FastifyInstance) {
   // Procedimentos com agenda online, a lista inteira (até 6.000), em ordem alfabética: o painel mostra numa
-  // lista de seleção com filtro local. Com `busca`, filtrada pelo nome na própria Asa.
+  // lista de seleção com filtro local. Com `busca`, filtrada pelo nome na própria Asa, sem cache.
   app.get<{ Querystring: { busca?: string } }>("/v1/exames", async (req, reply) => {
     const busca = String(req.query.busca ?? "").trim().slice(0, 60);
     const ctx = await tenantComCredencial(req, reply);
     if (!ctx) return;
-    const chave = ctx.tenant.id + "|" + busca.toLowerCase();
-    const guardado = cache.get(chave);
+    const chave = ctx.tenant.id;
+    const guardado = busca ? undefined : cache.get(chave);
     if (guardado && Date.now() - guardado.em < CACHE_MS) return { exames: guardado.exames, completa: true };
 
     const porId = new Map<string, N.Exame>();
@@ -60,7 +61,7 @@ export async function examesRoutes(app: FastifyInstance) {
       }
     }
     const exames = [...porId.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-    if (completa) guardar(chave, exames);
+    if (completa && !busca) guardar(chave, exames);
     req.log.info({ tenant: ctx.tenant.id, itens: exames.length, completa }, "exames: lista carregada da Asa");
     return { exames, completa };
   });

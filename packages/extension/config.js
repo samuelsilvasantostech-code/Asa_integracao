@@ -1,9 +1,10 @@
-/* Tela de administração: chave da instalação e credencial da Asa. Visível só para administradores. */
+/* Tela de administração: chave da instalação e credencial da Asa. Visível só para administradores.
+   O financeiro aparece só para leitura: desde a 0.19.0 quem o configura é a implantação. */
 (function (root) {
   'use strict';
 
   var C = root.AsaCore, B = root.AsaBridge, omni = root.omni;
-  var cfg = {}, api = null, userLabel = '';
+  var cfg = {}, api = null;
 
   function $(id) { return document.getElementById(id); }
   function pill(tone, text) { $('pill').setAttribute('data-tone', tone); $('pill-text').textContent = text; }
@@ -30,28 +31,13 @@
     });
   }
 
-  /* ---------- financeiro ---------- */
+  /* ---------- financeiro (só leitura: quem liga e desliga é a implantação) ---------- */
   function loadFinance() {
     api.financeConfig().then(function (r) {
       if (r.status !== 200 || !r.body || !r.body.config) { $('fin').hidden = true; return; }
       $('fin').hidden = false;
       $('fin-on').checked = r.body.config.ativo;
       $('fin-who').value = r.body.config.quem;
-    });
-  }
-
-  function saveFinance(ev) {
-    ev.preventDefault();
-    var next = { ativo: $('fin-on').checked, quem: $('fin-who').value };
-    $('fin-save').disabled = true;
-    msg($('fin-msg'), null, 'Salvando…');
-    api.saveFinanceConfig(next, userLabel).then(function (r) {
-      $('fin-save').disabled = false;
-      if (r.status !== 200 || !r.body || !r.body.ok) { msg($('fin-msg'), 'err', 'Não foi possível salvar agora' + (r.status > 0 ? ' (HTTP ' + r.status + ').' : '.')); return; }
-      var c = r.body.config;
-      msg($('fin-msg'), 'ok', c.ativo
-        ? 'Salvo. Lançamento de cobrança ligado para ' + (c.quem === 'todos' ? 'todos os atendentes.' : 'administradores.') + ' Quem estiver com o painel aberto precisa recarregar a Kentro.'
-        : 'Salvo. Lançamento de cobrança desligado.');
     });
   }
 
@@ -74,13 +60,7 @@
     cfg = (ctx && ctx.config) || {};
     B.applyTheme(ctx && ctx.theme);
     omni.on('themeChanged', B.applyTheme);
-    if (omni.session && omni.session.getUser) {
-      Promise.resolve(omni.session.getUser()).then(function (u) {
-        if (u) userLabel = [u.id, u.name || u.username].filter(Boolean).join(' ');
-      }).catch(function () { /* sem usuário: a trilha fica sem nome */ });
-    }
     $('form').addEventListener('submit', saveCredential);
-    $('fin').addEventListener('submit', saveFinance);
     connect().then(refresh);
   });
 })(this);

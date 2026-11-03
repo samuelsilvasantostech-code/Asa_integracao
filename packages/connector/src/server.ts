@@ -1,6 +1,7 @@
 import Fastify from "fastify";
-import { config } from "./config.js";
+import { config, problemaDeConfig } from "./config.js";
 import { migrate, pool } from "./db.js";
+import { iniciarRetencao } from "./retencao.js";
 import { adminRoutes } from "./routes/admin.js";
 import { agendamentoRoutes } from "./routes/agendamento.js";
 import { confirmacaoRoutes } from "./routes/confirmacao.js";
@@ -9,12 +10,20 @@ import { extensaoRoutes } from "./routes/extensao.js";
 import { financeiroRoutes } from "./routes/financeiro.js";
 import { examesRoutes } from "./routes/exames.js";
 import { healthRoutes } from "./routes/health.js";
+import { implantacaoRoutes } from "./routes/implantacao.js";
 import { painelRoutes } from "./routes/painel.js";
 import { tenantRoutes } from "./routes/tenant.js";
+
+// ADMIN_KEY curta não derruba o Conector (as clínicas continuam atendendo): só o /admin fica fechado.
+const problema = problemaDeConfig(config);
+if (problema) console.error(`[asa-connector] /admin desligado: ${problema}`);
 
 // O log de requisição não leva a query string: a busca de paciente vai por ?cpf= e ?telefone=, e
 // esses dados não podem ficar nos logs do Doca.
 const app = Fastify({
+  // Com TRUST_PROXY, req.ip é o IP do cliente (X-Forwarded-For do proxy do Doca), não o do proxy.
+  // Confia nos N saltos mais próximos (o tipo do Fastify não aceita o número direto).
+  trustProxy: config.trustProxy ? (_endereco: string, salto: number) => salto < (config.trustProxy as number) : false,
   logger: {
     level: config.logLevel,
     serializers: {
@@ -51,12 +60,15 @@ await app.register(examesRoutes);
 await app.register(painelRoutes);
 await app.register(adminRoutes);
 await app.register(extensaoRoutes);
+await app.register(implantacaoRoutes);
 
 try {
   await migrate((msg) => app.log.info(msg));
 } catch (err) {
   app.log.error({ err }, "falha ao aplicar migrações");
 }
+iniciarRetencao(pool, app.log);
+if (!config.trustProxy) app.log.warn("TRUST_PROXY não definido: o limite de tentativas de chave por IP está desligado");
 
 for (const sinal of ["SIGINT", "SIGTERM"] as const) {
   process.on(sinal, async () => {

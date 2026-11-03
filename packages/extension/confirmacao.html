@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Confirmação Asa</title>
-<link rel="stylesheet" href="styles.css?v=0.18.2">
+<link rel="stylesheet" href="styles.css?v=0.19.0">
 </head>
 <body class="page-config page-rem">
 <div class="app">
@@ -23,7 +23,8 @@
     <p class="conn" id="conn-text">Carregando a configuração…</p>
 
     <form class="form" id="rem" autocomplete="off" hidden>
-      <p class="hint" id="rem-auto" hidden>A automação de envio ainda não foi montada para esta clínica na Kentro. Você pode deixar tudo configurado, mas nada é enviado enquanto ela não existir.</p>
+      <p class="hint">Alterado pela implantação. Para mudar algo aqui, fale com a implantação.</p>
+      <p class="hint" id="rem-auto" hidden>A automação de envio ainda não foi montada para esta clínica na Kentro. Nada é enviado enquanto ela não existir.</p>
 
       <section class="card form" aria-labelledby="h-envio">
         <h2 class="card__label" id="h-envio">Envio</h2>
@@ -57,8 +58,7 @@
         <p class="hint">O template aprovado é escolhido na automação da Kentro. Aqui você define o que entra em cada variável dele, na ordem em que aparecem.</p>
         <label class="field"><span>Nome do template (para referência)</span><input id="tpl-name" maxlength="80" spellcheck="false" placeholder="lembrete_consulta"></label>
         <ol class="params" id="tpl-params"></ol>
-        <button class="btn" id="tpl-add" type="button">Adicionar variável</button>
-        <p class="hint">Quantidade de variáveis aqui e no template aprovado precisa ser a mesma. Se mudar, a automação precisa ser ajustada na Kentro.</p>
+        <p class="hint">Quantidade de variáveis aqui e no template aprovado precisa ser a mesma.</p>
       </section>
 
       <section class="card form" id="sec-msg" aria-labelledby="h-msg" hidden>
@@ -90,16 +90,13 @@
         <label class="field"><span>Contam como cancelar</span><textarea id="syn-cancelar" rows="2" placeholder="Não vou poder ir" spellcheck="false"></textarea></label>
       </section>
 
-      <div class="savebar">
-        <p class="conn" id="rem-msg" role="status"></p>
-        <button class="btn btn--primary" id="rem-save" type="submit">Salvar confirmação</button>
-      </div>
+      <p class="hint">Alterado pela implantação.</p>
     </form>
   </main>
 </div>
-<script src="core.js?v=0.18.2"></script>
-<script src="api.js?v=0.18.2"></script>
-<script src="bridge.js?v=0.18.2"></script>
-<script src="confirmacao.js?v=0.18.2"></script>
+<script src="core.js?v=0.19.0"></script>
+<script src="api.js?v=0.19.0"></script>
+<script src="bridge.js?v=0.19.0"></script>
+<script src="confirmacao.js?v=0.19.0"></script>
 </body>
 </html>

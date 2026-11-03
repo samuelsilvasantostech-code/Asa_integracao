@@ -1,5 +1,6 @@
-/* Tela da confirmação de véspera: aberta a administradores, supervisores e atendentes.
-   O Conector valida tudo de novo ao gravar; a prévia também vem dele, para não duplicar as regras. */
+/* Tela da confirmação de véspera: aberta a administradores, supervisores e atendentes. Só leitura desde a
+   0.19.0: quem altera é a implantação (o Conector recusa gravar com a chave da instalação). A prévia vem do
+   Conector, para não duplicar as regras. */
 (function (root) {
   'use strict';
 
@@ -8,7 +9,7 @@
   var ACTIONS = ['confirmar', 'remarcar', 'cancelar'];
   // Na resposta o Conector só tem o que guardou da consulta.
   var IN_REPLY = ['nome', 'data', 'data_curta', 'dia_semana', 'hora', 'profissional', 'clinica'];
-  var api = null, saved = null, fields = {}, maxParams = 10, params = [], userLabel = '', previewTimer = null, previewSeq = 0;
+  var api = null, saved = null, fields = {}, params = [], previewSeq = 0;
 
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) {
@@ -19,7 +20,6 @@
   }
   function pill(tone, text) { $('pill').setAttribute('data-tone', tone); $('pill-text').textContent = text; }
   function msg(node, tone, text) { if (tone) node.setAttribute('data-tone', tone); else node.removeAttribute('data-tone'); node.textContent = text; }
-  function lines(v) { return v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); }
 
   function statePill(c) {
     if (!c.ativo) pill('idle', 'Desligada');
@@ -42,7 +42,7 @@
         sel.appendChild(o);
       });
       sel.value = p.campo;
-      sel.addEventListener('change', function () { p.campo = sel.value; if (p.campo !== 'texto') delete p.texto; renderParams(); schedulePreview(); });
+      sel.disabled = true;
       li.appendChild(sel);
       if (p.campo === 'texto') {
         var inp = el('input');
@@ -50,19 +50,12 @@
         inp.value = p.texto || '';
         inp.placeholder = 'Texto que vai nesta variável';
         inp.setAttribute('aria-label', 'Texto fixo da variável ' + (i + 1));
-        inp.addEventListener('input', function () { p.texto = inp.value; schedulePreview(); });
+        inp.readOnly = true;
         li.appendChild(inp);
       }
       li.appendChild(el('span', 'param__ex', ''));
-      var rm = el('button', 'btn btn--icon', '×');
-      rm.type = 'button';
-      rm.title = 'Remover a variável ' + (i + 1);
-      rm.disabled = params.length === 1;
-      rm.addEventListener('click', function () { params.splice(i, 1); renderParams(); schedulePreview(); });
-      li.appendChild(rm);
       list.appendChild(li);
     });
-    $('tpl-add').disabled = params.length >= maxParams;
   }
 
   function renderChannel() {
@@ -71,7 +64,7 @@
     $('sec-msg').hidden = official;
   }
 
-  /* ---------- ler e gravar ---------- */
+  /* ---------- ler (só leitura) ---------- */
   function fill(c) {
     $('rem-on').checked = c.ativo;
     $('rem-days').value = String(c.dias_antes);
@@ -86,31 +79,17 @@
     renderParams();
     renderChannel();
     statePill(c);
-  }
-
-  function collect() {
-    var c = JSON.parse(JSON.stringify(saved));
-    c.ativo = $('rem-on').checked;
-    c.dias_antes = Number($('rem-days').value);
-    c.canal = $('rem-channel').value;
-    c.sexta_pega_segunda = $('rem-fri').checked;
-    c.teste = { ativo: $('rem-test').checked, telefones: $('rem-phones').value.split(/[\n,;]+/).map(function (s) { return s.trim(); }).filter(Boolean) };
-    c.template = { nome: $('tpl-name').value, parametros: params.map(function (p) { return p.campo === 'texto' ? { campo: 'texto', texto: p.texto || '' } : { campo: p.campo }; }) };
-    TEXTS.forEach(function (k) { c.textos[k] = $('rem-t-' + k).value; });
-    ACTIONS.forEach(function (a) { c.sinonimos[a] = lines($('syn-' + a).value); });
-    return c;
-  }
-
-  function schedulePreview() {
-    clearTimeout(previewTimer);
-    previewTimer = setTimeout(preview, 350);
+    // Nada aqui é editável: a configuração muda pela implantação.
+    Array.prototype.forEach.call($('rem').querySelectorAll('input, select, textarea'), function (n) {
+      if (n.tagName === 'SELECT' || n.type === 'checkbox') n.disabled = true; else n.readOnly = true;
+    });
   }
 
   // Prévia com uma consulta de exemplo, calculada pelo Conector com as regras de verdade.
   function preview() {
     if (!saved) return;
     var s = ++previewSeq;
-    api.previewReminder(collect()).then(function (r) {
+    api.previewReminder(saved).then(function (r) {
       if (s !== previewSeq || r.status !== 200 || !r.body) return;
       Array.prototype.forEach.call(document.querySelectorAll('[data-preview]'), function (n) {
         n.textContent = r.body.textos[n.getAttribute('data-preview')] || '';
@@ -118,33 +97,6 @@
       Array.prototype.forEach.call(document.querySelectorAll('.param__ex'), function (n, i) {
         n.textContent = r.body.template[i] != null ? r.body.template[i] : '';
       });
-    });
-  }
-
-  function save(ev) {
-    ev.preventDefault();
-    var next = collect();
-    if (next.ativo && next.teste.ativo && !next.teste.telefones.length) {
-      msg($('rem-msg'), 'err', 'No modo teste, informe ao menos um telefone. Sem nenhum, nada é enviado.');
-      $('rem-phones').focus();
-      return;
-    }
-    var empty = next.template.parametros.filter(function (p) { return p.campo === 'texto' && !p.texto.trim(); }).length;
-    if (next.canal === 'oficial' && empty) {
-      msg($('rem-msg'), 'err', 'Preencha o texto fixo das variáveis, ou troque o que vai nelas.');
-      return;
-    }
-    $('rem-save').disabled = true;
-    msg($('rem-msg'), null, 'Salvando…');
-    api.saveReminderConfig(next, userLabel).then(function (r) {
-      $('rem-save').disabled = false;
-      if (r.status !== 200 || !r.body || !r.body.ok) { msg($('rem-msg'), 'err', 'Não foi possível salvar agora' + (r.status > 0 ? ' (HTTP ' + r.status + ').' : '.')); return; }
-      saved = r.body.config;
-      var ignored = next.teste.telefones.length - saved.teste.telefones.length;
-      fill(saved);
-      preview();
-      msg($('rem-msg'), 'ok', (saved.ativo ? (saved.teste.ativo ? 'Salvo. Lembretes ligados em modo teste.' : 'Salvo. Lembretes ligados para todos os pacientes.') : 'Salvo. Lembretes desligados.')
-        + (ignored > 0 ? ' ' + ignored + ' telefone(s) fora do formato foram descartados.' : ''));
     });
   }
 
@@ -158,7 +110,6 @@
       }
       saved = r.body.config;
       fields = r.body.campos || {};
-      maxParams = r.body.max_parametros || 10;
       $('conn-text').hidden = true;
       $('rem').hidden = false;
       $('rem-auto').hidden = !!r.body.automacao_configurada;
@@ -173,25 +124,7 @@
   omni.ready(function (ctx) {
     B.applyTheme(ctx && ctx.theme);
     omni.on('themeChanged', B.applyTheme);
-    if (omni.session && omni.session.getUser) {
-      Promise.resolve(omni.session.getUser()).then(function (u) {
-        if (u) userLabel = [u.id, u.name || u.username].filter(Boolean).join(' ');
-      }).catch(function () { /* sem usuário: a trilha fica sem nome */ });
-    }
-    $('rem').addEventListener('submit', save);
-    // Só o que muda a prévia pede uma nova ao Conector.
-    $('rem').addEventListener('input', function (ev) {
-      var t = ev.target;
-      if (t.hasAttribute('data-text') || t.id === 'rem-days' || t.closest('.params')) schedulePreview();
-    });
-    $('rem-channel').addEventListener('change', renderChannel);
-    $('rem-days').addEventListener('change', renderChannel);
-    $('tpl-add').addEventListener('click', function () {
-      if (params.length >= maxParams) return;
-      params.push({ campo: 'nome' });
-      renderParams();
-      schedulePreview();
-    });
+    $('rem').addEventListener('submit', function (ev) { ev.preventDefault(); });
     root.AsaApi.load(omni, (ctx && ctx.config) || {}).then(function (a) { api = a; load(); });
   });
 })(this);

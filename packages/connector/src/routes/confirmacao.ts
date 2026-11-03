@@ -179,6 +179,8 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ origem: "manual" }),
+          // Redirecionamento levaria o POST para fora do host validado no cadastro.
+          redirect: "error",
           signal: AbortSignal.timeout(10000),
         });
         disparo = r.ok ? "imediato" : "falhou";

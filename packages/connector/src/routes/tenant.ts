@@ -4,6 +4,7 @@ import { cifraDisponivel, cifrar, decifrar } from "../crypto.js";
 import { pool } from "../db.js";
 import { tenantDaRequisicao } from "../tenant-auth.js";
 import { CAMPOS, datasAlvo, hojeEm, lerConfig, MAX_PARAMETROS, preencher, TEXTOS_PADRAO, variaveisTemplate, varsDa, varsResposta } from "../confirmacao.js";
+import { instituicaoConfere } from "../implantacao.js";
 import { adminAutorizado } from "./admin.js";
 
 export async function tenantRoutes(app: FastifyInstance) {
@@ -34,10 +35,11 @@ export async function tenantRoutes(app: FastifyInstance) {
     const tenant = await tenantDaRequisicao(req, reply);
     if (!tenant) return;
     if (tenant.credencial && !adminAutorizado(req)) return reply.code(403).send({ erro: "CREDENCIAL_JA_CADASTRADA" });
-    return gravarCredencial(req, reply, tenant.id, req.body?.token);
+    return gravarCredencial(req, reply, tenant.id, req.body?.token, "clinica");
   });
 
-  // Configuração da confirmação de véspera, pela tela "Configurar Asa Saúde".
+  // Configuração da confirmação de véspera: a tela "Confirmação Asa" só lê. Quem grava é a implantação
+  // (PUT /admin/tenants/:id/confirmacao), com a chave de administrador.
   app.get("/v1/tenant/confirmacao", async (req, reply) => {
     const tenant = await tenantDaRequisicao(req, reply);
     if (!tenant) return;
@@ -72,23 +74,27 @@ export async function tenantRoutes(app: FastifyInstance) {
     return { config: cfg, textos, template: variaveisTemplate(v, cfg.template.parametros) };
   });
 
-  // Grava a configuração inteira, já validada (o que vier fora do formato volta ao padrão).
-  app.put<{ Body: { config?: unknown; usuario?: string } }>("/v1/tenant/confirmacao", async (req, reply) => {
-    const tenant = await tenantDaRequisicao(req, reply);
-    if (!tenant) return;
-    if (!req.body?.config || typeof req.body.config !== "object") return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
-    const cfg = lerConfig(req.body.config);
-    await pool!.query("UPDATE tenants SET confirmacao = $1, atualizado_em = now() WHERE id = $2", [cfg, tenant.id]);
-    req.log.info({ tenant: tenant.id, usuario: req.body.usuario, ativo: cfg.ativo, teste: cfg.teste.ativo }, "confirmação: configuração gravada");
-    return { ok: true, config: cfg };
-  });
+  // A chave da instalação está no navegador de todo atendente: desde a 0.19.0 ela não grava a
+  // configuração. A rota fica só para a extensão antiga receber um erro claro.
+  app.put("/v1/tenant/confirmacao", async (_req, reply) => reply.code(403).send({ erro: "SO_IMPLANTACAO" }));
 }
 
-// Valida o token na Asa e grava cifrado. Nunca devolve o token.
-export async function gravarCredencial(req: FastifyRequest, reply: FastifyReply, tenantId: string, tokenRecebido: unknown) {
+// Valida o token na Asa e grava cifrado. Nunca devolve o token. Com a instituição da Asa cadastrada no
+// tenant, token de outra instituição é recusado antes de chamar a Asa.
+export async function gravarCredencial(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  tenantId: string,
+  tokenRecebido: unknown,
+  origem: "clinica" | "implantacao",
+) {
   if (!cifraDisponivel()) return reply.code(503).send({ erro: "CIFRA_NAO_CONFIGURADA" });
   const token = String(tokenRecebido ?? "").trim();
   if (!token || /\s/.test(token)) return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
+
+  const { rows: atual } = await pool!.query<{ asa_instituicao_id: string | null }>("SELECT asa_instituicao_id FROM tenants WHERE id = $1", [tenantId]);
+  if (!atual[0]) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+  if (!instituicaoConfere(atual[0].asa_instituicao_id, token)) return reply.code(422).send({ erro: "INSTITUICAO_DIVERGENTE" });
 
   const credencial: CredencialAsa = { token };
   const instituicao_id = instituicaoDa(credencial);
@@ -98,11 +104,12 @@ export async function gravarCredencial(req: FastifyRequest, reply: FastifyReply,
     return reply.code(status).send({ erro: r.erro });
   }
 
-  const { rowCount } = await pool!.query("UPDATE tenants SET asa_credencial_cifrada = $1, atualizado_em = now() WHERE id = $2", [
-    cifrar(JSON.stringify(credencial)),
-    tenantId,
-  ]);
+  const { rowCount } = await pool!.query(
+    `UPDATE tenants SET asa_credencial_cifrada = $1, credencial_gravada_em = now(), credencial_origem = $3, atualizado_em = now()
+     WHERE id = $2`,
+    [cifrar(JSON.stringify(credencial)), tenantId, origem],
+  );
   if (!rowCount) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
-  req.log.info({ tenant: tenantId, instituicao_id }, "credencial da Asa gravada");
+  req.log.info({ tenant: tenantId, instituicao_id, origem }, "credencial da Asa gravada");
   return { ok: true, instituicao_id, prestadores: r.dados.prestadores?.length ?? 0 };
 }

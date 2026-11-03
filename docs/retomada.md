@@ -11,6 +11,20 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.18.2**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
+## 03/11: implantação multi-cliente e segurança (0.19.0, aguardando deploy)
+
+Detalhes e roteiro em [`implantacao-clientes.md`](implantacao-clientes.md).
+
+- **Página de implantação** em `/implantacao` (chave de administrador): lista de clientes com situação, credencial, vínculo e último uso; criar cliente; editar vínculo; token da Asa; financeiro e confirmação; chaves; URL de disparo; desligar; apagar histórico.
+- Migração 009: vínculo do tenant (instância e id da instalação da Kentro, instituição da Asa), quem implantou, data e origem da credencial, último uso, desligamento e observação. Índice único por instância + instalação.
+- **Financeiro e confirmação só pela implantação.** `PUT /v1/tenant/financeiro` e `PUT /v1/tenant/confirmacao` respondem 403 `SO_IMPLANTACAO`; as rotas novas são `PUT /admin/tenants/:id/financeiro` e `/confirmacao`. Na extensão, as duas telas ficam só para leitura ("Alterado pela implantação."). O token da Asa continua sendo colado pela clínica.
+- Token de outra instituição da Asa (com a instituição cadastrada no tenant) é recusado com 422 `INSTITUICAO_DIVERGENTE`, antes de chamar a Asa.
+- `POST /admin/tenants/:id/desligar` e `DELETE /admin/tenants/:id/historico` (só desligado, nome digitado). `:id` fora do formato UUID é 400 em todo o `/admin`.
+- **Retenção de 90 dias** (migração 010 + tarefa diária): apaga telefone, nomes, usuário e ids de paciente das trilhas antigas, mantendo as linhas para o painel.
+- Limites: 300 buscas de paciente por minuto por clínica (429 `MUITAS_BUSCAS`); 20 falhas da admin key em 10 min por IP, só no `/admin` (429 `MUITAS_TENTATIVAS`), só com `TRUST_PROXY`.
+- Endurecimento: URL de disparo só em `*.atenderbem.com` ou `*.kentro.com.br`, e o POST nela não segue redirecionamento; `ADMIN_KEY` com menos de 32 caracteres impede o Conector de subir; busca de exame digitada não entra mais no cache.
+- **Antes do deploy:** conferir no Doca que `ADMIN_KEY` tem 32 caracteres ou mais (senão o `/admin` fica fechado) e definir `TRUST_PROXY=1` (confirmar que o proxy manda `X-Forwarded-For`). Depois do deploy, cadastrar na página o vínculo da clínica `apresentacao` (instância, instalação 29, instituição da Asa).
+
 ## 03/11: grupos de procedimentos e pedido financeiro (0.18.2, no ar em 03/11; falta o teste do usuário)
 
 - Agenda › Por exame ganhou o filtro **Grupo** (Clínico, Cardiologia…), antes da busca. Escolhido o grupo, a lista abre com os procedimentos dele, e a busca filtra só dentro do grupo.
