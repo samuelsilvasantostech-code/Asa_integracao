@@ -92,7 +92,7 @@
     rev.appendChild(el('div', 'card__label', 'Confirme a cobrança'));
     var sum = el('dl', 'facts');
     rev.appendChild(sum);
-    rev.appendChild(el('p', 'hint', 'Ao confirmar, a conta a receber é criada no financeiro da clínica na Asa. Pela Kentro não dá para editar nem excluir depois: correções são feitas direto na Asa.'));
+    rev.appendChild(el('p', 'hint', ('Ao confirmar, a conta a receber é criada no financeiro da clínica ' + C.sis('na') + '. Pela Kentro não dá para editar nem excluir depois: correções são feitas direto ' + C.sis('na') + '.')));
     var revActions = el('div', 'booking__actions');
     var confirm = button('Confirmar cobrança', 'btn--primary', send);
     var back = button('Voltar', null, function () { rev.hidden = true; form.hidden = false; fit(); });
@@ -125,7 +125,7 @@
       fact(sum, 'Paciente', opts.patient.nome);
       fact(sum, 'Valor', money(v));
       fact(sum, 'Forma', C.paymentLabel(forma.value));
-      fact(sum, 'Vencimento', venc.value ? C.formatDay(venc.value, true) : 'Amanhã (padrão da Asa)');
+      fact(sum, 'Vencimento', venc.value ? C.formatDay(venc.value, true) : ('Amanhã (padrão ' + C.sis('da') + ')'));
       fact(sum, 'Consulta', a ? a.label : 'Sem vínculo');
       msg(formMsg, '');
       msg(revMsg, '');
@@ -140,7 +140,7 @@
       var p = pending;
       confirm.disabled = true;
       back.disabled = true;
-      msg(revMsg, 'Lançando na Asa…');
+      msg(revMsg, ('Lançando ' + C.sis('na') + '…'));
       opts.api.charge({
         chave: key,
         paciente_id: opts.patient.id,
@@ -171,7 +171,7 @@
       fact(dl, 'Forma', C.paymentLabel(p.forma));
       fact(dl, 'Vencimento', p.vencimento ? C.formatDay(p.vencimento, true) : 'Amanhã');
       if (p.appt) fact(dl, 'Consulta', p.appt.label);
-      if (res.msg) fact(dl, 'Asa', res.msg);
+      if (res.msg) fact(dl, ('' + C.sis('Nome')), res.msg);
       done.appendChild(dl);
       if (opts.onClose) done.appendChild(button('Fechar', null, opts.onClose));
       done.hidden = false;
@@ -197,7 +197,7 @@
         var li = el('li', 'item charge');
         var top = el('div', 'item__when', money(c.valor) + ' · ' + C.paymentLabel(c.forma));
         if (c.situacao === 'incerto') {
-          var s = el('span', 'seal', 'Conferir na Asa');
+          var s = el('span', 'seal', ('Conferir ' + C.sis('na')));
           s.setAttribute('data-tone', 'warn');
           top.appendChild(s);
         }

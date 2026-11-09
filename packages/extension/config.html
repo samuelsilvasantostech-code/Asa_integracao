@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Configurar ClinFy</title>
-<link rel="stylesheet" href="styles.css?v=0.21.0">
+<link rel="stylesheet" href="styles.css?v=0.22.0">
 </head>
 <body class="page-config">
 <div class="app">
@@ -26,8 +26,8 @@
     </div>
 
     <div class="card" id="token-locked" hidden>
-      <div class="card__label">Token da Asa</div>
-      <p class="hint">O token desta clínica já está cadastrado e guardado cifrado no Conector. Por segurança, trocar o token é feito pela implantação, com a chave de administrador do Conector.</p>
+      <div class="card__label">Credencial <span data-sis="da">do sistema da clínica</span></div>
+      <p class="hint" id="token-locked-text">A credencial desta clínica fica guardada cifrada no Conector. Por segurança, cadastrar e trocar a credencial é feito pela implantação, com a chave de administrador do Conector.</p>
     </div>
 
     <div class="card" id="key-help" hidden>
@@ -36,8 +36,8 @@
     </div>
 
     <form class="card form" id="form" autocomplete="off" hidden>
-      <div class="card__label">Credencial da Asa</div>
-      <p class="hint">Cole o token de acesso da clínica fornecido pela Asa, o mesmo valor usado no header Authorization. Ele é validado na Asa, guardado cifrado no Conector e não volta para esta tela.</p>
+      <div class="card__label">Credencial <span data-sis="da">do sistema da clínica</span></div>
+      <p class="hint">Cole o token de acesso da clínica fornecido <span data-sis="pela">pelo sistema da clínica</span>, o mesmo valor usado no header Authorization. Ele é validado <span data-sis="na">no sistema da clínica</span>, guardado cifrado no Conector e não volta para esta tela.</p>
       <label class="field">
         <span>Token</span>
         <input id="f-token" type="password" required spellcheck="false">
@@ -47,7 +47,7 @@
     </form>
     <div class="card form" id="fin" hidden>
       <div class="card__label">Financeiro</div>
-      <p class="hint">Permite lançar conta a receber do paciente na Asa pelo painel do atendimento e pela Agenda. A conta criada não pode ser editada nem excluída pela Kentro: correções são feitas direto na Asa.</p>
+      <p class="hint">Permite lançar conta a receber do paciente <span data-sis="na">no sistema da clínica</span> pelo painel do atendimento e pela Agenda. A conta criada não pode ser editada nem excluída pela Kentro: correções são feitas direto <span data-sis="na">no sistema da clínica</span>.</p>
       <label class="check"><input type="checkbox" id="fin-on" disabled> <span>Permitir lançar cobrança</span></label>
       <label class="field">
         <span>Quem pode lançar</span>
@@ -64,9 +64,9 @@
     </div>
   </main>
 </div>
-<script src="core.js?v=0.21.0"></script>
-<script src="api.js?v=0.21.0"></script>
-<script src="bridge.js?v=0.21.0"></script>
-<script src="config.js?v=0.21.0"></script>
+<script src="core.js?v=0.22.0"></script>
+<script src="api.js?v=0.22.0"></script>
+<script src="bridge.js?v=0.22.0"></script>
+<script src="config.js?v=0.22.0"></script>
 </body>
 </html>

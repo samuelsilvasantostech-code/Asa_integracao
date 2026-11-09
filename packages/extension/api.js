@@ -37,6 +37,7 @@
 
     return {
       testConnection: function () { return request('GET', '/v1/tenant/conexao/teste'); },
+      capabilities: function () { return request('GET', '/v1/capacidades', null, 8000); },
       patient: function (by) { return request('GET', '/v1/paciente' + query({ telefone: by.telefone, cpf: by.cpf })); },
       schedule: function () { return request('GET', '/v1/agenda'); },
       days: function (providerId) { return request('GET', '/v1/agenda/dias' + query({ prestador_id: providerId })); },
@@ -77,8 +78,23 @@
 
   // A chave vem só da configuração da instalação (campo secret, igual para todos os usuários).
   // omni.storage não serve: é por usuário e por navegador.
+  // Também busca o ERP da clínica (nome nas frases e o que ele suporta) antes de entregar a api: as telas
+  // já abrem falando "na Asa" ou "no Feegow". Sem resposta, segue com "o sistema da clínica" e nada extra.
   function load(omni, cfg) {
-    return Promise.resolve(create(cfg, usable(cfg.apiKey) ? cfg.apiKey : null));
+    var api = create(cfg, usable(cfg.apiKey) ? cfg.apiKey : null);
+    api.capacidades = { financeiro: false, confirmacao: false, grupos_exames: false };
+    api.erp = null;
+    if (!usable(cfg.apiKey)) return Promise.resolve(api);
+    return api.capabilities().then(function (r) {
+      var C = root.AsaCore;
+      if (r.status === 200 && r.body) {
+        api.erp = r.body.erp || null;
+        if (r.body.capacidades) api.capacidades = r.body.capacidades;
+        if (C) C.setSistema(r.body.sistema);
+      }
+      if (C && root.document) C.applySistema(root.document);
+      return api;
+    });
   }
 
   root.AsaApi = { create: create, load: load };

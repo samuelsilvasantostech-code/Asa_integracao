@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import * as C from "../confirmacao.js";
 import { pool } from "../db.js";
-import { tenantComErp, tenantDaAutomacao } from "../tenant-auth.js";
+import { perfilErp, tenantComErp, tenantDaAutomacao } from "../tenant-auth.js";
 import { buscaDe, consultaDoPaciente, type Busca } from "./agendamento.js";
 import { falha, naoEncontrado } from "./consulta.js";
 
@@ -21,6 +21,8 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
     const t = await tenantDaAutomacao(req, reply);
     if (!t) return;
     const cfg = C.lerConfig(t.confirmacao);
+    // ERP sem as rotas de confirmação (troca de ERP depois de ligar): a rodada automática não roda.
+    if (cfg.ativo && !(await perfilErp(t.id))?.capacidades.confirmacao) cfg.ativo = false;
     const hoje = C.hojeEm(new Date());
     const { inicio, fim } = C.datasAlvo(hoje, cfg);
     const base = { ativo: cfg.ativo, teste: cfg.teste.ativo, data_inicio: inicio, data_fim: fim };
@@ -126,6 +128,7 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
     if (!ctx) return;
     const { tenant, erp } = ctx;
     const busca = req.body?.busca;
+    if (!(await perfilErp(tenant.id))?.capacidades.confirmacao) return reply.code(409).send({ erro: "ERP_SEM_CONFIRMACAO" });
 
     const cons = await consultaDoPaciente(erp, busca, id);
     if (!cons.ok) return reply.code(cons.status).send({ erro: cons.erro });

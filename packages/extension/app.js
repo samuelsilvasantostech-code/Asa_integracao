@@ -69,7 +69,7 @@
     $('p-facts').hidden = false;
     var tags = $('c-tags');
     tags.textContent = '';
-    tags.appendChild(tag('Paciente na Asa', 'ok'));
+    tags.appendChild(tag(('Paciente ' + C.sis('na')), 'ok'));
     if (idade != null) tags.appendChild(tag(idade + ' anos'));
     if (p.cpf) tags.appendChild(tag('CPF ' + C.maskCpf(p.cpf)));
     tags.hidden = false;
@@ -95,7 +95,7 @@
     var ul = $('c-list');
     ul.textContent = '';
     consultas = list || [];
-    if (list === null) { status('c-status', 'A Asa não devolveu as consultas agora.', 'err'); return; }
+    if (list === null) { status('c-status', (C.sis('A') + ' não devolveu as consultas agora.'), 'err'); return; }
     $('count-consultas').hidden = !list.length;
     $('count-consultas').textContent = String(list.length);
     renderNext(list[0]);
@@ -154,14 +154,15 @@
     function normal() {
       box.textContent = '';
       var cf = C.confirmationState(c.confirmacao);
-      if (!(cf && cf.answered)) box.appendChild(button(cf ? 'Reenviar confirmação' : 'Enviar confirmação', null, function (ev) { sendConfirmation(c, box, ev.currentTarget); }));
+      // Só quando o ERP da clínica tem as rotas de confirmação (capacidade detectada na implantação).
+      if (api.capacidades.confirmacao && !(cf && cf.answered)) box.appendChild(button(cf ? 'Reenviar confirmação' : 'Enviar confirmação', null, function (ev) { sendConfirmation(c, box, ev.currentTarget); }));
       box.appendChild(button('Remarcar', null, function () { startReschedule(c); }));
       if (C.canCharge(fin, userType)) box.appendChild(button('Cobrar', null, function () { openCharge(c.id); }));
       box.appendChild(button('Cancelar', 'btn--danger', ask));
     }
     function ask() {
       box.textContent = '';
-      box.appendChild(el('span', 'item__ask', 'Cancelar esta consulta na Asa?'));
+      box.appendChild(el('span', 'item__ask', ('Cancelar esta consulta ' + C.sis('na') + '?')));
       box.appendChild(button('Sim, cancelar', 'btn--danger', function (ev) { doCancel(c, box, ev.currentTarget); }));
       box.appendChild(button('Não', null, normal));
     }
@@ -197,7 +198,7 @@
     var key = c.cancelKey || (c.cancelKey = C.newKey()); // a mesma chave numa nova tentativa
     api.cancel(c.id, { chave: key, busca: lastLookup, usuario: userLabel || undefined }).then(function (r) {
       if (r.status === 200 && r.body && r.body.ok) {
-        var notice = 'Consulta de ' + whenText(c) + ' cancelada na Asa.';
+        var notice = 'Consulta de ' + whenText(c) + (' cancelada ' + C.sis('na') + '.');
         if (lastLookup) findPatient(lastLookup, seq, notice); else status('c-status', notice);
         return;
       }
@@ -205,7 +206,7 @@
       if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') c.cancelKey = null;
       box.textContent = '';
       box.appendChild(el('span', 'item__ask', erro === 'CONSULTA_NAO_ENCONTRADA'
-        ? 'Essa consulta não está mais na lista do paciente na Asa. Atualize.'
+        ? ('Essa consulta não está mais na lista do paciente ' + C.sis('na') + '. Atualize.')
         : C.bookingError(r.status, r.body)));
       box.appendChild(button('Voltar', null, function () { box.parentNode.replaceChild(consultaActions(c), box); }));
       B.fitHeight();
@@ -269,7 +270,7 @@
   function findPatient(by, s, notice) {
     resetPatient();
     lastLookup = by;
-    status('p-status', 'Buscando o paciente na Asa…');
+    status('p-status', ('Buscando o paciente ' + C.sis('na') + '…'));
     api.patient(by).then(function (r) {
       if (s !== seq) return;
       if (r.status === 200 && r.body && r.body.encontrado) {
@@ -280,7 +281,7 @@
         if (!$('pane-financeiro').hidden) renderFinance();
         if (notice) status('c-status', notice + ' ' + $('c-status').textContent);
       } else if (r.status === 200 && r.body) {
-        status('p-status', by.cpf ? 'Nenhum paciente com esse CPF na Asa.' : 'Nenhum paciente com o telefone deste contato na Asa.');
+        status('p-status', by.cpf ? ('Nenhum paciente com esse CPF ' + C.sis('na') + '.') : ('Nenhum paciente com o telefone deste contato ' + C.sis('na') + '.'));
         $('p-search').hidden = false;
       } else {
         status('p-status', C.readError(r.status, r.body), 'err');
@@ -436,7 +437,7 @@
     $('ex-q').value = '';
     $('ex-clear').hidden = true;
     $('ex-q').disabled = true;
-    $('ex-q').placeholder = 'Carregando a lista da Asa…';
+    $('ex-q').placeholder = ('Carregando a lista ' + C.sis('da') + '…');
     $('ex-hint').textContent = '';
     fetchExams().then(function (r) {
       // Se um grupo foi escolhido enquanto a lista inteira carregava, a tela já mostra o grupo.
@@ -451,7 +452,7 @@
       }
       e.results = examList;
       renderExams();
-      if (r.body.completa === false) status('a-status', 'A Asa devolveu só parte da lista. Se não achar o procedimento, tente de novo em instantes.', 'err');
+      if (r.body.completa === false) status('a-status', (C.sis('A') + ' devolveu só parte da lista. Se não achar o procedimento, tente de novo em instantes.'), 'err');
     });
   }
 
@@ -777,8 +778,8 @@
     $('b-confirm-title').textContent = b.original ? 'Confirme a remarcação' : 'Confirme o agendamento';
     $('b-go').textContent = b.original ? 'Confirmar remarcação' : 'Confirmar agendamento';
     $('b-confirm-hint').textContent = b.original
-      ? 'Ao confirmar, a consulta original é trocada pelo novo horário na agenda da clínica na Asa.'
-      : 'Ao confirmar, a consulta é gravada na agenda da clínica na Asa.';
+      ? ('Ao confirmar, a consulta original é trocada pelo novo horário na agenda da clínica ' + C.sis('na') + '.')
+      : ('Ao confirmar, a consulta é gravada na agenda da clínica ' + C.sis('na') + '.');
     fact(dl, 'Convênio', conv.nome);
     fact(dl, 'Procedimento', proc.nome + (proc.valor > 0 ? ' — ' + C.formatMoney(proc.valor) : ''));
     if (b.obs) fact(dl, 'Observação', b.obs);
@@ -794,7 +795,7 @@
     if (!b) return;
     $('b-go').disabled = true;
     $('b-back').disabled = true;
-    status('b-confirm-status', $('b-go').textContent === 'Conferir na Asa' ? 'Conferindo na agenda da Asa…' : 'Gravando na Asa… pode levar até um minuto.');
+    status('b-confirm-status', $('b-go').textContent === ('Conferir ' + C.sis('na')) ? ('Conferindo na agenda ' + C.sis('da') + '…') : ('Gravando ' + C.sis('na') + '… pode levar até um minuto.'));
     var payload = Object.assign({
       chave: b.key,
       convenio_id: b.conv.id,
@@ -813,7 +814,7 @@
       // mantém a chave, e o botão passa a só conferir (o Conector nunca grava duas vezes a mesma chave).
       var unsure = erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || (r.status === 0 && !erro);
       if (!unsure) b.key = C.newKey();
-      $('b-go').textContent = unsure ? 'Conferir na Asa' : (b.original ? 'Confirmar remarcação' : 'Confirmar agendamento');
+      $('b-go').textContent = unsure ? ('Conferir ' + C.sis('na')) : (b.original ? 'Confirmar remarcação' : 'Confirmar agendamento');
       $('b-go').disabled = erro === 'HORARIO_INDISPONIVEL';
       if (erro === 'HORARIO_INDISPONIVEL') {
         var day = Array.prototype.filter.call($('a-dias').children, function (c) { return c.getAttribute('aria-pressed') === 'true'; })[0];
@@ -831,7 +832,7 @@
     fact(dl, 'Quando', C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario);
     fact(dl, 'Profissional', b.providerName);
     fact(dl, 'Procedimento', b.proc.nome);
-    if (res.agendamento_id) fact(dl, 'Nº na Asa', res.agendamento_id);
+    if (res.agendamento_id) fact(dl, ('Nº ' + C.sis('na')), res.agendamento_id);
     if (res.clinica || res.endereco) fact(dl, 'Local', [res.clinica, res.endereco].filter(Boolean).join(' — '));
     $('b-done').hidden = false;
     booking = null;
@@ -923,7 +924,7 @@
         if (u) userLabel = [u.id, u.name || u.username].filter(Boolean).join(' ');
         userType = C.userType(u);
         // O SDK não documenta o campo do perfil: registra os nomes (não os valores) para ajustar.
-        if (u && userType === null && root.console) root.console.info('[Asa] perfil do usuário não reconhecido; campos:', Object.keys(u).join(', '));
+        if (u && userType === null && root.console) root.console.info('[ClinFy] perfil do usuário não reconhecido; campos:', Object.keys(u).join(', '));
       }).catch(function () { /* sem usuário: a trilha fica sem nome */ });
     }
     $('f-new').addEventListener('click', function () { openCharge(''); });

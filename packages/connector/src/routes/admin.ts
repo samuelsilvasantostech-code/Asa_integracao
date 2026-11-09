@@ -2,12 +2,13 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { config, problemaDeConfig } from "../config.js";
 import { CAMPOS, lerConfig, MAX_PARAMETROS, TEXTOS_PADRAO } from "../confirmacao.js";
-import { cifraDisponivel, cifrar } from "../crypto.js";
+import { cifraDisponivel, cifrar, decifrar } from "../crypto.js";
 import { pool } from "../db.js";
 import { baseUrlValida, criarAdaptador, ERPS, type CredencialPadrao } from "../erp/index.js";
 import { FORMAS, lerFinanceiro } from "../financeiro.js";
 import { disparoUrlValida, idTenantValido, lerDadosTenant, type CampoTenant } from "../implantacao.js";
 import { Limite } from "../limite.js";
+import { perfilErp } from "../tenant-auth.js";
 import { gravarCredencial } from "./tenant.js";
 
 const hash = (valor: string) => createHash("sha256").update(valor).digest("hex");
@@ -59,7 +60,7 @@ export async function adminRoutes(app: FastifyInstance) {
               kentro_instancia, kentro_instalacao_id, asa_instituicao_id, implantado_por, credencial_gravada_em,
               credencial_origem, ultimo_uso_em, desligado_em, observacao,
               chave_automacao_hash IS NOT NULL AS tem_chave_automacao, disparo_url IS NOT NULL AS tem_disparo,
-              disparo_url, confirmacao, financeiro
+              disparo_url, confirmacao, financeiro, sistema_nome, sistema_artigo, erp_capacidades, erp_testado_em
        FROM tenants ORDER BY criado_em`,
     );
     return {
@@ -86,7 +87,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // Vínculo com a Kentro e a Asa, observação, nome e ativo. Só os campos enviados mudam; "" ou null limpa.
   app.patch<{ Params: { id: string }; Body: Record<string, unknown> }>("/admin/tenants/:id", async (req, reply) => {
-    const r = lerDadosTenant(req.body, ["nome", "ativo", "kentro_instancia", "kentro_instalacao_id", "asa_instituicao_id", "observacao"]);
+    const r = lerDadosTenant(req.body, ["nome", "ativo", "kentro_instancia", "kentro_instalacao_id", "asa_instituicao_id", "observacao", "sistema_nome", "sistema_artigo"]);
     if (!r.ok) return reply.code(400).send({ erro: r.erro });
     // As colunas vêm da lista fixa de lerDadosTenant, nunca do corpo.
     const colunas = Object.keys(r.campos) as CampoTenant[];
@@ -119,7 +120,7 @@ export async function adminRoutes(app: FastifyInstance) {
     const b = req.body ?? {};
     if (b.erp === "asa") {
       // Volta para a Asa sem credencial: a clínica (ou a implantação) cadastra o token da Asa em seguida.
-      const { rowCount } = await pool!.query("UPDATE tenants SET erp = 'asa', asa_credencial_cifrada = NULL, atualizado_em = now() WHERE id = $1", [req.params.id]);
+      const { rowCount } = await pool!.query("UPDATE tenants SET erp = 'asa', asa_credencial_cifrada = NULL, erp_capacidades = NULL, erp_testado_em = NULL, atualizado_em = now() WHERE id = $1", [req.params.id]);
       if (!rowCount) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
       req.log.info({ tenant: req.params.id, erp: "asa" }, "ERP da clínica trocado pela implantação");
       return { ok: true, erp: "asa", credencial: false };
@@ -127,22 +128,50 @@ export async function adminRoutes(app: FastifyInstance) {
     if (b.erp !== "padrao") return reply.code(400).send({ erro: "ERP_INVALIDO", aceitos: ERPS });
     const base_url = baseUrlValida(b.base_url);
     const token = String(b.token ?? "").trim();
-    if (!base_url) return reply.code(400).send({ erro: "URL_INVALIDA" });
+    if (!base_url) return reply.code(400).send({ erro: "ERP_URL_INVALIDA" });
     if (!token || /\s/.test(token) || token.length > 4096) return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
     if (!cifraDisponivel()) return reply.code(503).send({ erro: "CIFRA_NAO_CONFIGURADA" });
 
     const credencial: CredencialPadrao = { base_url, token };
-    const r = await criarAdaptador("padrao", credencial, req.log).testarConexao();
+    const adaptador = criarAdaptador("padrao", credencial, req.log);
+    const r = await adaptador.testarConexao();
     if (!r.ok) return reply.code(r.credencialInvalida ? 422 : 502).send({ erro: r.erro, msg: r.msg, status_erp: r.status });
+    const capacidades = await adaptador.detectarCapacidades();
 
     const { rowCount } = await pool!.query(
-      `UPDATE tenants SET erp = 'padrao', asa_credencial_cifrada = $1, credencial_gravada_em = now(), credencial_origem = 'implantacao', atualizado_em = now()
+      `UPDATE tenants SET erp = 'padrao', asa_credencial_cifrada = $1, credencial_gravada_em = now(), credencial_origem = 'implantacao',
+              erp_capacidades = $3, erp_testado_em = now(), atualizado_em = now()
        WHERE id = $2`,
-      [cifrar(JSON.stringify(credencial)), req.params.id],
+      [cifrar(JSON.stringify(credencial)), req.params.id, capacidades],
     );
     if (!rowCount) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
-    req.log.info({ tenant: req.params.id, erp: "padrao", host: new URL(base_url).host }, "ERP da clínica ligado pela implantação");
-    return { ok: true, erp: "padrao", base_url, prestadores: r.dados.prestadores };
+    req.log.info({ tenant: req.params.id, erp: "padrao", host: new URL(base_url).host, capacidades }, "ERP da clínica ligado pela implantação");
+    return { ok: true, erp: "padrao", base_url, prestadores: r.dados.prestadores, capacidades };
+  });
+
+  // Testa a conexão com o ERP já cadastrado e detecta de novo o que ele suporta (o ERP pode ter ganhado
+  // rotas). Grava as capacidades só quando a conexão funciona.
+  app.post<{ Params: { id: string } }>("/admin/tenants/:id/erp/testar", async (req, reply) => {
+    const { rows } = await pool!.query<{ erp: string; asa_credencial_cifrada: Buffer | null }>(
+      "SELECT erp, asa_credencial_cifrada FROM tenants WHERE id = $1",
+      [req.params.id],
+    );
+    const t = rows[0];
+    if (!t) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+    if (!t.asa_credencial_cifrada) return { ok: false, erp: t.erp, conexao: "credencial_ausente" };
+    let adaptador;
+    try {
+      adaptador = criarAdaptador(t.erp, JSON.parse(decifrar(t.asa_credencial_cifrada)), req.log);
+    } catch (err) {
+      req.log.error({ err, erp: t.erp }, "implantação: falha ao abrir a credencial ou o adaptador do ERP");
+      return reply.code(500).send({ erro: "ERRO_INTERNO" });
+    }
+    const r = await adaptador.testarConexao();
+    if (!r.ok) return { ok: false, erp: t.erp, conexao: r.credencialInvalida ? "credencial_invalida" : "fora_do_ar", erro: r.erro, msg: r.msg };
+    const capacidades = await adaptador.detectarCapacidades();
+    await pool!.query("UPDATE tenants SET erp_capacidades = $2, erp_testado_em = now() WHERE id = $1", [req.params.id, capacidades]);
+    req.log.info({ tenant: req.params.id, erp: t.erp, capacidades }, "implantação: conexão com o ERP testada");
+    return { ok: true, erp: t.erp, conexao: "ok", prestadores: r.dados.prestadores, capacidades };
   });
 
   // Configuração da confirmação de véspera. Só a implantação grava (a extensão só lê, desde a 0.19.0).
@@ -151,17 +180,27 @@ export async function adminRoutes(app: FastifyInstance) {
     const bruto = configDoCorpo(req.body);
     if (!bruto) return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
     const cfg = lerConfig(bruto);
+    if (cfg.ativo) {
+      const p = await perfilErp(req.params.id);
+      if (!p) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+      if (!p.capacidades.confirmacao) return reply.code(409).send({ erro: "ERP_SEM_CONFIRMACAO" });
+    }
     const { rowCount } = await pool!.query("UPDATE tenants SET confirmacao = $1, atualizado_em = now() WHERE id = $2", [cfg, req.params.id]);
     if (!rowCount) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
     req.log.info({ tenant: req.params.id, ativo: cfg.ativo, teste: cfg.teste.ativo }, "confirmação: configuração gravada pela implantação");
     return { ok: true, config: cfg };
   });
 
-  // Financeiro (lançar conta a receber na Asa, sem volta). Só a implantação liga.
+  // Financeiro (lançar conta a receber no ERP; na Asa, sem volta). Só a implantação liga, e só se o ERP tem.
   app.put<{ Params: { id: string }; Body: { config?: unknown } }>("/admin/tenants/:id/financeiro", async (req, reply) => {
     const bruto = configDoCorpo(req.body);
     if (!bruto) return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
     const cfg = lerFinanceiro(bruto);
+    if (cfg.ativo) {
+      const p = await perfilErp(req.params.id);
+      if (!p) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+      if (!p.capacidades.financeiro) return reply.code(409).send({ erro: "ERP_SEM_FINANCEIRO" });
+    }
     const { rowCount } = await pool!.query("UPDATE tenants SET financeiro = $1, atualizado_em = now() WHERE id = $2", [cfg, req.params.id]);
     if (!rowCount) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
     req.log.info({ tenant: req.params.id, ...cfg }, "financeiro: configuração gravada pela implantação");

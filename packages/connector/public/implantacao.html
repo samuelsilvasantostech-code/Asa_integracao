@@ -31,10 +31,10 @@
   <section class="cartao" aria-labelledby="h-roteiro">
     <h2 id="h-roteiro">Roteiro de implantação</h2>
     <ol class="roteiro">
-      <li><strong>Criar o cliente</strong> aqui (nome, instância da Kentro e instituição da Asa). Copie a chave da instalação: ela aparece uma vez só.</li>
+      <li><strong>Criar o cliente</strong> aqui (nome, instância da Kentro e, se a clínica usa a Asa, a instituição). Copie a chave da instalação: ela aparece uma vez só.</li>
       <li><strong>Instalar a extensão na Kentro</strong> da clínica pela URL do manifest (<code>/extensao/manifest.json</code> deste Conector). Na instalação, cole a chave em <code>apiKey</code>, preencha <code>queueIds</code> e <strong>restrinja o público</strong> a quem vai testar.</li>
       <li>Anote aqui o <strong>id da instalação</strong> (Editar vínculo).</li>
-      <li>A <strong>clínica cola o token da Asa</strong> em <em>Configurar ClinFy</em> (menu superior da Kentro, só administradores).</li>
+      <li><strong>Sistema da clínica:</strong> na Asa, a clínica cola o token em <em>Configurar ClinFy</em> (menu superior da Kentro, só administradores); em outro ERP no padrão Kentro, a implantação cadastra o endereço e o token no bloco <em>Sistema da clínica (ERP)</em> e testa a conexão.</li>
       <li><strong>Conferir aqui</strong>: credencial ok (origem "clínica") e último uso preenchido.</li>
       <li>Configurar financeiro e confirmação, se a clínica for usar, e então <strong>abrir o público</strong> da instalação para toda a equipe.</li>
     </ol>
@@ -50,7 +50,7 @@
         <table class="tabela">
           <caption class="sr">Clínicas cadastradas no Conector</caption>
           <thead>
-            <tr><th scope="col">Cliente</th><th scope="col">Situação</th><th scope="col">Credencial da Asa</th><th scope="col">Instituição</th><th scope="col">Instância · instalação</th><th scope="col">Último uso</th><th scope="col"><span class="sr">Ações</span></th></tr>
+            <tr><th scope="col">Cliente</th><th scope="col">Situação</th><th scope="col">Credencial do ERP</th><th scope="col">Instituição</th><th scope="col">Instância · instalação</th><th scope="col">Último uso</th><th scope="col"><span class="sr">Ações</span></th></tr>
           </thead>
           <tbody id="lista"></tbody>
         </table>
@@ -63,7 +63,7 @@
       <form id="f-novo" class="grade" autocomplete="off">
         <label class="campo"><span>Nome da clínica</span><input id="n-nome" maxlength="120" required></label>
         <label class="campo"><span>Instância da Kentro</span><input id="n-instancia" placeholder="clinica.atenderbem.com" spellcheck="false"></label>
-        <label class="campo"><span>Instituição da Asa (número)</span><input id="n-instituicao" inputmode="numeric" pattern="\d*" maxlength="12"></label>
+        <label class="campo"><span>Instituição da Asa (só clínicas na Asa)</span><input id="n-instituicao" inputmode="numeric" pattern="\d*" maxlength="12"></label>
         <label class="campo"><span>Implantado por</span><input id="n-por" maxlength="120"></label>
         <div class="acoes"><button type="submit" class="btn btn--primario">Criar cliente</button></div>
       </form>
@@ -83,10 +83,34 @@
         <label class="campo"><span>Nome</span><input id="v-nome" maxlength="120" required></label>
         <label class="campo"><span>Instância da Kentro</span><input id="v-instancia" spellcheck="false" placeholder="clinica.atenderbem.com"></label>
         <label class="campo"><span>Id da instalação na Kentro</span><input id="v-instalacao" inputmode="numeric" pattern="\d*" maxlength="10"></label>
-        <label class="campo"><span>Instituição da Asa</span><input id="v-instituicao" inputmode="numeric" pattern="\d*" maxlength="12"></label>
+        <label class="campo"><span>Instituição da Asa (só Asa)</span><input id="v-instituicao" inputmode="numeric" pattern="\d*" maxlength="12"></label>
         <label class="campo campo--largo"><span>Observação</span><textarea id="v-obs" rows="2" maxlength="1000"></textarea></label>
         <div class="acoes"><button type="submit" class="btn btn--primario">Salvar vínculo</button></div>
         <p class="msg" id="m-vinculo" role="status"></p>
+      </form>
+
+      <form id="f-erp" class="bloco" autocomplete="off">
+        <h3>Sistema da clínica (ERP)</h3>
+        <p class="dica">Qual ERP a clínica usa e como as telas da extensão escrevem o nome dele ("na Asa", "no Feegow"). No padrão Kentro, o endereço e o token são testados antes de gravar; o token fica cifrado e não volta para esta tela. Para manter a credencial já gravada, deixe endereço e token em branco.</p>
+        <div class="grade">
+          <label class="campo"><span>ERP</span>
+            <select id="e-erp"><option value="asa">Asa Saúde (API própria)</option><option value="padrao">Padrão Kentro (especificação ClinFy)</option></select>
+          </label>
+          <label class="campo"><span>Nome nas telas</span><input id="e-nome" maxlength="40" placeholder="Asa, Feegow…" spellcheck="false"></label>
+          <label class="campo"><span>Artigo</span>
+            <select id="e-artigo"><option value="a">a (na Asa)</option><option value="o">o (no Feegow)</option></select>
+          </label>
+        </div>
+        <div class="grade" id="e-padrao" hidden>
+          <label class="campo campo--largo"><span>Endereço da API (https)</span><input id="e-url" type="url" placeholder="https://erp.exemplo.com/api/v1" spellcheck="false"></label>
+          <label class="campo"><span>Token</span><input id="e-token" type="password" autocomplete="off" spellcheck="false"></label>
+        </div>
+        <div class="acoes">
+          <button type="submit" class="btn btn--primario">Salvar ERP</button>
+          <button type="button" class="btn" id="e-testar">Testar conexão</button>
+        </div>
+        <p class="msg" id="m-erp" role="status"></p>
+        <dl class="resumo" id="e-caps"></dl>
       </form>
 
       <form id="f-token" class="bloco" autocomplete="off">
@@ -101,7 +125,7 @@
 
       <form id="f-fin" class="bloco" autocomplete="off">
         <h3>Financeiro</h3>
-        <p class="dica">Permite lançar conta a receber do paciente na Asa pelo painel. A conta criada não pode ser editada nem excluída pela Kentro. "Quem pode lançar" é só uma regra da tela da extensão: o Conector não sabe quem é o usuário da Kentro.</p>
+        <p class="dica">Permite lançar conta a receber do paciente no ERP da clínica pelo painel (só se o ERP tiver essas rotas). Na Asa, a conta criada não pode ser editada nem excluída pela Kentro. "Quem pode lançar" é só uma regra da tela da extensão: o Conector não sabe quem é o usuário da Kentro.</p>
         <label class="marca"><input type="checkbox" id="fin-on"> <span>Permitir lançar cobrança</span></label>
         <label class="campo"><span>Quem pode lançar</span>
           <select id="fin-quem"><option value="admin">Só administradores</option><option value="todos">Todos os atendentes</option></select>
@@ -146,7 +170,7 @@
           <label class="campo"><span>Quando cancela</span><textarea id="c-t-cancelado" rows="2"></textarea></label>
           <label class="campo"><span>Quando pede para remarcar</span><textarea id="c-t-remarcar" rows="2"></textarea></label>
           <label class="campo"><span>Quando responde de novo</span><textarea id="c-t-ja_respondido" rows="2"></textarea></label>
-          <label class="campo"><span>Quando a Asa está fora do ar</span><textarea id="c-t-indisponivel" rows="2"></textarea></label>
+          <label class="campo"><span>Quando o ERP está fora do ar</span><textarea id="c-t-indisponivel" rows="2"></textarea></label>
           <p class="dica" id="c-campos"></p>
         </fieldset>
         <fieldset>
@@ -182,7 +206,7 @@
 
       <form id="f-desligar" class="bloco perigo" autocomplete="off">
         <h3>Desligar cliente</h3>
-        <p class="dica">Desativa o cliente e apaga o token da Asa, a chave da automação e a URL de disparo. A chave da instalação deixa de valer. O histórico fica até ser apagado abaixo.</p>
+        <p class="dica">Desativa o cliente e apaga a credencial do ERP, a chave da automação e a URL de disparo. A chave da instalação deixa de valer. O histórico fica até ser apagado abaixo.</p>
         <div class="linha">
           <label class="campo"><span>Digite o nome do cliente para confirmar</span><input id="x-nome" autocomplete="off" spellcheck="false"></label>
           <button type="submit" class="btn btn--perigo">Desligar</button>

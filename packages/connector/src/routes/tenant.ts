@@ -3,19 +3,31 @@ import { cifraDisponivel, cifrar, decifrar } from "../crypto.js";
 import { pool } from "../db.js";
 import { instituicaoDa, type CredencialAsa } from "../erp/asa/cliente.js";
 import { criarAdaptador } from "../erp/index.js";
-import { tenantDaRequisicao } from "../tenant-auth.js";
+import { perfilErp, tenantDaRequisicao } from "../tenant-auth.js";
 import { CAMPOS, datasAlvo, hojeEm, lerConfig, MAX_PARAMETROS, preencher, TEXTOS_PADRAO, variaveisTemplate, varsDa, varsResposta } from "../confirmacao.js";
 import { instituicaoConfere } from "../implantacao.js";
 import { adminAutorizado } from "./admin.js";
 
 export async function tenantRoutes(app: FastifyInstance) {
-  // Confirma a clínica e, se houver credencial, testa de verdade no ERP. A chave `asa` da resposta é lida
-  // pela extensão; o nome fica até a extensão genérica (fase 3).
+  // O ERP da clínica para as telas: qual é, como as telas escrevem o nome dele e o que ele suporta. Não
+  // chama o ERP; a extensão pede ao abrir cada tela.
+  app.get("/v1/capacidades", async (req, reply) => {
+    const tenant = await tenantDaRequisicao(req, reply);
+    if (!tenant) return;
+    const p = await perfilErp(tenant.id);
+    if (!p) return reply.code(401).send({ erro: "CHAVE_INVALIDA" });
+    return p;
+  });
+
+  // Confirma a clínica e, se houver credencial, testa de verdade no ERP. `conexao` é o estado; `asa` repete
+  // o mesmo valor para a extensão anterior à 0.22.0.
   app.get("/v1/tenant/conexao/teste", async (req, reply) => {
     const tenant = await tenantDaRequisicao(req, reply);
     if (!tenant) return;
-    const base = { tenant: { id: tenant.id, nome: tenant.nome }, erp: tenant.erp };
-    if (!tenant.credencial) return { ...base, asa: "credencial_ausente" };
+    const perfil = await perfilErp(tenant.id);
+    const base = { tenant: { id: tenant.id, nome: tenant.nome }, erp: tenant.erp, sistema: perfil?.sistema };
+    const estado = (s: string) => ({ conexao: s, asa: s });
+    if (!tenant.credencial) return { ...base, ...estado("credencial_ausente") };
 
     let credencial: unknown;
     let erp;
@@ -24,13 +36,13 @@ export async function tenantRoutes(app: FastifyInstance) {
       erp = criarAdaptador(tenant.erp, credencial, req.log);
     } catch (err) {
       req.log.error({ err, erp: tenant.erp }, "falha ao abrir a credencial ou o adaptador do ERP");
-      return { ...base, asa: "erro_interno" };
+      return { ...base, ...estado("erro_interno") };
     }
     const r = await erp.testarConexao();
     // O número da instituição só existe no token da Asa.
-    if (r.ok) return { ...base, asa: "ok", instituicao_id: tenant.erp === "asa" ? instituicaoDa(credencial as CredencialAsa) : null };
+    if (r.ok) return { ...base, ...estado("ok"), instituicao_id: tenant.erp === "asa" ? instituicaoDa(credencial as CredencialAsa) : null };
     req.log.warn({ erro: r.erro, status: r.status, erp: tenant.erp }, "teste de conexão com o ERP falhou");
-    return { ...base, asa: r.credencialInvalida ? "credencial_invalida" : "fora_do_ar", erro: r.erro };
+    return { ...base, ...estado(r.credencialInvalida ? "credencial_invalida" : "fora_do_ar"), erro: r.erro };
   });
 
   // Primeiro cadastro do token da Asa, pela tela "Configurar Asa Saúde". TROCAR um token já gravado

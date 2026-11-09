@@ -24,8 +24,21 @@
     DADOS_INVALIDOS: 'Dados fora do formato.',
     URL_INVALIDA: 'URL inválida: só captura de webhook (https) em *.atenderbem.com ou *.kentro.com.br.',
     TENANT_NAO_DESLIGADO: 'Desligue o cliente antes de apagar o histórico.',
-    CONFIRMACAO_NAO_CONFERE: 'O nome digitado não confere com o do cliente.'
+    CONFIRMACAO_NAO_CONFERE: 'O nome digitado não confere com o do cliente.',
+    ERP_INVALIDO: 'ERP inválido.',
+    ERP_URL_INVALIDA: 'Endereço da API inválido: só https, sem usuário e senha, e nunca um endereço interno.',
+    ERP_CREDENCIAL_INVALIDA: 'O ERP recusou o token.',
+    ERP_FORA_DO_AR: 'O ERP não respondeu (fora do ar, endereço errado ou bloqueio de rede).',
+    ERP_RECUSOU: 'O ERP recusou o pedido.',
+    ERP_NAO_ENCONTRADO: 'O endereço respondeu, mas sem as rotas da especificação (confira o caminho, ex.: /api/v1).',
+    ERP_RESPOSTA_INVALIDA: 'O ERP respondeu fora do formato da especificação.',
+    ERP_SEM_FINANCEIRO: 'O ERP desta clínica não tem as rotas de conta a receber. Teste a conexão de novo se elas foram criadas.',
+    ERP_SEM_CONFIRMACAO: 'O ERP desta clínica não tem as rotas de confirmação. Teste a conexão de novo se elas foram criadas.',
+    SISTEMA_INVALIDO: 'Nome do sistema: até 40 caracteres; letras, números, espaço, ponto, &, apóstrofo e hífen.',
+    ARTIGO_INVALIDO: 'Artigo inválido.'
   };
+  var NOMES_ERP = { asa: 'Asa Saúde', padrao: 'Padrão Kentro' };
+  var NOMES_CAPS = { financeiro: 'Lançar cobrança', confirmacao: 'Confirmação pelo WhatsApp', grupos_exames: 'Grupos de procedimentos' };
 
   var chave = '';
   var tenants = [], opcoes = null, atual = null, params = [];
@@ -209,7 +222,8 @@
     dl.textContent = '';
     [
       ['Situação', situacao(t).texto],
-      ['Credencial da Asa', credencial(t)],
+      ['ERP', (NOMES_ERP[t.erp] || t.erp) + (t.sistema_nome ? ' · nas telas: ' + t.sistema_nome : '')],
+      ['Credencial do ERP', credencial(t)],
       ['Último uso', dataHora(t.ultimo_uso_em)],
       ['Criado em', dataHora(t.criado_em) + (t.implantado_por ? ' por ' + t.implantado_por : '')],
       ['Chave da automação', t.tem_chave_automacao ? 'Gerada' : 'Não gerada'],
@@ -236,16 +250,93 @@
     $('fin-quem').value = t.financeiro.quem;
     $('d-url').value = t.disparo_url || '';
     preencherConfirmacao(t.confirmacao);
+    $('e-erp').value = t.erp || 'asa';
+    $('e-nome').value = t.sistema_nome || '';
+    $('e-artigo').value = t.sistema_artigo === 'o' ? 'o' : 'a';
+    trocarErp();
+    mostrarCapacidades(t.erp_capacidades, t.erp_testado_em);
     var desligado = !t.ativo && !!t.desligado_em;
     $('f-desligar').hidden = desligado;
     $('f-historico').hidden = !desligado;
     if (outro) {
-      ['m-vinculo', 'm-token', 'm-fin', 'm-conf', 'm-disparo', 'm-chaves', 'm-desligar', 'm-historico'].forEach(function (id) { msg(id, null, ''); });
+      $('e-url').value = '';
+      $('e-token').value = '';
+      ['m-erp', 'm-vinculo', 'm-token', 'm-fin', 'm-conf', 'm-disparo', 'm-chaves', 'm-desligar', 'm-historico'].forEach(function (id) { msg(id, null, ''); });
       $('s-chaves').textContent = '';
       $('x-nome').value = '';
       $('h-nome').value = '';
       $('t-token').value = '';
     }
+  }
+
+  /* ---------- sistema da clínica (ERP) ---------- */
+  // Endereço e token só no padrão Kentro; o bloco "Token da Asa" só para clínica que JÁ está na Asa.
+  function trocarErp() {
+    $('e-padrao').hidden = $('e-erp').value !== 'padrao';
+    $('f-token').hidden = !atual || (atual.erp || 'asa') !== 'asa';
+  }
+
+  function mostrarCapacidades(caps, testadoEm) {
+    var dl = $('e-caps');
+    dl.textContent = '';
+    dl.appendChild(el('dt', null, 'Último teste'));
+    dl.appendChild(el('dd', null, testadoEm ? dataHora(testadoEm) : 'Ainda não testado'));
+    if (!caps) return;
+    Object.keys(NOMES_CAPS).forEach(function (k) {
+      dl.appendChild(el('dt', null, NOMES_CAPS[k]));
+      dl.appendChild(el('dd', caps[k] ? null : 'falta', caps[k] ? 'Disponível' : 'O ERP não tem'));
+    });
+  }
+
+  function salvarErp(ev) {
+    ev.preventDefault();
+    var erp = $('e-erp').value, eraErp = atual.erp || 'asa';
+    var url = $('e-url').value.trim(), token = $('e-token').value.trim();
+    if (erp === 'padrao' && eraErp !== 'padrao' && (!url || !token)) { msg('m-erp', 'err', 'Para ligar ao padrão Kentro, informe o endereço da API e o token.'); return; }
+    if (erp === 'padrao' && (!!url !== !!token)) { msg('m-erp', 'err', 'Informe o endereço e o token juntos (ou deixe os dois em branco para manter os gravados).'); return; }
+    if (erp === 'asa' && eraErp !== 'asa' && !window.confirm('Voltar ' + atual.nome + ' para a Asa? A credencial do ERP atual é apagada e o token da Asa precisa ser cadastrado de novo.')) return;
+    msg('m-erp', null, 'Salvando…');
+    // 1) nome nas telas; 2) troca de ERP ou nova credencial, quando houver.
+    chamar('PATCH', rotaDo(atual.id), { sistema_nome: $('e-nome').value, sistema_artigo: $('e-artigo').value }).then(function (r) {
+      if (r.status !== 200) { msg('m-erp', 'err', erroDe(r)); return null; }
+      if (erp === 'padrao' && url) {
+        msg('m-erp', null, 'Testando a conexão com o ERP…');
+        return chamar('PUT', rotaDo(atual.id, '/erp'), { erp: 'padrao', base_url: url, token: token });
+      }
+      if (erp === 'asa' && eraErp !== 'asa') return chamar('PUT', rotaDo(atual.id, '/erp'), { erp: 'asa' });
+      return { status: 200, body: { ok: true, soNome: true } };
+    }).then(function (r) {
+      if (!r) return;
+      if (r.status !== 200 || !r.body || !r.body.ok) {
+        var extra = r.body && r.body.msg ? ' Resposta do ERP: ' + r.body.msg : '';
+        msg('m-erp', 'err', erroDe(r) + extra);
+        return;
+      }
+      $('e-token').value = '';
+      if (r.body.soNome) msg('m-erp', 'ok', 'Nome nas telas salvo.');
+      else if (r.body.erp === 'asa') msg('m-erp', 'ok', 'Clínica de volta à Asa. Cadastre o token da Asa abaixo (ou pela tela Configurar ClinFy).');
+      else {
+        msg('m-erp', 'ok', 'ERP ligado: a conexão funcionou e o ERP listou ' + r.body.prestadores + ' profissional(is).');
+        mostrarCapacidades(r.body.capacidades, new Date().toISOString());
+      }
+      carregar();
+    });
+  }
+
+  function testarErp() {
+    msg('m-erp', null, 'Testando a conexão…');
+    chamar('POST', rotaDo(atual.id, '/erp/testar')).then(function (r) {
+      if (r.status !== 200 || !r.body) { msg('m-erp', 'err', erroDe(r)); return; }
+      var b = r.body;
+      if (!b.ok) {
+        var porque = b.conexao === 'credencial_ausente' ? 'não há credencial cadastrada.' : b.conexao === 'credencial_invalida' ? 'o ERP recusou a credencial.' : 'o ERP não respondeu.';
+        msg('m-erp', 'err', 'Sem conexão: ' + porque + (b.msg ? ' (' + b.msg + ')' : ''));
+        return;
+      }
+      msg('m-erp', 'ok', 'Conexão ok: ' + b.prestadores + ' profissional(is). O que o ERP suporta foi atualizado.');
+      mostrarCapacidades(b.capacidades, new Date().toISOString());
+      carregar();
+    });
   }
 
   function salvarVinculo(ev) {
@@ -439,6 +530,9 @@
   $('f-novo').addEventListener('submit', criar);
   $('f-vinculo').addEventListener('submit', salvarVinculo);
   $('f-token').addEventListener('submit', salvarToken);
+  $('f-erp').addEventListener('submit', salvarErp);
+  $('e-erp').addEventListener('change', trocarErp);
+  $('e-testar').addEventListener('click', testarErp);
   $('f-fin').addEventListener('submit', salvarFinanceiro);
   $('f-conf').addEventListener('submit', salvarConfirmacao);
   $('c-canal').addEventListener('change', canal);

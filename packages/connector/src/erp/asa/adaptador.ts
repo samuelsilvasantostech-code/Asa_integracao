@@ -59,6 +59,13 @@ export class AsaAdapter implements ErpAdapter {
     return this.pedir("api-agendamento", {}, (d) => ({ prestadores: N.lista(d?.prestadores).length }));
   }
 
+  // A Asa tem as rotas de conta e de confirmação. Os grupos de procedimentos só existem em algumas
+  // instalações: pergunta à própria Asa.
+  async detectarCapacidades() {
+    const g = await this.gruposExames();
+    return { financeiro: true, confirmacao: true, grupos_exames: g.ok && g.dados.length > 0 };
+  }
+
   buscarPaciente(busca: BuscaPaciente) {
     return this.pedir("api-agendamento-paciente-instituicao", { ...busca }, (d) => {
       const p = N.paciente(d);

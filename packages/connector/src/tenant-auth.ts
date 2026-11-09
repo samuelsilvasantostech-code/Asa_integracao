@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { decifrar } from "./crypto.js";
 import { pool } from "./db.js";
+import { lerCapacidades, sistemaDe, type Capacidades, type Sistema } from "./erp/capacidades.js";
 import { criarAdaptador, type ErpAdapter } from "./erp/index.js";
 import { precisaMarcarUso } from "./implantacao.js";
 
@@ -101,4 +102,15 @@ export async function tenantDaAutomacao(req: FastifyRequest, reply: FastifyReply
   const erp = adaptadorDe(req, reply, t.erp, t.asa_credencial_cifrada);
   if (!erp) return null;
   return { id: t.id, nome: t.nome, confirmacao: t.confirmacao, erp };
+}
+
+// ERP da clínica como as telas precisam: qual é, como se chama e o que suporta. Sem chamar o ERP.
+export async function perfilErp(tenantId: string): Promise<{ erp: string; sistema: Sistema; capacidades: Capacidades } | null> {
+  const { rows } = await pool!.query<{ erp: string; sistema_nome: string | null; sistema_artigo: string | null; erp_capacidades: unknown }>(
+    "SELECT erp, sistema_nome, sistema_artigo, erp_capacidades FROM tenants WHERE id = $1",
+    [tenantId],
+  );
+  const t = rows[0];
+  if (!t) return null;
+  return { erp: t.erp, sistema: sistemaDe(t.sistema_nome, t.sistema_artigo, t.erp), capacidades: lerCapacidades(t.erp, t.erp_capacidades) };
 }

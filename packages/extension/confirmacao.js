@@ -101,6 +101,12 @@
   }
 
   function load() {
+    // ERP sem as rotas de confirmação: a tela só explica (a implantação não consegue ligar o envio).
+    if (api.erp && !api.capacidades.confirmacao) {
+      pill('warn', 'Indisponível');
+      msg($('conn-text'), 'warn', 'A confirmação pelo WhatsApp não está disponível com ' + C.sis('a') + ': ele não tem as rotas de consultas a confirmar. Fale com a implantação.');
+      return;
+    }
     api.reminderConfig().then(function (r) {
       if (r.status !== 200 || !r.body || !r.body.config) {
         var st = C.connectionState(r.status, r.body);

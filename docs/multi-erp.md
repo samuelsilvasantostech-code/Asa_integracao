@@ -15,8 +15,8 @@ O formato canônico é a "Especificação da API do ERP para a extensão Kentro"
 | Fase | Entrega | Situação |
 |---|---|---|
 | 1 | Separar a Asa do Conector atrás de `ErpAdapter`, sem mudar o comportamento | **No ar desde 09/11 (0.20.0)**, validada pelo usuário com a Asa |
-| 2 | Adaptador "Padrão Kentro" (fala a especificação), kit de conformidade no Postman e servidor simulado | **Feita em 09/11 (0.21.0)**, sem deploy |
-| 3 | Extensão genérica: `/v1/capacidades`, textos sem "Asa", implantação com escolha do ERP e "Testar conexão" | A fazer. O nome ClinFy já entrou na 0.20.0 (menus e títulos) |
+| 2 | Adaptador "Padrão Kentro" (fala a especificação), kit de conformidade no Postman e servidor simulado | **No ar desde 09/11 (0.21.0)**, validada pelo usuário |
+| 3 | Extensão genérica: `/v1/capacidades`, textos sem "Asa", implantação com escolha do ERP e "Testar conexão" | **Feita em 09/11 (0.22.0)**, sem deploy |
 | 4 | Próximos ERPs, por demanda dos clientes | A fazer |
 
 ## Fase 2: Padrão Kentro (0.21.0)
@@ -57,6 +57,35 @@ Outras mudanças desta versão:
 - O cadastro do ERP é feito por `curl`; a página `/implantacao` ainda não tem esse campo.
 
 Testes: 9 do adaptador contra o ERP simulado, cobrindo o ciclo completo. Também rodei o kit contra o simulador: 35 requisições e 151 verificações, todas aprovadas; com o token errado, ele reprova (73 falhas). O Conector tem 72 testes.
+
+## Fase 3: extensão genérica (0.22.0)
+
+A mesma extensão serve a qualquer ERP. As telas escrevem o nome do sistema da clínica, e só aparece o que o ERP dela suporta.
+
+| Peça | Onde | O que faz |
+|---|---|---|
+| Nome do sistema | `tenants.sistema_nome` e `sistema_artigo` (migração 012); `C.sis()` no `core.js` | "na Asa", "no Feegow". Sem nome cadastrado: "a Asa" para clínica na Asa, "o sistema da clínica" nos outros. Trechos fixos do HTML usam `<span data-sis="na">` |
+| Capacidades | `src/erp/capacidades.ts`; `detectarCapacidades()` em cada adaptador; `tenants.erp_capacidades` | `financeiro`, `confirmacao` e `grupos_exames`. Na Asa, as rotas são conhecidas (os grupos são consultados). No padrão, o adaptador chama `/contas`, `/confirmacoes/pendentes` e `/grupos-procedimento`, e o que responder 2xx existe |
+| `GET /v1/capacidades` | `routes/tenant.ts` | O ERP, o nome do sistema e as capacidades, sem chamar o ERP. A extensão lê ao abrir cada tela (`api.js`) |
+| Implantação | Bloco "Sistema da clínica (ERP)" em `/implantacao` | Escolhe Asa ou padrão Kentro, cadastra o nome nas telas, o endereço e o token. "Testar conexão" (`POST /admin/tenants/:id/erp/testar`) detecta de novo as capacidades |
+
+Regras:
+
+- Financeiro e confirmação só ligam com a capacidade (`ERP_SEM_FINANCEIRO`, `ERP_SEM_CONFIRMACAO`).
+- A regra também vale no uso, para o caso de troca de ERP depois de ligar:
+    - a cobrança é recusada;
+    - o "Enviar confirmação" é recusado e o botão some;
+    - a rodada automática não roda;
+    - o financeiro aparece desligado.
+- O cadastro de token pela tela Configurar continua só para a Asa. Nos outros ERPs, quem cadastra a credencial é a implantação.
+- Voltar uma clínica para a Asa apaga a credencial do ERP anterior e as capacidades detectadas.
+- `/v1/tenant/conexao/teste` devolve `conexao` (o estado) e `sistema`. A chave `asa` continua, com o mesmo valor, para a extensão anterior.
+
+Ainda em aberto:
+
+- Profissional por ordem de chegada no padrão Kentro.
+- Uma clínica com dois ERPs.
+- As telas da extensão não foram vistas rodando depois da troca de textos (só checagem de sintaxe e das funções). O teste é na Kentro, com o login 509.
 
 ## Como está organizado (fase 1)
 

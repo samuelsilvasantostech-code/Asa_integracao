@@ -34,14 +34,14 @@
   function connectionState(status, body) {
     if (status === 200 && body && body.tenant) {
       var nome = body.tenant.nome;
-      // Clínica na Asa: textos como sempre. Outro ERP (padrão Kentro): "o ERP".
+      // O nome do sistema vem na própria resposta (Conector 0.22.0+); a Asa cadastra o token pela tela.
+      if (body.sistema) setSistema(body.sistema);
       var asa = !body.erp || body.erp === 'asa';
-      var o = asa ? 'a Asa' : 'o ERP', O = asa ? 'A Asa' : 'O ERP', ao = asa ? 'à Asa' : 'ao ERP', da = asa ? 'da Asa' : 'do ERP';
-      switch (body.asa) {
-        case 'ok': return { tone: 'ok', pill: 'Conectado', text: nome + ': conectado ' + ao + (body.instituicao_id ? ' (instituição ' + body.instituicao_id + ')' : '') + '.', retry: false };
-        case 'credencial_ausente': return { tone: 'warn', pill: 'Sem credencial', text: nome + ': a credencial ' + da + ' ainda não foi cadastrada. ' + (asa ? 'Um administrador cadastra em "Configurar ClinFy".' : 'Fale com a implantação.'), retry: true };
-        case 'credencial_invalida': return { tone: 'err', pill: 'Credencial recusada', text: nome + ': ' + o + ' recusou a credencial cadastrada. Fale com a implantação para trocar o token.', retry: true };
-        default: return { tone: 'err', pill: (asa ? 'Asa' : 'ERP') + ' fora do ar', text: nome + ': ' + o + ' não respondeu agora.', retry: true };
+      switch (body.conexao || body.asa) {
+        case 'ok': return { tone: 'ok', pill: 'Conectado', text: nome + ': conectado ' + sis('ao') + (body.instituicao_id ? ' (instituição ' + body.instituicao_id + ')' : '') + '.', retry: false };
+        case 'credencial_ausente': return { tone: 'warn', pill: 'Sem credencial', text: nome + ': a credencial ' + sis('da') + ' ainda não foi cadastrada. ' + (asa ? 'Um administrador cadastra em "Configurar ClinFy".' : 'Fale com a implantação.'), retry: true };
+        case 'credencial_invalida': return { tone: 'err', pill: 'Credencial recusada', text: nome + ': ' + sis('a') + ' recusou a credencial cadastrada. Fale com a implantação para trocar a credencial.', retry: true };
+        default: return { tone: 'err', pill: 'Sistema fora do ar', text: nome + ': ' + sis('a') + ' não respondeu agora.', retry: true };
       }
     }
     if (status === 401) return { tone: 'err', pill: 'Chave inválida', text: 'A chave da instalação não foi reconhecida pelo Conector.', retry: false };
@@ -51,12 +51,12 @@
 
   // Resposta de PUT /v1/tenant/credencial → mensagem da tela de configuração.
   function credentialSaveState(status, body) {
-    if (status === 200 && body && body.ok) return { tone: 'ok', text: 'Credencial validada e salva. A Asa listou ' + body.prestadores + ' prestador(es) com agenda online.' };
+    if (status === 200 && body && body.ok) return { tone: 'ok', text: ('Credencial validada e salva. ' + sis('A') + ' listou ') + body.prestadores + ' prestador(es) com agenda online.' };
     var erro = body && body.erro;
-    if (erro === 'ASA_CREDENCIAL_INVALIDA') return { tone: 'err', text: 'A Asa recusou esse token. Confira se foi copiado inteiro, sem espaços.' };
-    if (erro === 'DADOS_INVALIDOS') return { tone: 'err', text: 'Cole o token da Asa (sem espaços ou quebras de linha).' };
+    if (erro === 'ASA_CREDENCIAL_INVALIDA') return { tone: 'err', text: (sis('A') + ' recusou esse token. Confira se foi copiado inteiro, sem espaços.') };
+    if (erro === 'DADOS_INVALIDOS') return { tone: 'err', text: ('Cole o token ' + sis('da') + ' (sem espaços ou quebras de linha).') };
     if (erro === 'CREDENCIAL_JA_CADASTRADA') return { tone: 'err', text: 'Esta clínica já tem um token cadastrado. Para trocar, fale com a implantação.' };
-    if (erro === 'INSTITUICAO_DIVERGENTE') return { tone: 'err', text: 'Este token é de outra instituição da Asa. Confira com a implantação.' };
+    if (erro === 'INSTITUICAO_DIVERGENTE') return { tone: 'err', text: ('Este token é de outra instituição ' + sis('da') + '. Confira com a implantação.') };
     if (erro === 'CIFRA_NAO_CONFIGURADA') return { tone: 'err', text: 'O Conector ainda não está pronto para guardar credenciais (falta a chave de cifra).' };
     if (status === 401) return { tone: 'err', text: 'A chave da instalação não foi reconhecida pelo Conector.' };
     return { tone: 'err', text: 'Não foi possível validar agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '. Tente de novo.' };
@@ -101,18 +101,20 @@
   // Resposta de leitura do Conector → texto de erro para o atendente.
   function readError(status, body) {
     var erro = body && body.erro;
-    if (erro === 'ASA_RECUSOU' && body.msg) return 'A Asa respondeu: ' + body.msg;
-    if (erro === 'ERP_RECUSOU' && body.msg) return 'O sistema da clínica respondeu: ' + body.msg;
-    if (erro === 'CREDENCIAL_AUSENTE') return 'A credencial do sistema da clínica ainda não foi cadastrada.';
-    if (erro === 'ASA_CREDENCIAL_INVALIDA') return 'A Asa recusou a credencial cadastrada.';
-    if (erro === 'ERP_CREDENCIAL_INVALIDA') return 'O sistema da clínica recusou a credencial cadastrada.';
-    if (typeof erro === 'string' && erro.indexOf('ERP_') === 0) return 'O sistema da clínica não respondeu agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '.';
-    if (erro === 'TELEFONE_INVALIDO') return 'O telefone do contato não está num formato que a Asa aceite.';
+    if (erro === 'ASA_RECUSOU' && body.msg) return (sis('A') + ' respondeu: ') + body.msg;
+    if (erro === 'ERP_RECUSOU' && body.msg) return sis('A') + ' respondeu: ' + body.msg;
+    if (erro === 'CREDENCIAL_AUSENTE') return 'A credencial ' + sis('da') + ' ainda não foi cadastrada.';
+    if (erro === 'ASA_CREDENCIAL_INVALIDA') return (sis('A') + ' recusou a credencial cadastrada.');
+    if (erro === 'ERP_CREDENCIAL_INVALIDA') return sis('A') + ' recusou a credencial cadastrada.';
+    if (erro === 'ERP_SEM_CONFIRMACAO') return 'A confirmação pelo WhatsApp não está disponível com ' + sis('a') + '.';
+    if (erro === 'ERP_SEM_FINANCEIRO') return 'O lançamento de cobrança não está disponível com ' + sis('a') + '.';
+    if (typeof erro === 'string' && erro.indexOf('ERP_') === 0) return sis('A') + ' não respondeu agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '.';
+    if (erro === 'TELEFONE_INVALIDO') return ('O telefone do contato não está num formato que ' + sis('a') + ' aceite.');
     if (erro === 'CPF_INVALIDO') return 'Informe um CPF com 11 dígitos.';
     if (erro === 'MUITAS_BUSCAS') return 'Muitas buscas de paciente em pouco tempo. Aguarde um minuto e tente de novo.';
     if (status === 429) return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo.';
     if (status === 401) return 'A chave da instalação não foi reconhecida pelo Conector.';
-    return 'A Asa não respondeu agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '.';
+    return (sis('A') + ' não respondeu agora') + (status > 0 ? ' (HTTP ' + status + ')' : '') + '.';
   }
 
   function formatMoney(v) {
@@ -157,11 +159,11 @@
   function confirmationError(status, body) {
     var erro = body && body.erro;
     if (erro === 'MODO_TESTE') return 'A confirmação está em modo teste e o telefone deste paciente não está na lista de teste (tela Confirmação ClinFy).';
-    if (erro === 'SEM_TELEFONE') return 'O cadastro do paciente na Asa está sem um celular válido para receber a mensagem.';
+    if (erro === 'SEM_TELEFONE') return ('O cadastro do paciente ' + sis('na') + ' está sem um celular válido para receber a mensagem.');
     if (erro === 'JA_RESPONDIDA') return 'O paciente já respondeu a confirmação desta consulta.';
     if (erro === 'EM_ENVIO') return 'A confirmação desta consulta está saindo agora. Aguarde um instante.';
     if (erro === 'CONSULTA_PASSADA') return 'Só é possível pedir confirmação de consulta futura.';
-    if (erro === 'CONSULTA_NAO_ENCONTRADA') return 'Essa consulta não está mais na lista do paciente na Asa.';
+    if (erro === 'CONSULTA_NAO_ENCONTRADA') return ('Essa consulta não está mais na lista do paciente ' + sis('na') + '.');
     return readError(status, body);
   }
 
@@ -176,11 +178,11 @@
   function bookingError(status, body) {
     var erro = body && body.erro;
     if (erro === 'HORARIO_INDISPONIVEL') return 'Esse horário acabou de ser ocupado. Escolha outro.';
-    if (erro === 'AGENDAMENTO_INCERTO') return 'A Asa não confirmou e a consulta ainda não aparece na agenda do profissional. Ela pode ser gravada nos próximos instantes: aguarde um pouco e toque em "Conferir na Asa". Isso só confere, não marca de novo.' + (body.detalhe ? ' Diagnóstico: ' + body.detalhe + '.' : '');
-    if (status === 0 && !erro) return 'O Conector não respondeu a tempo e a consulta pode ter sido gravada. Toque em "Conferir na Asa": isso só confere, não marca de novo.';
-    if (erro === 'AGENDAMENTO_SEM_NUMERO') return 'A Asa respondeu sem o número da consulta' + (body.msg ? ' ("' + body.msg + '")' : '') + ', então não dá para garantir que foi marcada. Confira na agenda do profissional antes de tentar de novo.';
-    if (erro === 'PACIENTE_INCOMPLETO') return 'O cadastro do paciente na Asa está sem ' + ((body.faltam || []).join(' e ') || 'dados obrigatórios') + ', que a Asa exige para marcar. Complete o cadastro na Asa e tente de novo.';
-    if (erro === 'PACIENTE_NAO_CONFERE') return 'O paciente escolhido não confere com o cadastro da Asa. Busque o paciente de novo e tente outra vez.';
+    if (erro === 'AGENDAMENTO_INCERTO') return (sis('A') + ' não confirmou e a consulta ainda não aparece na agenda do profissional. Ela pode ser gravada nos próximos instantes: aguarde um pouco e toque em "Conferir ' + sis('na') + '". Isso só confere, não marca de novo.') + (body.detalhe ? ' Diagnóstico: ' + body.detalhe + '.' : '');
+    if (status === 0 && !erro) return ('O Conector não respondeu a tempo e a consulta pode ter sido gravada. Toque em "Conferir ' + sis('na') + '": isso só confere, não marca de novo.');
+    if (erro === 'AGENDAMENTO_SEM_NUMERO') return (sis('A') + ' respondeu sem o número da consulta') + (body.msg ? ' ("' + body.msg + '")' : '') + ', então não dá para garantir que foi marcada. Confira na agenda do profissional antes de tentar de novo.';
+    if (erro === 'PACIENTE_INCOMPLETO') return ('O cadastro do paciente ' + sis('na') + ' está sem ') + ((body.faltam || []).join(' e ') || 'dados obrigatórios') + (', que ' + sis('a') + ' exige para marcar. Complete o cadastro ' + sis('na') + ' e tente de novo.');
+    if (erro === 'PACIENTE_NAO_CONFERE') return ('O paciente escolhido não confere com o cadastro ' + sis('da') + '. Busque o paciente de novo e tente outra vez.');
     if (erro === 'BUSCA_AUSENTE') return 'Busque o paciente de novo (por CPF ou telefone) antes de marcar.';
     if (erro === 'AGENDAMENTO_EM_ANDAMENTO') return 'Este agendamento já está sendo gravado. Aguarde alguns segundos.';
     if (erro === 'PACIENTE_INVALIDO') return 'Confira nome, CPF, nascimento e telefone do paciente.';
@@ -305,10 +307,10 @@
   // Resposta de POST /v1/cobrancas → mensagem para o atendente.
   function chargeError(status, body) {
     var erro = body && body.erro;
-    if (erro === 'COBRANCA_INCERTA') return 'A Asa não confirmou a tempo e a conta pode ter sido lançada. Confira no financeiro da Asa antes de lançar de novo.';
+    if (erro === 'COBRANCA_INCERTA') return (sis('A') + ' não confirmou a tempo e a conta pode ter sido lançada. Confira no financeiro ' + sis('da') + ' antes de lançar de novo.');
     if (erro === 'COBRANCA_EM_ANDAMENTO') return 'Esta cobrança já está sendo lançada. Aguarde alguns segundos.';
     if (erro === 'FINANCEIRO_DESLIGADO') return 'O lançamento de cobrança está desligado para esta clínica.';
-    if (erro === 'PACIENTE_NAO_CONFERE') return 'O paciente não conferiu na Asa. Busque o paciente de novo.';
+    if (erro === 'PACIENTE_NAO_CONFERE') return ('O paciente não conferiu ' + sis('na') + '. Busque o paciente de novo.');
     if (erro === 'CONSULTA_NAO_ENCONTRADA') return 'A consulta vinculada não foi encontrada para este paciente. Lance sem vínculo ou escolha outra.';
     if (erro === 'DADOS_INVALIDOS') return 'Confira o valor, a forma de pagamento e o vencimento.';
     return readError(status, body);
@@ -318,7 +320,34 @@
     return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   }
 
-  var api = { queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, bookingError: bookingError, confirmationState: confirmationState, confirmationError: confirmationError, confirmationSent: confirmationSent, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
+  /* ---------- nome do sistema (ERP) da clínica nas frases ---------- */
+  // Vem de /v1/capacidades ("Asa", artigo "a"). Até lá, e sem nome cadastrado: "o sistema da clínica".
+  var sistema = { nome: 'sistema da clínica', artigo: 'o' };
+  function setSistema(s) {
+    if (s && typeof s.nome === 'string' && s.nome.trim()) sistema = { nome: s.nome.trim(), artigo: s.artigo === 'a' ? 'a' : 'o' };
+  }
+  // sis('na') vira "na Asa" ou "no Feegow". Formas: na, da, ao (à/ao), pela, a (a/o), A (A/O), nome, Nome.
+  function sis(forma) {
+    var f = sistema.artigo === 'a', n = sistema.nome;
+    switch (forma) {
+      case 'na': return (f ? 'na ' : 'no ') + n;
+      case 'da': return (f ? 'da ' : 'do ') + n;
+      case 'ao': return (f ? 'à ' : 'ao ') + n;
+      case 'pela': return (f ? 'pela ' : 'pelo ') + n;
+      case 'a': return (f ? 'a ' : 'o ') + n;
+      case 'A': return (f ? 'A ' : 'O ') + n;
+      case 'Nome': return n.charAt(0).toUpperCase() + n.slice(1);
+      default: return n;
+    }
+  }
+  // Trechos fixos do HTML marcados com data-sis="na" (etc.) recebem a forma certa.
+  function applySistema(doc) {
+    if (!doc || !doc.querySelectorAll) return;
+    var els = doc.querySelectorAll('[data-sis]');
+    for (var i = 0; i < els.length; i++) els[i].textContent = sis(els[i].getAttribute('data-sis'));
+  }
+
+  var api = { setSistema: setSistema, sis: sis, applySistema: applySistema, queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, bookingError: bookingError, confirmationState: confirmationState, confirmationError: confirmationError, confirmationSent: confirmationSent, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
     todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, weekDays: weekDays, weekLabel: weekLabel, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
     fold: fold, paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError };

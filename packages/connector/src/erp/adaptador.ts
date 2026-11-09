@@ -4,6 +4,7 @@ import type {
   AgendamentoFeito, Agendado, Consulta, ConsultaD1, Convenio, ConvenioValor, Especialidade, Exame, GrupoExame, Horario,
   Paciente, Prestador, PrestadorDoExame, Procedimento,
 } from "./modelo.js";
+import type { Capacidades } from "./capacidades.js";
 
 // Falha de uma chamada ao ERP. `erro` é o código que vai para a extensão (o adaptador escolhe); os três
 // sinais dizem às rotas o que fazer, sem que elas precisem conhecer as mensagens do ERP.
@@ -66,6 +67,8 @@ export interface ErpAdapter {
 
   // Teste de conexão (e validação da credencial ao gravar). `prestadores` = quantos o ERP listou.
   testarConexao(): Promise<Resultado<{ prestadores: number }>>;
+  // O que este ERP suporta além do essencial. Chamado pela implantação depois de um teste de conexão bom.
+  detectarCapacidades(): Promise<Capacidades>;
 
   // Paciente da busca. null = o ERP respondeu, mas sem um paciente reconhecível.
   buscarPaciente(busca: BuscaPaciente): Promise<Resultado<Paciente | null>>;

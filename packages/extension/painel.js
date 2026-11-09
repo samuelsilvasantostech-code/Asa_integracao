@@ -173,7 +173,7 @@
   var TIPOS = [['criar', 'Marcou'], ['remarcar', 'Remarcou'], ['cancelar', 'Cancelou'], ['confirmar', 'Presença'], ['ausente', 'Falta']];
   function renderActivity(d) {
     var a = d.atividade, total = TIPOS.reduce(function (s, t) { return s + (a.por_tipo[t[0]] || 0); }, 0);
-    $('ativ-sub').textContent = total ? plural(total, 'ação gravada', 'ações gravadas') + ' na Asa pela Kentro.' + (a.incertas ? ' ' + plural(a.incertas, 'ficou incerta', 'ficaram incertas') + '.' : '') : 'Nenhuma ação gravada na Asa pela Kentro no período.';
+    $('ativ-sub').textContent = total ? plural(total, 'ação gravada', 'ações gravadas') + (' ' + C.sis('na') + ' pela Kentro.') + (a.incertas ? ' ' + plural(a.incertas, 'ficou incerta', 'ficaram incertas') + '.' : '') : ('Nenhuma ação gravada ' + C.sis('na') + ' pela Kentro no período.');
     var chips = $('ativ-tipos');
     chips.textContent = '';
     TIPOS.forEach(function (t) {
@@ -189,7 +189,7 @@
 
     var tb = $('equipe');
     tb.textContent = '';
-    if (!a.equipe.length) { tb.appendChild(el('caption', 'muted', 'Ninguém da equipe gravou na Asa no período.')); return; }
+    if (!a.equipe.length) { tb.appendChild(el('caption', 'muted', ('Ninguém da equipe gravou ' + C.sis('na') + ' no período.'))); return; }
     var head = el('tr');
     ['Atendente'].concat(TIPOS.map(function (t) { return t[1]; }), ['Cobranças']).forEach(function (h, i) {
       var th = el('th', i ? 'num' : null, h);
@@ -257,11 +257,11 @@
     }
     d.alertas.agendamentos_incertos.forEach(function (x) {
       var tipo = { criar: 'Marcação', remarcar: 'Remarcação', cancelar: 'Cancelamento', confirmar: 'Presença', ausente: 'Falta' }[x.tipo] || 'Ação';
-      alert(tipo + ' sem confirmação da Asa',
+      alert(tipo + (' sem confirmação ' + C.sis('da')),
         [x.data ? C.formatDay(x.data) + (x.horario ? ' às ' + x.horario : '') : '', providerName(x.prestador_id), x.usuario ? 'por ' + x.usuario.replace(/^\d+\s+/, '') : '']
           .filter(Boolean).join(' · ') + '. Confira na agenda do profissional.');
     });
-    if (c.incertas) alert(plural(c.incertas, 'cobrança incerta', 'cobranças incertas'), 'A Asa não confirmou o lançamento: confira no financeiro da Asa antes de lançar de novo.');
+    if (c.incertas) alert(plural(c.incertas, 'cobrança incerta', 'cobranças incertas'), (C.sis('A') + ' não confirmou o lançamento: confira no financeiro ' + C.sis('da') + ' antes de lançar de novo.'));
     if (d.confirmacoes.falharam) alert(plural(d.confirmacoes.falharam, 'confirmação não entregue', 'confirmações não entregues'), 'Veja os pacientes em "Precisa de contato".', 'warn');
     if (!any) ul.appendChild(el('li', 'alert', 'Nada a conferir no período.')).setAttribute('data-tone', 'ok');
   }
@@ -288,7 +288,7 @@
 
   var MAX_PROF = 40;
   function loadOccupancy() {
-    if (!sched) { status('oc-status', 'A lista de profissionais não veio da Asa. Tente de novo.', 'err'); loadSchedule(); return; }
+    if (!sched) { status('oc-status', ('A lista de profissionais não veio ' + C.sis('da') + '. Tente de novo.'), 'err'); loadSchedule(); return; }
     var s = ++ocSeq, esp = $('oc-esp').value, day = $('oc-day').value || C.todayIso();
     var profs = sched.prestadores.filter(function (p) { return !esp || p.especialidade_id === esp; });
     var cut = profs.length > MAX_PROF;

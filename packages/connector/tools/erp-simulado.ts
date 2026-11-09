@@ -59,6 +59,9 @@ const mais30 = (h: string) => { const [a, b] = h.split(":").map(Number); const m
 
 export interface OpcoesErpSimulado {
   token?: string;
+  // Caminhos (depois de /api/v1) que este ERP não tem: respondem 404, como num ERP que só fez as rotas
+  // obrigatórias. Ex.: ["/contas", "/confirmacoes", "/grupos-procedimento"].
+  semRotas?: string[];
 }
 
 export function criarErpSimulado(opcoes: OpcoesErpSimulado = {}): FastifyInstance {
@@ -82,9 +85,11 @@ export function criarErpSimulado(opcoes: OpcoesErpSimulado = {}): FastifyInstanc
   const erro = (reply: FastifyReply, http: number, codigo: string, mensagem: string, extra: Record<string, unknown> = {}) =>
     reply.code(http).send({ erro: { codigo, mensagem, ...extra } });
 
-  // Autenticação: Bearer <token>.
+  // Autenticação: Bearer <token>. Rotas que este ERP "não tem": 404.
   app.addHook("onRequest", async (req, reply) => {
     if (req.headers.authorization !== `Bearer ${token}`) return erro(reply, 401, "NAO_AUTENTICADO", "Token ausente ou inválido.");
+    const caminho = req.url.split("?")[0].replace(/^\/api\/v1/, "");
+    if ((opcoes.semRotas ?? []).some((r) => caminho === r || caminho.startsWith(r + "/"))) return erro(reply, 404, "NAO_ENCONTRADO", "Rota inexistente.");
   });
 
   // Idempotency-Key: repetida em 24 h, devolve o mesmo resultado. (Aqui, enquanto o processo viver.)

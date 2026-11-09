@@ -11,7 +11,15 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
-## 09/11: multi-ERP, fase 2: Padrão Kentro (0.21.0, sem deploy)
+## 09/11: multi-ERP, fase 3: extensão genérica (0.22.0, sem deploy)
+
+As telas escrevem o nome do sistema da clínica ("na Asa", "no Feegow"), e financeiro e confirmação só aparecem se o ERP tiver essas rotas. A implantação ganhou o bloco "Sistema da clínica (ERP)", com "Testar conexão". Detalhes em [`multi-erp.md`](multi-erp.md).
+
+- Migração 012: nome do sistema, artigo, capacidades e data do último teste. Clínicas na Asa já saem com "Asa".
+- 77 testes no Conector. As telas da extensão não foram vistas rodando depois da troca de cerca de 120 textos: **testar na Kentro com o login 509**, olhando os textos ("na Asa", "Conferir na Asa", "Nº na Asa") e o botão "Enviar confirmação".
+- Na página de implantação, abrir a clínica de teste, conferir o bloco do ERP e clicar em "Testar conexão".
+
+## 09/11: multi-ERP, fase 2: Padrão Kentro (0.21.0, no ar e validada)
 
 Um ERP que implemente a especificação da Kentro conecta com endereço + token. Detalhes em [`multi-erp.md`](multi-erp.md).
 

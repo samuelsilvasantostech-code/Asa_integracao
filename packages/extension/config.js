@@ -1,4 +1,4 @@
-/* Tela de administração: chave da instalação e credencial da Asa. Visível só para administradores.
+/* Tela de administração: chave da instalação e credencial do sistema da clínica (token da Asa). Visível só para administradores.
    O financeiro aparece só para leitura: desde a 0.19.0 quem o configura é a implantação. */
 (function (root) {
   'use strict';
@@ -23,7 +23,9 @@
       var temClinica = r.status === 200 && r.body && r.body.tenant;
       // Sem chave reconhecida, explica onde cadastrar. Com ela: o formulário do token só no primeiro
       // cadastro; trocar um token gravado é com a implantação (o Conector recusa sem a chave de admin).
-      var semToken = temClinica && r.body.asa === 'credencial_ausente';
+      // Só a Asa tem o cadastro do token pela clínica; nos outros ERPs, quem cadastra é a implantação.
+      var ehAsa = !r.body || !r.body.erp || r.body.erp === 'asa';
+      var semToken = temClinica && ehAsa && (r.body.conexao || r.body.asa) === 'credencial_ausente';
       $('key-help').hidden = !!temClinica;
       $('form').hidden = !semToken;
       $('token-locked').hidden = !temClinica || semToken;
@@ -44,9 +46,9 @@
   function saveCredential(ev) {
     ev.preventDefault();
     var token = $('f-token').value.trim();
-    if (!token) { msg($('f-msg'), 'err', 'Cole o token da Asa.'); return; }
+    if (!token) { msg($('f-msg'), 'err', ('Cole o token ' + C.sis('da') + '.')); return; }
     $('f-save').disabled = true;
-    msg($('f-msg'), null, 'Validando na Asa…');
+    msg($('f-msg'), null, ('Validando ' + C.sis('na') + '…'));
     api.saveCredential(token).then(function (r) {
       $('f-save').disabled = false;
       var st = C.credentialSaveState(r.status, r.body);

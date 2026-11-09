@@ -36,7 +36,9 @@ export function idTenantValido(id: unknown): id is string {
   return typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }
 
-export type CampoTenant = "nome" | "ativo" | "kentro_instancia" | "kentro_instalacao_id" | "asa_instituicao_id" | "observacao" | "implantado_por";
+export type CampoTenant =
+  | "nome" | "ativo" | "kentro_instancia" | "kentro_instalacao_id" | "asa_instituicao_id" | "observacao" | "implantado_por"
+  | "sistema_nome" | "sistema_artigo";
 
 // Texto opcional: vazio ou null limpa o campo. undefined = inválido.
 function textoOpcional(v: unknown, max: number): string | null | undefined {
@@ -94,6 +96,16 @@ export function lerDadosTenant(
     const v = textoOpcional(b.implantado_por, 120);
     if (v === undefined) return { ok: false, erro: "IMPLANTADO_POR_INVALIDO" };
     campos.implantado_por = v;
+  }
+  // Nome do sistema da clínica como as telas o escrevem ("Asa", "Feegow"), e o artigo ("a" ou "o").
+  if (tem("sistema_nome")) {
+    const v = textoOpcional(b.sistema_nome, 40);
+    if (v === undefined || (v !== null && !/^[\p{L}\p{N} .&'-]+$/u.test(v))) return { ok: false, erro: "SISTEMA_INVALIDO" };
+    campos.sistema_nome = v;
+  }
+  if (tem("sistema_artigo")) {
+    if (b.sistema_artigo !== "a" && b.sistema_artigo !== "o" && b.sistema_artigo !== null) return { ok: false, erro: "ARTIGO_INVALIDO" };
+    campos.sistema_artigo = b.sistema_artigo;
   }
   if (!Object.keys(campos).length) return { ok: false, erro: "NADA_PARA_ALTERAR" };
   return { ok: true, campos };

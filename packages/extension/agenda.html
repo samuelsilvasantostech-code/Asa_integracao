@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClinFy: agenda da clínica</title>
-<link rel="stylesheet" href="styles.css?v=0.21.0">
+<link rel="stylesheet" href="styles.css?v=0.22.0">
 </head>
 <body class="page-agenda">
 <div class="app">
@@ -25,7 +25,7 @@
   </header>
 
   <div class="state" id="g-off" hidden>
-    <p class="state__title" id="g-off-title">Sem conexão com a Asa</p>
+    <p class="state__title" id="g-off-title">Sem conexão com <span data-sis="a">o sistema da clínica</span></p>
     <p class="state__text" id="g-off-text"></p>
     <button class="btn" id="g-retry" type="button">Tentar de novo</button>
   </div>
@@ -130,7 +130,7 @@
           </div>
           <p class="muted" id="sb-pac-status"></p>
           <fieldset class="booking__new" id="sb-new" hidden>
-            <legend>Paciente novo na Asa</legend>
+            <legend>Paciente novo <span data-sis="na">no sistema da clínica</span></legend>
             <label class="field"><span>Nome completo</span><input id="sb-nome" maxlength="120"></label>
             <label class="field"><span>CPF</span><input id="sb-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></label>
             <label class="field"><span>Nascimento</span><input id="sb-nasc" type="date"></label>
@@ -158,7 +158,7 @@
         <div class="sv booking--review" id="s-review" hidden>
           <div class="sv__title" id="sr-title">Confirme o agendamento</div>
           <dl class="facts" id="sr-summary"></dl>
-          <p class="hint" id="sr-hint">Ao confirmar, a consulta é gravada na agenda da clínica na Asa.</p>
+          <p class="hint" id="sr-hint">Ao confirmar, a consulta é gravada na agenda da clínica <span data-sis="na">no sistema da clínica</span>.</p>
           <div class="booking__actions">
             <button class="btn btn--primary" id="sr-go" type="button">Confirmar agendamento</button>
             <button class="btn" id="sr-back" type="button">Voltar</button>
@@ -175,10 +175,10 @@
     </div>
   </div>
 </div>
-<script src="core.js?v=0.21.0"></script>
-<script src="api.js?v=0.21.0"></script>
-<script src="bridge.js?v=0.21.0"></script>
-<script src="cobranca.js?v=0.21.0"></script>
-<script src="agenda.js?v=0.21.0"></script>
+<script src="core.js?v=0.22.0"></script>
+<script src="api.js?v=0.22.0"></script>
+<script src="bridge.js?v=0.22.0"></script>
+<script src="cobranca.js?v=0.22.0"></script>
+<script src="agenda.js?v=0.22.0"></script>
 </body>
 </html>

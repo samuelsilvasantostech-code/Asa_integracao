@@ -215,7 +215,7 @@
         status('day-status', c.day < C.todayIso() ? 'Nenhuma consulta neste dia.' : 'Nenhuma consulta e nenhum horário livre neste dia.');
         return;
       }
-      status('day-status', c.data.livres_ok === false ? 'Os horários livres não vieram da Asa agora. As consultas marcadas estão abaixo.' : '', c.data.livres_ok === false ? 'err' : null);
+      status('day-status', c.data.livres_ok === false ? ('Os horários livres não vieram ' + C.sis('da') + ' agora. As consultas marcadas estão abaixo.') : '', c.data.livres_ok === false ? 'err' : null);
       return;
     }
     var erros = cols.filter(function (x) { return x.erro; }).length;
@@ -223,7 +223,7 @@
     var total = sel.view === 'lado' ? sched.prestadores.filter(function (p) { return p.especialidade_id === sel.esp; }).length : 0;
     var msg = [];
     if (erros) msg.push(erros === 1 ? 'Uma coluna não carregou.' : erros + ' colunas não carregaram.');
-    if (semLivres) msg.push('Em algumas colunas os horários livres não vieram da Asa agora.');
+    if (semLivres) msg.push(('Em algumas colunas os horários livres não vieram ' + C.sis('da') + ' agora.'));
     if (total > MAX_LADO) msg.push('Mostrando ' + MAX_LADO + ' de ' + total + ' profissionais desta especialidade.');
     status('day-status', msg.join(' '), erros || semLivres ? 'err' : null);
   }
@@ -412,7 +412,7 @@
     if (a.obs) fact(dl, 'Observação', a.obs);
     var cf = C.confirmationState(a.confirmacao);
     if (cf) fact(dl, 'Confirmação', cf.label);
-    fact(dl, 'Nº na Asa', a.id);
+    fact(dl, ('Nº ' + C.sis('na')), a.id);
     status('sa-status', '');
     apptActions(a, info, c);
   }
@@ -429,7 +429,7 @@
       box.appendChild(button('Marcar falta', null, function (ev) { setStatus(a, 'ausente', ev.currentTarget, c); }));
     }
     var cf = C.confirmationState(a.confirmacao);
-    if (c.day >= today && a.paciente.telefone && info.key !== 'confirmado' && info.key !== 'atendido' && !(cf && cf.answered)) {
+    if (api.capacidades.confirmacao && c.day >= today && a.paciente.telefone && info.key !== 'confirmado' && info.key !== 'atendido' && !(cf && cf.answered)) {
       box.appendChild(button(cf ? 'Reenviar confirmação' : 'Enviar confirmação', null, function (ev) { sendConfirmation(a, ev.currentTarget, c); }));
     }
     if (c.day >= today && a.paciente.telefone) box.appendChild(button('Remarcar', null, function (ev) { rescheduleFromAppt(a, ev.currentTarget); }));
@@ -437,7 +437,7 @@
     if (c.day >= today) {
       box.appendChild(button('Cancelar', 'btn--danger', function () {
         box.textContent = '';
-        box.appendChild(el('span', 'item__ask', 'Cancelar a consulta de ' + (a.paciente.nome || 'este paciente') + ' na Asa?'));
+        box.appendChild(el('span', 'item__ask', 'Cancelar a consulta de ' + (a.paciente.nome || 'este paciente') + (' ' + C.sis('na') + '?')));
         box.appendChild(button('Sim, cancelar', 'btn--danger', function (ev) { setStatus(a, 'cancelado', ev.currentTarget, c); }));
         box.appendChild(button('Não', null, function () { apptActions(a, info, c); }));
       }));
@@ -471,7 +471,8 @@
     if (waiting) loadView();
   }
 
-  var DONE = { confirmado: 'Presença confirmada na Asa.', ausente: 'Falta registrada na Asa.', cancelado: 'Consulta cancelada na Asa.' };
+  // Função, não constante: o nome do sistema só chega depois que o script carrega.
+  function DONE(st) { return ({ confirmado: 'Presença confirmada ', ausente: 'Falta registrada ', cancelado: 'Consulta cancelada ' })[st] + C.sis('na') + '.'; }
   function setStatus(a, st, btn, c) {
     var box = $('sa-actions');
     Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
@@ -482,7 +483,7 @@
       if (r.status === 200 && r.body && r.body.ok) {
         a.status = st;
         showAppt(a, c);
-        status('sa-status', DONE[st]);
+        status('sa-status', DONE(st));
         if (cols.indexOf(c) >= 0) renderCol(c); // a coluna ainda está na tela
         return;
       }
@@ -490,7 +491,7 @@
       if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') a.keys[st] = null;
       apptActions(a, C.statusInfo(a.status), c);
       status('sa-status', erro === 'CONSULTA_NAO_ENCONTRADA'
-        ? 'Essa consulta não está mais na agenda deste dia na Asa. A agenda foi atualizada.'
+        ? ('Essa consulta não está mais na agenda deste dia ' + C.sis('na') + '. A agenda foi atualizada.')
         : C.bookingError(r.status, r.body), 'err');
       if (erro === 'CONSULTA_NAO_ENCONTRADA') loadView();
     });
@@ -586,7 +587,7 @@
     $('sp-charge').hidden = true;
     $('sp-fin-label').hidden = $('sp-fin').hidden = true;
     if (!tries.length) { status('sp-status', 'Digite um CPF (11 dígitos) ou um telefone com DDD.', 'err'); return; }
-    status('sp-status', 'Buscando na Asa…');
+    status('sp-status', ('Buscando ' + C.sis('na') + '…'));
     lookup(tries).then(function (x) {
       var r = x.r;
       if (r.status === 200 && r.body && r.body.encontrado) {
@@ -594,7 +595,7 @@
         renderPatient();
       } else if (r.status === 200) {
         pac = null;
-        status('sp-status', 'Nenhum paciente com esse CPF ou telefone na Asa. Para cadastrar, escolha um horário livre e marque a consulta como paciente novo.');
+        status('sp-status', ('Nenhum paciente com esse CPF ou telefone ' + C.sis('na') + '. Para cadastrar, escolha um horário livre e marque a consulta como paciente novo.'));
       } else {
         status('sp-status', C.readError(r.status, r.body), 'err');
       }
@@ -618,7 +619,7 @@
     var list = pac.consultas, ul = $('sp-list');
     ul.textContent = '';
     $('sp-list-label').hidden = !list || !list.length;
-    if (list === null) status('sp-status', 'A Asa não devolveu as consultas agora.', 'err');
+    if (list === null) status('sp-status', (C.sis('A') + ' não devolveu as consultas agora.'), 'err');
     else if (!list.length) status('sp-status', notice || 'Nenhuma consulta marcada.');
     else status('sp-status', notice || '');
     (list || []).forEach(function (c) {
@@ -641,7 +642,7 @@
     }
     function ask() {
       box.textContent = '';
-      box.appendChild(el('span', 'item__ask', 'Cancelar esta consulta na Asa?'));
+      box.appendChild(el('span', 'item__ask', ('Cancelar esta consulta ' + C.sis('na') + '?')));
       box.appendChild(button('Sim, cancelar', 'btn--danger', function (ev) { cancelFromPatient(c, box, ev.currentTarget); }));
       box.appendChild(button('Não', null, normal));
     }
@@ -655,12 +656,12 @@
     var key = c.cancelKey || (c.cancelKey = C.newKey());
     var busca = pac.busca;
     api.cancel(c.id, { chave: key, busca: busca, usuario: userLabel || undefined }).then(function (r) {
-      if (r.status === 200 && r.body && r.body.ok) { refreshPatient(busca, 'Consulta de ' + whenText(c) + ' cancelada na Asa.'); loadView(); return; }
+      if (r.status === 200 && r.body && r.body.ok) { refreshPatient(busca, 'Consulta de ' + whenText(c) + (' cancelada ' + C.sis('na') + '.')); loadView(); return; }
       var erro = r.body && r.body.erro;
       if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') c.cancelKey = null;
       box.textContent = '';
       box.appendChild(el('span', 'item__ask', erro === 'CONSULTA_NAO_ENCONTRADA'
-        ? 'Essa consulta não está mais na lista do paciente na Asa.'
+        ? ('Essa consulta não está mais na lista do paciente ' + C.sis('na') + '.')
         : C.bookingError(r.status, r.body)));
       box.appendChild(button('Voltar', null, function () { box.parentNode.replaceChild(consultaActions(c), box); }));
     });
@@ -727,7 +728,7 @@
     var b = booking, raw = $('sb-q').value, tries = C.lookupsFrom(raw);
     if (!b) return;
     if (!tries.length) { status('sb-pac-status', 'Digite um CPF (11 dígitos) ou um telefone com DDD.', 'err'); return; }
-    status('sb-pac-status', 'Buscando na Asa…');
+    status('sb-pac-status', ('Buscando ' + C.sis('na') + '…'));
     $('sb-new').hidden = true;
     lookup(tries).then(function (x) {
       if (booking !== b) return;
@@ -737,7 +738,7 @@
         setKnown(r.body.paciente);
         status('sb-pac-status', '');
       } else if (r.status === 200) {
-        status('sb-pac-status', 'Paciente não encontrado na Asa: preencha o cadastro para marcar como paciente novo.');
+        status('sb-pac-status', ('Paciente não encontrado ' + C.sis('na') + ': preencha o cadastro para marcar como paciente novo.'));
         $('sb-new').hidden = false;
         // Só preenche o que o número certamente é; o ambíguo (telefone ou CPF) vai só no telefone.
         if (tries.length === 1 && tries[0].cpf) $('sb-cpf').value = tries[0].cpf;
@@ -800,8 +801,8 @@
     $('sr-title').textContent = b.original ? 'Confirme a remarcação' : 'Confirme o agendamento';
     $('sr-go').textContent = b.original ? 'Confirmar remarcação' : 'Confirmar agendamento';
     $('sr-hint').textContent = b.original
-      ? 'Ao confirmar, a consulta original é trocada pelo novo horário na agenda da clínica na Asa.'
-      : 'Ao confirmar, a consulta é gravada na agenda da clínica na Asa.';
+      ? ('Ao confirmar, a consulta original é trocada pelo novo horário na agenda da clínica ' + C.sis('na') + '.')
+      : ('Ao confirmar, a consulta é gravada na agenda da clínica ' + C.sis('na') + '.');
     status('sr-status', '');
     $('sr-go').disabled = false;
     side('s-review');
@@ -812,7 +813,7 @@
     if (!b) return;
     $('sr-go').disabled = true;
     $('sr-back').disabled = true;
-    status('sr-status', $('sr-go').textContent === 'Conferir na Asa' ? 'Conferindo na agenda da Asa…' : 'Gravando na Asa… pode levar até um minuto.');
+    status('sr-status', $('sr-go').textContent === ('Conferir ' + C.sis('na')) ? ('Conferindo na agenda ' + C.sis('da') + '…') : ('Gravando ' + C.sis('na') + '… pode levar até um minuto.'));
     var payload = Object.assign({
       chave: b.key,
       convenio_id: b.conv.id,
@@ -831,7 +832,7 @@
       // mantém a chave, e o botão passa a só conferir (o Conector nunca grava duas vezes a mesma chave).
       var unsure = erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || (r.status === 0 && !erro);
       if (!unsure) b.key = C.newKey();
-      $('sr-go').textContent = unsure ? 'Conferir na Asa' : (b.original ? 'Confirmar remarcação' : 'Confirmar agendamento');
+      $('sr-go').textContent = unsure ? ('Conferir ' + C.sis('na')) : (b.original ? 'Confirmar remarcação' : 'Confirmar agendamento');
       $('sr-go').disabled = erro === 'HORARIO_INDISPONIVEL';
       if (erro === 'HORARIO_INDISPONIVEL') setTimeout(loadView, 1500);
     });
@@ -845,7 +846,7 @@
     fact(dl, 'Quando', C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario);
     fact(dl, 'Profissional', b.providerName);
     fact(dl, 'Procedimento', b.proc.nome);
-    if (res.agendamento_id) fact(dl, 'Nº na Asa', res.agendamento_id);
+    if (res.agendamento_id) fact(dl, ('Nº ' + C.sis('na')), res.agendamento_id);
     if (res.clinica || res.endereco) fact(dl, 'Local', [res.clinica, res.endereco].filter(Boolean).join(' — '));
     side('s-done');
     booking = null;
@@ -889,7 +890,7 @@
         if (u) userLabel = [u.id, u.name || u.username].filter(Boolean).join(' ');
         userType = C.userType(u);
         // O SDK não documenta o campo do perfil: registra os nomes (não os valores) para ajustar.
-        if (u && userType === null && root.console) root.console.info('[Asa] perfil do usuário não reconhecido; campos:', Object.keys(u).join(', '));
+        if (u && userType === null && root.console) root.console.info('[ClinFy] perfil do usuário não reconhecido; campos:', Object.keys(u).join(', '));
       }).catch(function () { /* sem usuário: a trilha fica sem nome */ });
     }
 

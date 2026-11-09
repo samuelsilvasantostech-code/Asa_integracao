@@ -159,6 +159,22 @@ export class PadraoAdapter implements ErpAdapter {
     })();
   }
 
+  // As rotas desejáveis da especificação: existe se responde 2xx. 404 (rota inexistente) ou qualquer erro =
+  // não oferecer o recurso.
+  async detectarCapacidades() {
+    const hoje = hojeSp();
+    const [contas, pendentes, grupos] = await Promise.all([
+      this.chamar("GET", "/contas", { params: { pagina: 1, por_pagina: 1 } }),
+      this.chamar("GET", "/confirmacoes/pendentes", { params: { data_consulta: hoje, pagina: 1, por_pagina: 1 } }),
+      this.chamar<any>("GET", "/grupos-procedimento"),
+    ]);
+    return {
+      financeiro: contas.ok,
+      confirmacao: pendentes.ok,
+      grupos_exames: grupos.ok && listaDe(grupos.dados).length > 0,
+    };
+  }
+
   buscarPaciente(busca: BuscaPaciente) {
     return this.pacienteDa(busca);
   }

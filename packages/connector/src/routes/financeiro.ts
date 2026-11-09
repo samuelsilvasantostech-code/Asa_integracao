@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../db.js";
 import type { ErpAdapter, FalhaErp } from "../erp/index.js";
 import { FORMAS, formaValida, lerFinanceiro, valorAsa } from "../financeiro.js";
-import { tenantComErp, tenantDaRequisicao } from "../tenant-auth.js";
+import { perfilErp, tenantComErp, tenantDaRequisicao } from "../tenant-auth.js";
 import { buscaDe } from "./agendamento.js";
 import { dataValida, falha, idValido, naoEncontrado } from "./consulta.js";
 
@@ -69,7 +69,10 @@ export async function financeiroRoutes(app: FastifyInstance) {
     const tenant = await tenantDaRequisicao(req, reply);
     if (!tenant) return;
     const { rows } = await pool!.query<{ financeiro: unknown }>("SELECT financeiro FROM tenants WHERE id = $1", [tenant.id]);
-    return { config: lerFinanceiro(rows[0]?.financeiro), formas: FORMAS };
+    const config = lerFinanceiro(rows[0]?.financeiro);
+    // Ligado, mas o ERP atual não tem conta a receber (troca de ERP): as telas tratam como desligado.
+    if (config.ativo && !(await perfilErp(tenant.id))?.capacidades.financeiro) config.ativo = false;
+    return { config, formas: FORMAS };
   });
 
   // Ligar o financeiro é só da implantação (0.19.0): a chave da instalação está no navegador de todo
@@ -112,6 +115,7 @@ export async function financeiroRoutes(app: FastifyInstance) {
     // Kentro (`usuario` vem da extensão, só para a trilha). Essa regra é só da tela. O controle de verdade é
     // que só a implantação liga o financeiro.
     if (!lerFinanceiro(cfgRows[0]?.financeiro).ativo) return reply.code(403).send({ erro: "FINANCEIRO_DESLIGADO" });
+    if (!(await perfilErp(tenant.id))?.capacidades.financeiro) return reply.code(409).send({ erro: "ERP_SEM_FINANCEIRO" });
 
     // A mesma chave nunca chama o ERP duas vezes.
     const ins = await pool!.query(
