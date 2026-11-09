@@ -16,6 +16,7 @@ export interface FalhaErp {
   credencialInvalida: boolean; // o ERP recusou a credencial da clínica
   semResposta: boolean; // tempo esgotado ou conexão caída: numa gravação, o ERP PODE ter gravado
   recusa: boolean; // recusa de negócio (validação, regra): a mensagem ajuda o atendente
+  codigoErp?: string; // o código de erro do próprio ERP (ex.: HORARIO_OCUPADO), quando ele manda um
 }
 
 export type Resultado<T> = { ok: true; dados: T } | FalhaErp;
@@ -39,6 +40,8 @@ export interface PedidoMarcacao {
   paciente: { paciente_id: string; nome: string; nascimento: string; telefone: string; cpf?: string } | { nome: string; cpf: string; nascimento: string; telefone: string };
   remarcar?: string; // id da consulta original: presente = remarcação
   obs?: string;
+  idempotencia?: string; // a chave do painel: ERPs que aceitam Idempotency-Key não gravam duas vezes
+  usuario?: string; // quem pediu na Kentro, para a auditoria do ERP
 }
 
 export interface Marcacao {

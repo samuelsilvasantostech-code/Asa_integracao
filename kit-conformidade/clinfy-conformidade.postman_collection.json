@@ -1,0 +1,2177 @@
+{
+  "info": {
+    "name": "ClinFy · Conformidade da API do ERP",
+    "description": "Kit de conformidade da especificação da API do ERP para a extensão ClinFy (Kentro). Rode em HOMOLOGAÇÃO: o kit cria um paciente, consultas e uma conta de teste. Variáveis: baseUrl (ex.: https://erp.exemplo.com/api/v1) e token. A pasta Obrigatórias precisa passar inteira.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://erp.exemplo.com/api/v1"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Obrigatórias",
+      "item": [
+        {
+          "name": "01 GET /status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"ok = true e clinica.id\", () => { const b = pm.response.json(); pm.expect(b.ok).to.eql(true); pm.expect(b.clinica.id).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "02 sem token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"erro.codigo = NAO_AUTENTICADO\", () => pm.expect(pm.response.json().erro.codigo).to.eql(\"NAO_AUTENTICADO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "03 POST /pacientes (paciente do kit)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const n = Array.from({length: 9}, () => Math.floor(Math.random() * 10));",
+                  "const dv = (arr) => { const s = arr.reduce((t, d, i) => t + d * (arr.length + 1 - i), 0) % 11; return s < 2 ? 0 : 11 - s; };",
+                  "n.push(dv(n)); n.push(dv(n));",
+                  "pm.collectionVariables.set(\"cpfTeste\", n.join(\"\"));",
+                  "pm.collectionVariables.set(\"telefoneTeste\", \"55279\" + String(Math.floor(10000000 + Math.random() * 89999999)));",
+                  "pm.collectionVariables.set(\"execucao\", String(Date.now()));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"paciente.id é texto\", () => pm.expect(pm.response.json().id).to.be.a(\"string\").and.not.empty);",
+                  "pm.collectionVariables.set(\"pacienteId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "kit-paciente-{{execucao}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pacientes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pacientes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Paciente Kit Conformidade\",\n  \"cpf\": \"{{cpfTeste}}\",\n  \"nascimento\": \"1990-01-15\",\n  \"telefones\": [\n    {\n      \"numero\": \"{{telefoneTeste}}\",\n      \"tipo\": \"celular\",\n      \"whatsapp\": true,\n      \"principal\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "04 POST /pacientes com o mesmo CPF → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"erro.codigo = PACIENTE_JA_EXISTE\", () => pm.expect(pm.response.json().erro.codigo).to.eql(\"PACIENTE_JA_EXISTE\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "kit-paciente-dup-{{execucao}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pacientes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pacientes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Outro Nome\",\n  \"cpf\": \"{{cpfTeste}}\",\n  \"nascimento\": \"1980-01-01\",\n  \"telefones\": [\n    {\n      \"numero\": \"5527911112222\",\n      \"tipo\": \"celular\",\n      \"whatsapp\": true,\n      \"principal\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "05 GET /pacientes?cpf",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));",
+                  "pm.test(\"paginacao {pagina, por_pagina, total}\", () => { const p = pm.response.json().paginacao; pm.expect(p).to.be.an(\"object\"); pm.expect(p.total).to.be.a(\"number\"); });",
+                  "pm.test(\"acha o paciente do kit, sem ter alterado o nome\", () => { const p = pm.response.json().dados.find(x => x.id === pm.collectionVariables.get(\"pacienteId\")); pm.expect(p, \"paciente\").to.be.an(\"object\"); pm.expect(p.nome).to.eql(\"Paciente Kit Conformidade\"); pm.expect(p.telefones).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pacientes?cpf={{cpfTeste}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pacientes"
+              ],
+              "query": [
+                {
+                  "key": "cpf",
+                  "value": "{{cpfTeste}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "06 GET /pacientes?telefone (sem DDI)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"telefoneSemDdi\", pm.collectionVariables.get(\"telefoneTeste\").slice(2));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));",
+                  "pm.test(\"acha pelo telefone sem o 55\", () => pm.expect(pm.response.json().dados.map(x => x.id)).to.include(pm.collectionVariables.get(\"pacienteId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pacientes?telefone={{telefoneSemDdi}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pacientes"
+              ],
+              "query": [
+                {
+                  "key": "telefone",
+                  "value": "{{telefoneSemDdi}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "07 busca sem resultado → 200 com lista vazia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados = []\", () => pm.expect(pm.response.json().dados).to.eql([]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pacientes?cpf=00000000191",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pacientes"
+              ],
+              "query": [
+                {
+                  "key": "cpf",
+                  "value": "00000000191"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "08 GET /pacientes/{id}",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"mesmo id, nascimento YYYY-MM-DD\", () => { const b = pm.response.json(); pm.expect(b.id).to.eql(pm.collectionVariables.get(\"pacienteId\")); pm.expect(b.nascimento).to.match(/^\\d{4}-\\d{2}-\\d{2}$/); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pacientes/{{pacienteId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pacientes",
+                "{{pacienteId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "09 GET /pacientes/{id} inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"erro.codigo = NAO_ENCONTRADO\", () => pm.expect(pm.response.json().erro.codigo).to.eql(\"NAO_ENCONTRADO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pacientes/kit-inexistente-0000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pacientes",
+                "kit-inexistente-0000"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10 GET /especialidades",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));",
+                  "pm.test(\"ao menos uma, com id texto e nome\", () => { const e = pm.response.json().dados[0]; pm.expect(e.id).to.be.a(\"string\"); pm.expect(e.nome).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/especialidades",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "especialidades"
+              ]
+            }
+          }
+        },
+        {
+          "name": "11 GET /profissionais",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));",
+                  "const p = pm.response.json().dados.find(x => x.tipo_agenda === \"horario_marcado\");",
+                  "pm.test(\"há profissional com tipo_agenda horario_marcado\", () => pm.expect(p).to.be.an(\"object\"));",
+                  "pm.test(\"tipo_agenda válido em todos\", () => pm.response.json().dados.forEach(x => pm.expect([\"horario_marcado\", \"ordem_chegada\"]).to.include(x.tipo_agenda)));",
+                  "if (p) pm.collectionVariables.set(\"profissionalId\", p.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profissionais",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profissionais"
+              ]
+            }
+          }
+        },
+        {
+          "name": "12 GET /procedimentos do profissional",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));",
+                  "pm.test(\"paginacao {pagina, por_pagina, total}\", () => { const p = pm.response.json().paginacao; pm.expect(p).to.be.an(\"object\"); pm.expect(p.total).to.be.a(\"number\"); });",
+                  "pm.test(\"tipo válido em todos\", () => pm.response.json().dados.forEach(x => pm.expect([\"consulta\", \"exame\", \"retorno\", \"procedimento\"]).to.include(x.tipo)));",
+                  "const p = pm.response.json().dados[0]; pm.test(\"ao menos um procedimento\", () => pm.expect(p).to.be.an(\"object\"));",
+                  "if (p) pm.collectionVariables.set(\"procedimentoId\", p.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/procedimentos?profissional_id={{profissionalId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "procedimentos"
+              ],
+              "query": [
+                {
+                  "key": "profissional_id",
+                  "value": "{{profissionalId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "13 GET /convenios do profissional",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));",
+                  "const c = pm.response.json().dados.find(x => x.particular) || pm.response.json().dados[0];",
+                  "pm.test(\"ao menos um convênio\", () => pm.expect(c).to.be.an(\"object\"));",
+                  "if (c) pm.collectionVariables.set(\"convenioId\", c.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/convenios?profissional_id={{profissionalId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "convenios"
+              ],
+              "query": [
+                {
+                  "key": "profissional_id",
+                  "value": "{{profissionalId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "14 GET dias disponíveis",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const hoje = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);",
+                  "const ate = new Date(Date.now() - 3 * 3600e3 + 30 * 864e5).toISOString().slice(0, 10);",
+                  "pm.collectionVariables.set(\"hoje\", hoje); pm.collectionVariables.set(\"ate\", ate);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dias é uma lista\", () => pm.expect(pm.response.json().dias).to.be.an(\"array\"));",
+                  "const d = pm.response.json().dias.find(x => x.data > pm.collectionVariables.get(\"hoje\"));",
+                  "pm.test(\"há dia livre nos próximos 30 dias (data YYYY-MM-DD)\", () => { pm.expect(d).to.be.an(\"object\"); pm.expect(d.data).to.match(/^\\d{4}-\\d{2}-\\d{2}$/); });",
+                  "if (d) pm.collectionVariables.set(\"dataLivre\", d.data);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profissionais/{{profissionalId}}/dias-disponiveis?de={{hoje}}&ate={{ate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profissionais",
+                "{{profissionalId}}",
+                "dias-disponiveis"
+              ],
+              "query": [
+                {
+                  "key": "de",
+                  "value": "{{hoje}}"
+                },
+                {
+                  "key": "ate",
+                  "value": "{{ate}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "15 GET horários disponíveis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"horarios é uma lista\", () => pm.expect(pm.response.json().horarios).to.be.an(\"array\"));",
+                  "const hs = pm.response.json().horarios.filter(h => /^\\d{2}:\\d{2}$/.test(h.inicio));",
+                  "pm.test(\"ao menos dois horários HH:MM\", () => pm.expect(hs.length).to.be.at.least(2));",
+                  "if (hs[0]) { pm.collectionVariables.set(\"horario\", hs[0].inicio); pm.collectionVariables.set(\"slotId\", hs[0].slot_id || \"\"); }",
+                  "if (hs[1]) { pm.collectionVariables.set(\"horario2\", hs[1].inicio); pm.collectionVariables.set(\"slotId2\", hs[1].slot_id || \"\"); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profissionais/{{profissionalId}}/horarios-disponiveis?data={{dataLivre}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profissionais",
+                "{{profissionalId}}",
+                "horarios-disponiveis"
+              ],
+              "query": [
+                {
+                  "key": "data",
+                  "value": "{{dataLivre}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "16 GET /agenda do dia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"itens é uma lista\", () => pm.expect(pm.response.json().itens).to.be.an(\"array\"));",
+                  "pm.test(\"tipo de cada item\", () => pm.response.json().itens.forEach(i => pm.expect([\"agendamento\", \"livre\", \"bloqueio\"]).to.include(i.tipo)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agenda?data={{dataLivre}}&profissional_id={{profissionalId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agenda"
+              ],
+              "query": [
+                {
+                  "key": "data",
+                  "value": "{{dataLivre}}"
+                },
+                {
+                  "key": "profissional_id",
+                  "value": "{{profissionalId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "17 POST /agendamentos (marcar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"agendamento.id é texto\", () => pm.expect(pm.response.json().id).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"status agendado, inicio na data e hora pedidas, com fuso\", () => { const a = pm.response.json(); pm.expect(a.status).to.eql(\"agendado\"); pm.expect(a.inicio).to.match(new RegExp(\"^\" + pm.collectionVariables.get(\"dataLivre\") + \"T\" + pm.collectionVariables.get(\"horario\") + \".*[+-]\\\\d{2}:\\\\d{2}$\")); });",
+                  "pm.collectionVariables.set(\"agendamentoId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "kit-marcar-{{execucao}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paciente_id\": \"{{pacienteId}}\",\n  \"profissional_id\": \"{{profissionalId}}\",\n  \"data\": \"{{dataLivre}}\",\n  \"horario\": \"{{horario}}\",\n  \"slot_id\": \"{{slotId}}\",\n  \"procedimento_ids\": [\n    \"{{procedimentoId}}\"\n  ],\n  \"convenio_id\": \"{{convenioId}}\",\n  \"observacao\": \"Kit de conformidade Kentro\",\n  \"usuario\": \"kit.conformidade\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "18 mesma Idempotency-Key → mesma consulta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"2xx com o mesmo id (sem consulta duplicada)\", () => { pm.expect(pm.response.code).to.be.within(200, 201); pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get(\"agendamentoId\")); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "kit-marcar-{{execucao}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paciente_id\": \"{{pacienteId}}\",\n  \"profissional_id\": \"{{profissionalId}}\",\n  \"data\": \"{{dataLivre}}\",\n  \"horario\": \"{{horario}}\",\n  \"slot_id\": \"{{slotId}}\",\n  \"procedimento_ids\": [\n    \"{{procedimentoId}}\"\n  ],\n  \"convenio_id\": \"{{convenioId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "19 mesmo horário, outra chave → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"HORARIO_OCUPADO ou PACIENTE_JA_AGENDADO\", () => pm.expect([\"HORARIO_OCUPADO\", \"PACIENTE_JA_AGENDADO\"]).to.include(pm.response.json().erro.codigo));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "kit-marcar-dup-{{execucao}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paciente_id\": \"{{pacienteId}}\",\n  \"profissional_id\": \"{{profissionalId}}\",\n  \"data\": \"{{dataLivre}}\",\n  \"horario\": \"{{horario}}\",\n  \"slot_id\": \"{{slotId}}\",\n  \"procedimento_ids\": [\n    \"{{procedimentoId}}\"\n  ],\n  \"convenio_id\": \"{{convenioId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "20 marcar com dados inválidos → 4xx (nunca 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"recusa com 400 ou 422\", () => pm.expect([400, 422]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "kit-invalido-{{execucao}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paciente_id\": \"{{pacienteId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "21 GET /agendamentos/{id}",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"mesmo id e paciente\", () => { const a = pm.response.json(); pm.expect(a.id).to.eql(pm.collectionVariables.get(\"agendamentoId\")); pm.expect(a.paciente.id).to.eql(pm.collectionVariables.get(\"pacienteId\")); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos/{{agendamentoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos",
+                "{{agendamentoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "22 GET /pacientes/{id}/agendamentos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));",
+                  "pm.test(\"contém a consulta marcada\", () => pm.expect(pm.response.json().dados.map(x => x.id)).to.include(pm.collectionVariables.get(\"agendamentoId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pacientes/{{pacienteId}}/agendamentos?periodo=futuro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pacientes",
+                "{{pacienteId}}",
+                "agendamentos"
+              ],
+              "query": [
+                {
+                  "key": "periodo",
+                  "value": "futuro"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "23 POST status confirmado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"status = confirmado\", () => pm.expect(pm.response.json().status).to.eql(\"confirmado\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos/{{agendamentoId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos",
+                "{{agendamentoId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmado\",\n  \"origem\": \"whatsapp\",\n  \"usuario\": \"kit.conformidade\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "24 POST remarcar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"consulta nova ligada à antiga\", () => { const a = pm.response.json(); pm.expect(a.id).to.not.eql(pm.collectionVariables.get(\"agendamentoId\")); pm.expect(a.remarcado_de_id).to.eql(pm.collectionVariables.get(\"agendamentoId\")); });",
+                  "pm.collectionVariables.set(\"agendamentoId2\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "kit-remarcar-{{execucao}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos/{{agendamentoId}}/remarcar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos",
+                "{{agendamentoId}}",
+                "remarcar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": \"{{dataLivre}}\",\n  \"horario\": \"{{horario2}}\",\n  \"slot_id\": \"{{slotId2}}\",\n  \"motivo\": \"Kit de conformidade\",\n  \"usuario\": \"kit.conformidade\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "25 a antiga ficou remarcado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"status = remarcado\", () => pm.expect(pm.response.json().status).to.eql(\"remarcado\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos/{{agendamentoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos",
+                "{{agendamentoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "26 POST cancelar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"status = cancelado\", () => pm.expect(pm.response.json().status).to.eql(\"cancelado\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos/{{agendamentoId2}}/cancelar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos",
+                "{{agendamentoId2}}",
+                "cancelar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Kit de conformidade\",\n  \"por\": \"clinica\",\n  \"usuario\": \"kit.conformidade\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "27 cancelar de novo → 200 (repetível)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos/{{agendamentoId2}}/cancelar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos",
+                "{{agendamentoId2}}",
+                "cancelar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Kit de conformidade\",\n  \"por\": \"clinica\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "28 status em consulta cancelada → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"erro.codigo = STATUS_NAO_PERMITE\", () => pm.expect(pm.response.json().erro.codigo).to.eql(\"STATUS_NAO_PERMITE\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos/{{agendamentoId2}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos",
+                "{{agendamentoId2}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"atendido\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Desejáveis",
+      "item": [
+        {
+          "name": "D1 GET /unidades",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/unidades",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "unidades"
+              ]
+            }
+          }
+        },
+        {
+          "name": "D2 GET /grupos-procedimento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/grupos-procedimento",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "grupos-procedimento"
+              ]
+            }
+          }
+        },
+        {
+          "name": "D3 GET /precos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"valor em centavos (inteiro) ou null\", () => { const v = pm.response.json().valor_centavos; pm.expect(v === null || Number.isInteger(v)).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/precos?procedimento_id={{procedimentoId}}&convenio_id={{convenioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "precos"
+              ],
+              "query": [
+                {
+                  "key": "procedimento_id",
+                  "value": "{{procedimentoId}}"
+                },
+                {
+                  "key": "convenio_id",
+                  "value": "{{convenioId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "D4 GET /agendamentos?alterados_desde",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/agendamentos?alterados_desde={{hoje}}T00:00:00-03:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "agendamentos"
+              ],
+              "query": [
+                {
+                  "key": "alterados_desde",
+                  "value": "{{hoje}}T00:00:00-03:00"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "D5 GET /confirmacoes/pendentes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"dados é uma lista\", () => pm.expect(pm.response.json().dados).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/confirmacoes/pendentes?data_consulta={{dataLivre}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "confirmacoes",
+                "pendentes"
+              ],
+              "query": [
+                {
+                  "key": "data_consulta",
+                  "value": "{{dataLivre}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "D6 POST /contas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"conta.id é texto\", () => pm.expect(pm.response.json().id).to.be.a(\"string\").and.not.empty);",
+                  "pm.collectionVariables.set(\"contaId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "kit-conta-{{execucao}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "contas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paciente_id\": \"{{pacienteId}}\",\n  \"descricao\": \"Kit de conformidade\",\n  \"valor_centavos\": 1000,\n  \"vencimento\": \"{{dataLivre}}\",\n  \"forma_pagamento\": \"pix\",\n  \"parcelas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "D7 POST /contas/{id}/cancelar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde em até 10 s\", () => pm.expect(pm.response.responseTime).to.be.below(10000));",
+                  "if (pm.response.code >= 400) {",
+                  "  pm.test(\"erro no envelope {erro: {codigo, mensagem}}\", () => {",
+                  "    const e = pm.response.json().erro;",
+                  "    pm.expect(e, \"objeto erro\").to.be.an(\"object\");",
+                  "    pm.expect(e.codigo, \"erro.codigo em MAIÚSCULAS\").to.match(/^[A-Z][A-Z0-9_]+$/);",
+                  "    pm.expect(e.mensagem, \"erro.mensagem\").to.be.a(\"string\");",
+                  "  });",
+                  "} else if (pm.response.code !== 204) {",
+                  "  pm.test(\"corpo em JSON\", () => pm.response.to.be.json);",
+                  "}",
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contas/{{contaId}}/cancelar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "contas",
+                "{{contaId}}",
+                "cancelar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Kit de conformidade\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

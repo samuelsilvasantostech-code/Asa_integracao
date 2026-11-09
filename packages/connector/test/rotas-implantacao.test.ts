@@ -88,3 +88,12 @@ test("página de implantação: servida com cabeçalhos de proteção, só os ar
   assert.doesNotMatch(js, /innerHTML|localStorage|sessionStorage/);
   await app.close();
 });
+
+test("admin: rota de ligar o ERP existe e exige a chave (a validação do endereço está em erp-padrao.test.ts)", async () => {
+  const app = Fastify();
+  await app.register(adminRoutes);
+  const url = `/admin/tenants/${UUID}/erp`;
+  assert.equal((await app.inject({ method: "PUT", url, payload: { erp: "padrao" } })).statusCode, 401);
+  assert.equal((await app.inject({ method: "PUT", url, headers: { "x-admin-key": CHAVE }, payload: { erp: "padrao" } })).statusCode, 503);
+  await app.close();
+});

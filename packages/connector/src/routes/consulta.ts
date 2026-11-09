@@ -9,7 +9,8 @@ import { erpDaRequisicao, tenantComErp } from "../tenant-auth.js";
 // Rotas de LEITURA do ERP da clínica para o painel. Nada aqui grava no ERP.
 
 export const dataValida = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
-export const idValido = (s: unknown): s is string => typeof s === "string" && /^\d{1,10}$/.test(s);
+// Id de registro do ERP: a Asa usa números; a especificação Kentro, texto. Letras, dígitos e - _ . : até 64.
+export const idValido = (s: unknown): s is string => typeof s === "string" && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/.test(s);
 
 export function falha(reply: FastifyReply, r: FalhaErp) {
   const status = r.credencialInvalida ? 422 : 502;

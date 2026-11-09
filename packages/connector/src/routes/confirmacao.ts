@@ -12,7 +12,7 @@ import { falha, naoEncontrado } from "./consulta.js";
 const RESERVA_MIN = 15;
 const MAX_TENTATIVAS = 3;
 const ERROS_DEFINITIVOS = new Set(["CHAT_OPEN", "INVALID_NUMBER", "NOT_ON_WHATSAPP", "CONTACT_LOCKED"]);
-const idValido = (s: unknown): s is string => typeof s === "string" && /^\d{1,12}$/.test(s);
+const idValido = (s: unknown): s is string => typeof s === "string" && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/.test(s);
 
 export async function confirmacaoRoutes(app: FastifyInstance) {
   // Lote a enviar agora. Cada chamada reserva as consultas que devolve, então duas rodadas seguidas

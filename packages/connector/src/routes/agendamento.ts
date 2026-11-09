@@ -290,6 +290,8 @@ export async function agendamentoRoutes(app: FastifyInstance) {
         paciente,
         ...(remarcar ? { remarcar: original! } : {}),
         ...(obs ? { obs } : {}),
+        idempotencia: chave,
+        ...(b.usuario ? { usuario: String(b.usuario).slice(0, 120) } : {}),
       },
       TEMPO_GRAVAR_MS,
     );

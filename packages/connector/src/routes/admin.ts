@@ -2,7 +2,9 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { config, problemaDeConfig } from "../config.js";
 import { CAMPOS, lerConfig, MAX_PARAMETROS, TEXTOS_PADRAO } from "../confirmacao.js";
+import { cifraDisponivel, cifrar } from "../crypto.js";
 import { pool } from "../db.js";
+import { baseUrlValida, criarAdaptador, ERPS, type CredencialPadrao } from "../erp/index.js";
 import { FORMAS, lerFinanceiro } from "../financeiro.js";
 import { disparoUrlValida, idTenantValido, lerDadosTenant, type CampoTenant } from "../implantacao.js";
 import { Limite } from "../limite.js";
@@ -53,7 +55,7 @@ export async function adminRoutes(app: FastifyInstance) {
   // Lista para a página de implantação: vínculo, estado da credencial, uso e configurações. Sem hash nem segredo.
   app.get("/admin/tenants", async () => {
     const { rows } = await pool!.query(
-      `SELECT id, nome, ativo, asa_credencial_cifrada IS NOT NULL AS tem_credencial, criado_em,
+      `SELECT id, nome, ativo, erp, asa_credencial_cifrada IS NOT NULL AS tem_credencial, criado_em,
               kentro_instancia, kentro_instalacao_id, asa_instituicao_id, implantado_por, credencial_gravada_em,
               credencial_origem, ultimo_uso_em, desligado_em, observacao,
               chave_automacao_hash IS NOT NULL AS tem_chave_automacao, disparo_url IS NOT NULL AS tem_disparo,
@@ -110,6 +112,38 @@ export async function adminRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: { token?: string } }>("/admin/tenants/:id/credencial", async (req, reply) =>
     gravarCredencial(req, reply, req.params.id, req.body?.token, "implantacao"),
   );
+
+  // Liga a clínica a um ERP no padrão Kentro: endereço da API + token. Testa a conexão antes de gravar; a
+  // credencial fica cifrada e não volta. Para voltar à Asa, {erp: "asa"} + PUT .../credencial com o token.
+  app.put<{ Params: { id: string }; Body: { erp?: string; base_url?: string; token?: string } }>("/admin/tenants/:id/erp", async (req, reply) => {
+    const b = req.body ?? {};
+    if (b.erp === "asa") {
+      // Volta para a Asa sem credencial: a clínica (ou a implantação) cadastra o token da Asa em seguida.
+      const { rowCount } = await pool!.query("UPDATE tenants SET erp = 'asa', asa_credencial_cifrada = NULL, atualizado_em = now() WHERE id = $1", [req.params.id]);
+      if (!rowCount) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+      req.log.info({ tenant: req.params.id, erp: "asa" }, "ERP da clínica trocado pela implantação");
+      return { ok: true, erp: "asa", credencial: false };
+    }
+    if (b.erp !== "padrao") return reply.code(400).send({ erro: "ERP_INVALIDO", aceitos: ERPS });
+    const base_url = baseUrlValida(b.base_url);
+    const token = String(b.token ?? "").trim();
+    if (!base_url) return reply.code(400).send({ erro: "URL_INVALIDA" });
+    if (!token || /\s/.test(token) || token.length > 4096) return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
+    if (!cifraDisponivel()) return reply.code(503).send({ erro: "CIFRA_NAO_CONFIGURADA" });
+
+    const credencial: CredencialPadrao = { base_url, token };
+    const r = await criarAdaptador("padrao", credencial, req.log).testarConexao();
+    if (!r.ok) return reply.code(r.credencialInvalida ? 422 : 502).send({ erro: r.erro, msg: r.msg, status_erp: r.status });
+
+    const { rowCount } = await pool!.query(
+      `UPDATE tenants SET erp = 'padrao', asa_credencial_cifrada = $1, credencial_gravada_em = now(), credencial_origem = 'implantacao', atualizado_em = now()
+       WHERE id = $2`,
+      [cifrar(JSON.stringify(credencial)), req.params.id],
+    );
+    if (!rowCount) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+    req.log.info({ tenant: req.params.id, erp: "padrao", host: new URL(base_url).host }, "ERP da clínica ligado pela implantação");
+    return { ok: true, erp: "padrao", base_url, prestadores: r.dados.prestadores };
+  });
 
   // Configuração da confirmação de véspera. Só a implantação grava (a extensão só lê, desde a 0.19.0).
   // O que vier fora do formato volta ao padrão (lerConfig, a mesma validação de sempre).

@@ -11,7 +11,18 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
-## 09/11: multi-ERP, fase 1, e nome ClinFy (0.20.0, sem deploy)
+## 09/11: multi-ERP, fase 2: Padrão Kentro (0.21.0, sem deploy)
+
+Um ERP que implemente a especificação da Kentro conecta com endereço + token. Detalhes em [`multi-erp.md`](multi-erp.md).
+
+- Adaptador `padrao`, ERP simulado (`tools/erp-simulado.ts`) e kit de conformidade (`kit-conformidade/`).
+- Kit rodado contra o simulador: 151 verificações, todas passando.
+- `PUT /admin/tenants/:id/erp` liga a clínica ao ERP padrão (testa antes de gravar).
+- Ids em texto aceitos; a extensão entende `ERP_*`.
+- **A clínica de teste continua na Asa.** Depois do deploy, nada muda para ela; vale o mesmo teste rápido com o login 509.
+- Próximo passo com o cliente de ERP próprio: mandar o `kit-conformidade/` ao time dele junto com a especificação.
+
+## 09/11: multi-ERP, fase 1, e nome ClinFy (0.20.0, no ar e validada)
 
 A extensão vai servir a qualquer ERP de clínica. Na fase 1, o Conector passou a falar com o ERP por um adaptador (`src/erp/`), e a Asa virou o primeiro deles. **Nada muda para quem usa**: as respostas, os códigos de erro e as telas continuam iguais. Detalhes, fases seguintes e como acrescentar um ERP em [`multi-erp.md`](multi-erp.md).
 

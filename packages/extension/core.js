@@ -34,11 +34,14 @@
   function connectionState(status, body) {
     if (status === 200 && body && body.tenant) {
       var nome = body.tenant.nome;
+      // Clínica na Asa: textos como sempre. Outro ERP (padrão Kentro): "o ERP".
+      var asa = !body.erp || body.erp === 'asa';
+      var o = asa ? 'a Asa' : 'o ERP', O = asa ? 'A Asa' : 'O ERP', ao = asa ? 'à Asa' : 'ao ERP', da = asa ? 'da Asa' : 'do ERP';
       switch (body.asa) {
-        case 'ok': return { tone: 'ok', pill: 'Conectado', text: nome + ': conectado à Asa' + (body.instituicao_id ? ' (instituição ' + body.instituicao_id + ')' : '') + '.', retry: false };
-        case 'credencial_ausente': return { tone: 'warn', pill: 'Sem credencial', text: nome + ': a credencial da Asa ainda não foi cadastrada. Um administrador cadastra em "Configurar ClinFy".', retry: true };
-        case 'credencial_invalida': return { tone: 'err', pill: 'Credencial recusada', text: nome + ': a Asa recusou a credencial cadastrada. Fale com a implantação para trocar o token.', retry: true };
-        default: return { tone: 'err', pill: 'Asa fora do ar', text: nome + ': a Asa não respondeu agora.', retry: true };
+        case 'ok': return { tone: 'ok', pill: 'Conectado', text: nome + ': conectado ' + ao + (body.instituicao_id ? ' (instituição ' + body.instituicao_id + ')' : '') + '.', retry: false };
+        case 'credencial_ausente': return { tone: 'warn', pill: 'Sem credencial', text: nome + ': a credencial ' + da + ' ainda não foi cadastrada. ' + (asa ? 'Um administrador cadastra em "Configurar ClinFy".' : 'Fale com a implantação.'), retry: true };
+        case 'credencial_invalida': return { tone: 'err', pill: 'Credencial recusada', text: nome + ': ' + o + ' recusou a credencial cadastrada. Fale com a implantação para trocar o token.', retry: true };
+        default: return { tone: 'err', pill: (asa ? 'Asa' : 'ERP') + ' fora do ar', text: nome + ': ' + o + ' não respondeu agora.', retry: true };
       }
     }
     if (status === 401) return { tone: 'err', pill: 'Chave inválida', text: 'A chave da instalação não foi reconhecida pelo Conector.', retry: false };
@@ -99,8 +102,11 @@
   function readError(status, body) {
     var erro = body && body.erro;
     if (erro === 'ASA_RECUSOU' && body.msg) return 'A Asa respondeu: ' + body.msg;
-    if (erro === 'CREDENCIAL_AUSENTE') return 'A credencial da Asa ainda não foi cadastrada.';
+    if (erro === 'ERP_RECUSOU' && body.msg) return 'O sistema da clínica respondeu: ' + body.msg;
+    if (erro === 'CREDENCIAL_AUSENTE') return 'A credencial do sistema da clínica ainda não foi cadastrada.';
     if (erro === 'ASA_CREDENCIAL_INVALIDA') return 'A Asa recusou a credencial cadastrada.';
+    if (erro === 'ERP_CREDENCIAL_INVALIDA') return 'O sistema da clínica recusou a credencial cadastrada.';
+    if (typeof erro === 'string' && erro.indexOf('ERP_') === 0) return 'O sistema da clínica não respondeu agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '.';
     if (erro === 'TELEFONE_INVALIDO') return 'O telefone do contato não está num formato que a Asa aceite.';
     if (erro === 'CPF_INVALIDO') return 'Informe um CPF com 11 dígitos.';
     if (erro === 'MUITAS_BUSCAS') return 'Muitas buscas de paciente em pouco tempo. Aguarde um minuto e tente de novo.';
