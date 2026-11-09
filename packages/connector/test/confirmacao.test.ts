@@ -7,11 +7,11 @@ import {
   hojeEm,
   lerConfig,
   preencher,
-  proximos,
   telefoneKentro,
   variaveisTemplate,
   varsDa,
 } from "../src/confirmacao.js";
+import { proximos } from "../src/erp/asa/normalizar.js";
 
 test("datas alvo: dia seguinte, e sexta cobre até segunda", () => {
   assert.deepEqual(datasAlvo("2026-10-29", { dias_antes: 1, sexta_pega_segunda: true }), { inicio: "2026-10-30", fim: "2026-10-30" });

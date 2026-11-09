@@ -1,4 +1,4 @@
-/* Asa Saúde em tela cheia — agenda por profissional (dia, semana ou profissionais lado a lado), busca de
+/* ClinFy em tela cheia — agenda por profissional (dia, semana ou profissionais lado a lado), busca de
  * paciente, marcar, remarcar, confirmar presença, marcar falta e cancelar. Mesma lógica de negócio do painel (core.js/api.js). */
 (function (root) {
   'use strict';

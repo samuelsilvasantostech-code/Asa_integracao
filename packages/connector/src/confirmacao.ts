@@ -1,10 +1,12 @@
 // Confirmação de véspera (D-1): configuração por clínica, datas e textos. Funções puras.
-import { dataIso, horaCurta, lista, nomeProcedimento } from "./normalizar.js";
+import type { ConsultaD1 } from "./erp/modelo.js";
+
+export type { ConsultaD1 };
 
 export type Acao = "confirmar" | "remarcar" | "cancelar";
 export const ACOES: Acao[] = ["confirmar", "remarcar", "cancelar"];
-// Status da Asa (api-agendamento-status) para cada botão.
-export const STATUS_ASA: Record<Acao, string> = { confirmar: "confirmado", remarcar: "remarcar", cancelar: "cancelado" };
+// Status gravado no ERP para cada botão.
+export const STATUS_DO_BOTAO: Record<Acao, "confirmado" | "remarcar" | "cancelado"> = { confirmar: "confirmado", remarcar: "remarcar", cancelar: "cancelado" };
 
 export interface Textos {
   mensagem: string; // vai ao paciente no canal não oficial; no oficial quem fala é o template
@@ -149,44 +151,6 @@ export function datasAlvo(hoje: string, cfg: Pick<ConfigConfirmacao, "dias_antes
   let fim = inicio;
   if (cfg.sexta_pega_segunda && diaDaSemana(hoje) === 5) fim = somarDias(hoje, cfg.dias_antes + 2);
   return { inicio, fim };
-}
-
-export interface ConsultaD1 {
-  agendamento_id: string;
-  data: string; // YYYY-MM-DD
-  hora: string | null;
-  prestador: string | null;
-  paciente: string | null;
-  telefone: string | null; // já no formato da Kentro
-  clinica: string | null;
-  especialidade: string | null;
-  procedimento: string | null;
-  endereco: string | null;
-}
-
-const texto = (v: unknown): string | null => {
-  if (v === null || v === undefined) return null;
-  const s = String(v).trim();
-  return s === "" ? null : s;
-};
-
-// api-proximos-agendamento → consultas com id e data. Descarta o que vier sem id ou sem data.
-export function proximos(corpo: any): ConsultaD1[] {
-  return lista(corpo?.agendamentos ?? corpo?.msg ?? corpo)
-    .filter((a: any) => a && typeof a === "object")
-    .map((a: any) => ({
-      agendamento_id: texto(a.id ?? a.agendamento_id) ?? "",
-      data: dataIso(a.data ?? a.data_hora) ?? "",
-      hora: horaCurta(a.hora ?? a.horario ?? a.data_hora ?? a.data),
-      prestador: texto(a.profissional ?? a.nome_prestador ?? a.prestador),
-      paciente: texto(a.paciente ?? a.nome),
-      telefone: telefoneKentro(String(a.telefone1 ?? a.telefone ?? "")),
-      clinica: texto(a.clinica ?? a["clínica"]),
-      especialidade: texto(a.especialidade),
-      procedimento: texto(lista(a.procedimentos).map(nomeProcedimento).filter(Boolean).join(", ")) ?? nomeProcedimento(a.procedimento),
-      endereco: texto(a.clinica_endereco ?? a.endereco),
-    }))
-    .filter((c) => c.agendamento_id && c.data);
 }
 
 export function primeiroNome(nome: string | null): string {

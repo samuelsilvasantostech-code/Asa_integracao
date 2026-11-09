@@ -1,4 +1,4 @@
-import { config } from "./config.js";
+import { config } from "../../config.js";
 
 // O token é o valor do header Authorization, como a Asa entrega: base64("ID:hash").
 // O formato antigo (ID e hash separados) ainda é lido de credenciais já gravadas.

@@ -1,14 +1,14 @@
 import type { FastifyInstance } from "fastify";
-import { chamarAsa, type CredencialAsa } from "../asa.js";
 import { pool } from "../db.js";
+import type { ErpAdapter, FalhaErp } from "../erp/index.js";
 import { FORMAS, formaValida, lerFinanceiro, valorAsa } from "../financeiro.js";
-import * as N from "../normalizar.js";
-import { tenantComCredencial, tenantDaRequisicao } from "../tenant-auth.js";
+import { tenantComErp, tenantDaRequisicao } from "../tenant-auth.js";
+import { buscaDe } from "./agendamento.js";
 import { dataValida, falha, idValido, naoEncontrado } from "./consulta.js";
 
-// Financeiro: lançar conta a receber do paciente na Asa (api-gerar-conta-paciente). É gravação SEM
-// VOLTA: a Asa não deixa ler, editar nem apagar a conta pela API. Por isso a chave de idempotência,
-// a conferência do paciente e do vínculo, e a trilha na tabela cobrancas.
+// Financeiro: lançar conta a receber do paciente no ERP. Na Asa é gravação SEM VOLTA: ela não deixa ler,
+// editar nem apagar a conta pela API. Por isso a chave de idempotência, a conferência do paciente e do
+// vínculo, e a trilha na tabela cobrancas.
 
 const chaveValida = (s: unknown): s is string => typeof s === "string" && /^[A-Za-z0-9-]{16,64}$/.test(s);
 
@@ -23,7 +23,7 @@ interface PedidoCobranca {
   busca?: Busca; // como o painel achou o paciente: prova que o id é o dele
   valor?: string | number;
   forma?: string;
-  vencimento?: string; // YYYY-MM-DD; vazio = a Asa usa o dia seguinte
+  vencimento?: string; // YYYY-MM-DD; vazio = o ERP decide (a Asa usa o dia seguinte)
   // Vínculo opcional com uma consulta. Com prestador_id e data, vem da agenda do dia (que pode já ter
   // passado); sem eles, tem de estar nas próximas consultas do paciente.
   agendamento?: { id?: string; prestador_id?: string; data?: string };
@@ -34,38 +34,36 @@ const digitos = (s: unknown) => String(s ?? "").replace(/\D/g, "").replace(/^55(
 
 // Confere que o paciente_id é o do paciente achado pela busca, e que a consulta vinculada é dele.
 async function conferir(
-  credencial: CredencialAsa,
+  erp: ErpAdapter,
   pacienteId: string,
   busca: Busca,
   ag: PedidoCobranca["agendamento"],
-): Promise<{ ok: true } | { ok: false; status: number; erro: string; r?: any }> {
-  const cpf = digitos(busca.cpf);
-  const telefone = busca.telefone ? N.telefoneAsa(String(busca.telefone)) : null;
-  if (cpf.length !== 11 && !telefone) return { ok: false, status: 400, erro: "PACIENTE_INVALIDO" };
-  const params: Record<string, string> = cpf.length === 11 ? { cpf } : { telefone: telefone! };
+): Promise<{ ok: true } | { ok: false; status: number; erro: string; r?: FalhaErp }> {
+  const b = buscaDe(busca);
+  if (!b) return { ok: false, status: 400, erro: "PACIENTE_INVALIDO" };
 
-  const rp = await chamarAsa<any>(credencial, "api-agendamento-paciente-instituicao", params);
+  const rp = await erp.buscarPaciente(b);
   if (!rp.ok) return naoEncontrado(rp) ? { ok: false, status: 409, erro: "PACIENTE_NAO_CONFERE" } : { ok: false, status: 502, erro: rp.erro, r: rp };
-  if (N.paciente(rp.dados)?.id !== pacienteId) return { ok: false, status: 409, erro: "PACIENTE_NAO_CONFERE" };
+  if (rp.dados?.id !== pacienteId) return { ok: false, status: 409, erro: "PACIENTE_NAO_CONFERE" };
 
   if (!ag?.id) return { ok: true };
   if (ag.prestador_id) {
-    // Agenda do dia: horarios-agendados não traz o id do paciente, então confere pelo telefone.
-    const ra = await chamarAsa<any>(credencial, "api-agendamento-horarios-agendados", { prestador_id: ag.prestador_id, data: ag.data! });
+    // Agenda do dia: a Asa não traz o id do paciente nela, então confere pelo telefone.
+    const ra = await erp.agendaDoDia(ag.prestador_id, ag.data!);
     if (!ra.ok && !naoEncontrado(ra)) return { ok: false, status: 502, erro: ra.erro, r: ra };
-    const a = ra.ok ? N.agendados(ra.dados).find((x) => x.id === ag.id) : undefined;
-    const telPaciente = digitos(N.paciente(rp.dados)?.telefone);
+    const a = ra.ok ? ra.dados.find((x) => x.id === ag.id) : undefined;
+    const telPaciente = digitos(rp.dados?.telefone);
     if (!a || !telPaciente || digitos(a.paciente.telefone) !== telPaciente) return { ok: false, status: 409, erro: "CONSULTA_NAO_ENCONTRADA" };
     return { ok: true };
   }
-  const rc = await chamarAsa<any>(credencial, "api-agendamentos-futuros", params);
+  const rc = await erp.consultasFuturas(b);
   if (!rc.ok && !naoEncontrado(rc)) return { ok: false, status: 502, erro: rc.erro, r: rc };
-  if (!rc.ok || !N.consultasFuturas(rc.dados).some((c) => c.id === ag.id)) return { ok: false, status: 409, erro: "CONSULTA_NAO_ENCONTRADA" };
+  if (!rc.ok || !rc.dados.consultas.some((c) => c.id === ag.id)) return { ok: false, status: 409, erro: "CONSULTA_NAO_ENCONTRADA" };
   return { ok: true };
 }
 
 export async function financeiroRoutes(app: FastifyInstance) {
-  // Configuração do financeiro da clínica: a tela "Configurar Asa Saúde" e o painel só leem. Quem grava é a
+  // Configuração do financeiro da clínica: a tela "Configurar" e o painel só leem. Quem grava é a
   // implantação (PUT /admin/tenants/:id/financeiro), com a chave de administrador.
   app.get("/v1/tenant/financeiro", async (req, reply) => {
     const tenant = await tenantDaRequisicao(req, reply);
@@ -92,7 +90,7 @@ export async function financeiroRoutes(app: FastifyInstance) {
     return { cobrancas: rows };
   });
 
-  // Lançar conta a receber na Asa.
+  // Lançar conta a receber no ERP.
   app.post<{ Body: PedidoCobranca }>("/v1/cobrancas", async (req, reply) => {
     const b = req.body ?? {};
     if (!chaveValida(b.chave)) return reply.code(400).send({ erro: "CHAVE_IDEMPOTENCIA_INVALIDA" });
@@ -106,16 +104,16 @@ export async function financeiroRoutes(app: FastifyInstance) {
       return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
     }
 
-    const ctx = await tenantComCredencial(req, reply);
+    const ctx = await tenantComErp(req, reply);
     if (!ctx) return;
-    const { tenant, credencial } = ctx;
+    const { tenant, erp } = ctx;
     const { rows: cfgRows } = await pool!.query<{ financeiro: unknown }>("SELECT financeiro FROM tenants WHERE id = $1", [tenant.id]);
     // `quem` (só administradores ou todos) NÃO é conferido aqui: o Conector não sabe quem é o usuário da
     // Kentro (`usuario` vem da extensão, só para a trilha). Essa regra é só da tela. O controle de verdade é
     // que só a implantação liga o financeiro.
     if (!lerFinanceiro(cfgRows[0]?.financeiro).ativo) return reply.code(403).send({ erro: "FINANCEIRO_DESLIGADO" });
 
-    // A mesma chave nunca chama a Asa duas vezes.
+    // A mesma chave nunca chama o ERP duas vezes.
     const ins = await pool!.query(
       `INSERT INTO cobrancas (tenant_id, chave, situacao, usuario, paciente_id, agendamento_id, valor, forma, vencimento)
        VALUES ($1, $2, 'pendente', $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`,
@@ -132,38 +130,36 @@ export async function financeiroRoutes(app: FastifyInstance) {
     }
     const liberar = () => pool!.query("DELETE FROM cobrancas WHERE tenant_id = $1 AND chave = $2", [tenant.id, b.chave]);
 
-    const c = await conferir(credencial, b.paciente_id, b.busca, ag);
+    const c = await conferir(erp, b.paciente_id, b.busca, ag);
     if (!c.ok) {
       await liberar();
       return c.r ? falha(reply, c.r) : reply.code(c.status).send({ erro: c.erro });
     }
 
-    // id_externo = a chave: na Asa, a conta fica rastreável até este lançamento (inclusive se ficar incerta).
-    // `status` (0/1) não é enviado: a Asa não documenta o que cada valor significa.
-    const r = await chamarAsa<any>(credencial, "api-gerar-conta-paciente", {
+    const r = await erp.lancarConta({
       paciente_id: b.paciente_id,
-      valor_parcela: valor,
-      forma_pagamento: b.forma,
+      valor,
+      forma: b.forma,
       id_externo: b.chave,
       ...(ag ? { agendamento_id: ag.id! } : {}),
-      ...(b.vencimento ? { data_vencimento: b.vencimento } : {}),
+      ...(b.vencimento ? { vencimento: b.vencimento } : {}),
     });
     if (!r.ok) {
-      if (r.erro === "ASA_FORA_DO_AR" && r.status === 0) {
+      if (r.semResposta) {
         await pool!.query("UPDATE cobrancas SET situacao = 'incerto', atualizado_em = now() WHERE tenant_id = $1 AND chave = $2", [tenant.id, b.chave]);
-        req.log.error({ tenant: tenant.id, chave: b.chave }, "cobrança sem resposta da Asa");
+        req.log.error({ tenant: tenant.id, chave: b.chave }, "cobrança sem resposta do ERP");
         return reply.code(504).send({ erro: "COBRANCA_INCERTA" });
       }
       await liberar();
-      req.log.warn({ erro: r.erro, status: r.status, msg: r.msg }, "Asa recusou a cobrança");
+      req.log.warn({ erro: r.erro, status: r.status, msg: r.msg }, "o ERP recusou a cobrança");
       return falha(reply, r);
     }
 
-    const msg = String(r.dados?.msg ?? "").slice(0, 300) || null;
+    const msg = r.dados.msg;
     await pool!.query("UPDATE cobrancas SET situacao = 'ok', msg = $3, atualizado_em = now() WHERE tenant_id = $1 AND chave = $2", [tenant.id, b.chave, msg]);
     req.log.info(
-      { tenant: tenant.id, paciente: b.paciente_id, agendamento: ag?.id, valor, forma: b.forma, usuario: b.usuario, chave: b.chave },
-      "conta a receber lançada na Asa",
+      { tenant: tenant.id, paciente: b.paciente_id, agendamento: ag?.id, valor, forma: b.forma, usuario: b.usuario, chave: b.chave, erp: erp.erp },
+      "conta a receber lançada no ERP",
     );
     return { ok: true, msg, valor, forma: b.forma, vencimento: b.vencimento || null, agendamento_id: ag?.id ?? null };
   });

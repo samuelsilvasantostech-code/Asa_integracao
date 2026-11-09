@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { conveniosDoExame, exames, gruposExames, prestadoresDoExame, procedimentos } from "../src/normalizar.js";
+import { conveniosDoExame, exames, gruposExames, prestadoresDoExame, procedimentos } from "../src/erp/asa/normalizar.js";
 
 // Exemplos da coleção pública da Asa (Postman).
 test("exames: lista de procedimentos com tipo", () => {

@@ -1,5 +1,5 @@
 // Implantação multi-cliente: vínculo do tenant com a Kentro e com a Asa. Funções puras.
-import { instituicaoDoToken } from "./asa.js";
+import { instituicaoDoToken } from "./erp/asa/cliente.js";
 
 const ROTULO = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 

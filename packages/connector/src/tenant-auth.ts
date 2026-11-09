@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { CredencialAsa } from "./asa.js";
 import { decifrar } from "./crypto.js";
 import { pool } from "./db.js";
+import { criarAdaptador, type ErpAdapter } from "./erp/index.js";
 import { precisaMarcarUso } from "./implantacao.js";
 
 const hash = (valor: string) => createHash("sha256").update(valor).digest("hex");
@@ -10,6 +10,7 @@ const hash = (valor: string) => createHash("sha256").update(valor).digest("hex")
 export interface Tenant {
   id: string;
   nome: string;
+  erp: string; // qual ERP a clínica usa (erp/index.ts)
   credencial: Buffer | null;
 }
 
@@ -24,8 +25,8 @@ export async function tenantDaRequisicao(req: FastifyRequest, reply: FastifyRepl
     reply.code(503).send({ erro: "BANCO_NAO_CONFIGURADO" });
     return null;
   }
-  const { rows } = await pool.query<{ id: string; nome: string; ativo: boolean; asa_credencial_cifrada: Buffer | null; ultimo_uso_em: Date | null }>(
-    "SELECT id, nome, ativo, asa_credencial_cifrada, ultimo_uso_em FROM tenants WHERE chave_instalacao_hash = $1",
+  const { rows } = await pool.query<{ id: string; nome: string; ativo: boolean; erp: string; asa_credencial_cifrada: Buffer | null; ultimo_uso_em: Date | null }>(
+    "SELECT id, nome, ativo, erp, asa_credencial_cifrada, ultimo_uso_em FROM tenants WHERE chave_instalacao_hash = $1",
     [hash(chave)],
   );
   const t = rows[0];
@@ -39,38 +40,41 @@ export async function tenantDaRequisicao(req: FastifyRequest, reply: FastifyRepl
       req.log.warn({ err, tenant: t.id }, "falha ao marcar o último uso");
     });
   }
-  return { id: t.id, nome: t.nome, credencial: t.asa_credencial_cifrada };
+  return { id: t.id, nome: t.nome, erp: t.erp, credencial: t.asa_credencial_cifrada };
 }
 
-// Clínica + credencial da Asa decifrada, para as rotas que falam com a Asa.
-export async function tenantComCredencial(
-  req: FastifyRequest,
-  reply: FastifyReply,
-): Promise<{ tenant: Tenant; credencial: CredencialAsa } | null> {
-  const tenant = await tenantDaRequisicao(req, reply);
-  if (!tenant) return null;
-  if (!tenant.credencial) {
+// Adaptador do ERP da clínica, com a credencial decifrada. Responde o erro e devolve null quando não dá.
+function adaptadorDe(req: FastifyRequest, reply: FastifyReply, erp: string, cifrada: Buffer | null): ErpAdapter | null {
+  if (!cifrada) {
     reply.code(409).send({ erro: "CREDENCIAL_AUSENTE" });
     return null;
   }
   try {
-    return { tenant, credencial: JSON.parse(decifrar(tenant.credencial)) };
+    return criarAdaptador(erp, JSON.parse(decifrar(cifrada)), req.log);
   } catch (err) {
-    req.log.error({ err }, "falha ao decifrar credencial");
+    req.log.error({ err, erp }, "falha ao abrir a credencial ou o adaptador do ERP");
     reply.code(500).send({ erro: "ERRO_INTERNO" });
     return null;
   }
 }
 
-export async function credencialDaRequisicao(req: FastifyRequest, reply: FastifyReply): Promise<CredencialAsa | null> {
-  return (await tenantComCredencial(req, reply))?.credencial ?? null;
+// Clínica + adaptador do ERP dela, para as rotas que falam com o ERP.
+export async function tenantComErp(req: FastifyRequest, reply: FastifyReply): Promise<{ tenant: Tenant; erp: ErpAdapter } | null> {
+  const tenant = await tenantDaRequisicao(req, reply);
+  if (!tenant) return null;
+  const erp = adaptadorDe(req, reply, tenant.erp, tenant.credencial);
+  return erp ? { tenant, erp } : null;
+}
+
+export async function erpDaRequisicao(req: FastifyRequest, reply: FastifyReply): Promise<ErpAdapter | null> {
+  return (await tenantComErp(req, reply))?.erp ?? null;
 }
 
 export interface TenantAutomacao {
   id: string;
   nome: string;
   confirmacao: unknown;
-  credencial: CredencialAsa;
+  erp: ErpAdapter;
 }
 
 // Identifica a clínica pela chave da automação (header x-automation-key). Essa chave vale só nas
@@ -85,8 +89,8 @@ export async function tenantDaAutomacao(req: FastifyRequest, reply: FastifyReply
     reply.code(503).send({ erro: "BANCO_NAO_CONFIGURADO" });
     return null;
   }
-  const { rows } = await pool.query<{ id: string; nome: string; ativo: boolean; confirmacao: unknown; asa_credencial_cifrada: Buffer | null }>(
-    "SELECT id, nome, ativo, confirmacao, asa_credencial_cifrada FROM tenants WHERE chave_automacao_hash = $1",
+  const { rows } = await pool.query<{ id: string; nome: string; ativo: boolean; confirmacao: unknown; erp: string; asa_credencial_cifrada: Buffer | null }>(
+    "SELECT id, nome, ativo, confirmacao, erp, asa_credencial_cifrada FROM tenants WHERE chave_automacao_hash = $1",
     [hash(chave)],
   );
   const t = rows[0];
@@ -94,15 +98,7 @@ export async function tenantDaAutomacao(req: FastifyRequest, reply: FastifyReply
     reply.code(401).send({ erro: "CHAVE_INVALIDA" });
     return null;
   }
-  if (!t.asa_credencial_cifrada) {
-    reply.code(409).send({ erro: "CREDENCIAL_AUSENTE" });
-    return null;
-  }
-  try {
-    return { id: t.id, nome: t.nome, confirmacao: t.confirmacao, credencial: JSON.parse(decifrar(t.asa_credencial_cifrada)) };
-  } catch (err) {
-    req.log.error({ err }, "falha ao decifrar credencial");
-    reply.code(500).send({ erro: "ERRO_INTERNO" });
-    return null;
-  }
+  const erp = adaptadorDe(req, reply, t.erp, t.asa_credencial_cifrada);
+  if (!erp) return null;
+  return { id: t.id, nome: t.nome, confirmacao: t.confirmacao, erp };
 }

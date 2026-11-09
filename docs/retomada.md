@@ -11,6 +11,19 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
+## 09/11: multi-ERP, fase 1, e nome ClinFy (0.20.0, sem deploy)
+
+A extensão vai servir a qualquer ERP de clínica. Na fase 1, o Conector passou a falar com o ERP por um adaptador (`src/erp/`), e a Asa virou o primeiro deles. **Nada muda para quem usa**: as respostas, os códigos de erro e as telas continuam iguais. Detalhes, fases seguintes e como acrescentar um ERP em [`multi-erp.md`](multi-erp.md).
+
+- Migração 011: coluna `tenants.erp`, com padrão `asa`.
+- 13 testes novos do adaptador, com a rede simulada; 62 no total, todos passando.
+- **Depois do deploy, teste mínimo com o login 509**, porque as rotas não têm teste com banco:
+    - abrir uma conversa e ver o paciente e as consultas;
+    - Agenda em tela cheia (dia e semana);
+    - Por exame;
+    - uma marcação e um cancelamento, só com consulta própria.
+- **Nome novo: ClinFy.** Já está no manifest, nos menus (Agenda, Painel, Confirmação e Configurar ClinFy) e nos títulos das telas. O identificador `kentro.asa-saude` não mudou: trocá-lo exige reinstalar a extensão em cada cliente. As menções à Asa como sistema da clínica continuam até a fase 3.
+
 ## 03/11: implantação multi-cliente e segurança (0.19.0, no ar em 03/11; falta cadastrar o vínculo da clínica de teste)
 
 Detalhes e roteiro em [`implantacao-clientes.md`](implantacao-clientes.md).

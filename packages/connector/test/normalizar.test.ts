@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agendados } from "../src/normalizar.js";
+import { agendados } from "../src/erp/asa/normalizar.js";
 
 test("agenda do dia: formato documentado, ordenado pela hora", () => {
   const r = agendados({
@@ -26,7 +26,7 @@ test("agenda do dia: objeto indexado e itens sem id descartados", () => {
 });
 
 test("consulta pedida reencontrada na agenda do dia", async () => {
-  const { consultaNoHorario } = await import("../src/normalizar.js");
+  const { consultaNoHorario } = await import("../src/erp/asa/normalizar.js");
   const ag = (id: string, hora: string, nome: string | null, status = "agendado", pid: string | null = null) =>
     ({ id, hora, status, paciente: { id: pid, nome, telefone: null, idade: null, etiqueta: null }, procedimentos: [], obs: null });
   const lista = [ag("1", "09:00", "Ana"), ag("2", "10:00", "Bruno Lima", "cancelado"), ag("3", "10:00", "SAMUEL  Silva Santos"), ag("4", "10:00", "Carla", "agendado", "77")];
@@ -38,7 +38,7 @@ test("consulta pedida reencontrada na agenda do dia", async () => {
 });
 
 test("recusa de validação da Asa, mesmo com HTTP 200", async () => {
-  const { validacaoDa } = await import("../src/asa.js");
+  const { validacaoDa } = await import("../src/erp/asa/cliente.js");
   assert.equal(validacaoDa({ message: "The given data was invalid.", errors: { horario: ["O campo horario é obrigatório."], agenda_id: ["inválido"] } }), "horario: O campo horario é obrigatório.; agenda_id: inválido");
   assert.equal(validacaoDa({ message: "The given data was invalid." }), "The given data was invalid.");
   assert.equal(validacaoDa({ agendamento: { id: 1 } }), null);

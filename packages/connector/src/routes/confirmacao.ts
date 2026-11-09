@@ -1,14 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import { chamarAsa } from "../asa.js";
 import * as C from "../confirmacao.js";
 import { pool } from "../db.js";
-import { tenantComCredencial, tenantDaAutomacao } from "../tenant-auth.js";
-import * as N from "../normalizar.js";
-import { consultaDoPaciente, type Busca } from "./agendamento.js";
+import { tenantComErp, tenantDaAutomacao } from "../tenant-auth.js";
+import { buscaDe, consultaDoPaciente, type Busca } from "./agendamento.js";
 import { falha, naoEncontrado } from "./consulta.js";
 
 // Confirmação de véspera (D-1). Quem chama é a automação da Kentro, com a chave da automação.
-// Gravações na Asa daqui: `disparados` (só depois que a mensagem saiu) e `agendamento-status`
+// Gravações no ERP daqui: lembrete enviado (só depois que a mensagem saiu) e status da consulta
 // (sempre com o id explícito, nunca pelo telefone).
 
 const RESERVA_MIN = 15;
@@ -31,12 +29,12 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
     // saem sempre: já foram conferidos (paciente, telefone, modo teste) quando foram pedidos.
     let daAsa: C.ConsultaD1[] = [];
     if (cfg.ativo) {
-      const r = await chamarAsa<any>(t.credencial, "api-proximos-agendamento", { data_inicio: inicio, data_fim: fim, envio_final_semana: 0 });
+      const r = await t.erp.consultasParaConfirmar(inicio, fim);
       if (!r.ok) {
-        req.log.warn({ tenant: t.id, erro: r.erro, status: r.status }, "confirmação: a Asa não devolveu os próximos agendamentos");
+        req.log.warn({ tenant: t.id, erro: r.erro, status: r.status }, "confirmação: o ERP não devolveu os próximos agendamentos");
         return reply.code(502).send({ erro: r.erro });
       }
-      daAsa = C.proximos(r.dados).filter((c) => c.data >= inicio && c.data <= fim);
+      daAsa = r.dados.filter((c) => c.data >= inicio && c.data <= fim);
     }
     const porId = new Map(daAsa.map((c) => [c.agendamento_id, c]));
     // Modo teste: só entram os telefones permitidos. Os demais nem são gravados, para saírem
@@ -124,22 +122,20 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
   app.post<{ Body: { agendamento_id?: unknown; busca?: Busca; usuario?: unknown } }>("/v1/confirmacao/enviar", async (req, reply) => {
     const id = String(req.body?.agendamento_id ?? "");
     if (!idValido(id)) return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
-    const ctx = await tenantComCredencial(req, reply);
+    const ctx = await tenantComErp(req, reply);
     if (!ctx) return;
-    const { tenant, credencial } = ctx;
+    const { tenant, erp } = ctx;
     const busca = req.body?.busca;
 
-    const cons = await consultaDoPaciente(credencial, busca, id);
+    const cons = await consultaDoPaciente(erp, busca, id);
     if (!cons.ok) return reply.code(cons.status).send({ erro: cons.erro });
     const hoje = C.hojeEm(new Date());
     if (!cons.consulta.data || cons.consulta.data < hoje) return reply.code(409).send({ erro: "CONSULTA_PASSADA" });
 
-    // Telefone e nome do cadastro da Asa, não da tela.
-    const cpf = String(busca?.cpf ?? "").replace(/\D/g, "");
-    const tel = N.telefoneAsa(String(busca?.telefone ?? ""));
-    const rp = await chamarAsa<any>(credencial, "api-agendamento-paciente-instituicao", cpf.length === 11 ? { cpf } : { telefone: tel ?? "" });
+    // Telefone e nome do cadastro no ERP, não da tela. (A busca já foi validada por consultaDoPaciente.)
+    const rp = await erp.buscarPaciente(buscaDe(busca)!);
     if (!rp.ok && !naoEncontrado(rp)) return falha(reply, rp);
-    const pac = rp.ok ? N.paciente(rp.dados) : null;
+    const pac = rp.ok ? rp.dados : null;
     const telefone = C.telefoneKentro(String(pac?.telefone ?? ""));
     if (!telefone) return reply.code(422).send({ erro: "SEM_TELEFONE" });
 
@@ -235,9 +231,9 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
       let asa = 0;
       for (let i = 0; i < rows.length; i += 50) {
         const bloco = rows.slice(i, i + 50).map((r) => r.agendamento_id);
-        const r = await chamarAsa<any>(t.credencial, "api-agendamento-disparados", { "agendamentos[]": bloco });
+        const r = await t.erp.marcarLembretesEnviados(bloco);
         if (!r.ok) {
-          req.log.warn({ tenant: t.id, erro: r.erro, status: r.status }, "confirmação: a Asa não aceitou `disparados`; tenta na próxima rodada");
+          req.log.warn({ tenant: t.id, erro: r.erro, status: r.status }, "confirmação: o ERP não aceitou o registro de lembrete enviado; tenta na próxima rodada");
           break;
         }
         await pool!.query("UPDATE confirmacoes SET disparado_asa = true, atualizado_em = now() WHERE tenant_id = $1 AND agendamento_id = ANY($2::text[])", [t.id, bloco]);
@@ -279,7 +275,7 @@ export async function confirmacaoRoutes(app: FastifyInstance) {
     );
     if (!claim.rowCount) return { acao, texto: C.preencher(cfg.textos.ja_respondido, v), transferir: true };
 
-    const r = await chamarAsa<any>(t.credencial, "api-agendamento-status", { status: C.STATUS_ASA[acao], agendamento: id });
+    const r = await t.erp.mudarStatus(id, C.STATUS_DO_BOTAO[acao]);
     if (!r.ok) {
       await pool!.query("UPDATE confirmacoes SET erro = $3, atualizado_em = now() WHERE tenant_id = $1 AND agendamento_id = $2", [
         t.id,

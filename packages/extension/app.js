@@ -1,4 +1,4 @@
-/* Painel Asa Saúde — contato da conversa, paciente, consultas e horários livres (só leitura). */
+/* Painel ClinFy — contato da conversa, paciente, consultas e horários livres (só leitura). */
 (function (root) {
   'use strict';
 

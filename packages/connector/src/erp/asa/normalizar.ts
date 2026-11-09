@@ -1,27 +1,16 @@
-// Respostas da Asa → formato estável para a extensão. Funções puras: a Asa mistura formatos de
+// Respostas da Asa → modelo neutro (erp/modelo.ts). Funções puras: a Asa mistura formatos de
 // data, devolve listas como objeto indexado e muda o nome da lista de rota para rota.
+import type {
+  AgendamentoFeito, Agendado, Consulta, ConsultaD1, Convenio, ConvenioValor, Exame, GrupoExame, Horario, Paciente,
+  PrestadorDoExame, Procedimento,
+} from "../modelo.js";
+import { telefoneKentro } from "../../confirmacao.js";
 
-export interface Paciente {
-  id: string | null;
-  nome: string;
-  nascimento: string | null; // YYYY-MM-DD
-  telefone: string | null;
-  cpf: string | null;
-}
+// Utilitários neutros, reexportados para quem já os lia daqui.
+export { consultaNoHorario, normalizarNome, telefoneNacional as telefoneAsa } from "../modelo.js";
 
-export interface Consulta {
-  id: string;
-  data: string | null; // YYYY-MM-DD
-  hora: string | null; // HH:MM
-  prestador: string | null;
-  procedimentos: string[];
-  confirmacao?: { estado: string; resposta: string | null }; // da confirmação de véspera, quando houve
-}
 
-export interface Horario {
-  horario: string; // HH:MM
-  agenda_id: string;
-}
+
 
 const texto = (v: unknown): string | null => {
   if (v === null || v === undefined) return null;
@@ -101,25 +90,8 @@ export function horarios(corpo: any): Horario[] {
     .sort((a, b) => a.horario.localeCompare(b.horario));
 }
 
-// Telefone do contato Kentro (com DDI, só dígitos ou formatado) → DDD + número, como a Asa espera.
-// Número estrangeiro (parâmetro `ddi` da Asa) fica de fora até termos um caso real para testar.
-export function telefoneAsa(raw: string): string | null {
-  let d = raw.replace(/\D/g, "");
-  if ((d.length === 12 || d.length === 13) && d.startsWith("55")) d = d.slice(2);
-  return d.length === 10 || d.length === 11 ? d : null;
-}
 
-export interface Convenio {
-  id: string;
-  nome: string;
-}
 
-export interface Procedimento {
-  id: string; // convenio_procedimento_id, o que vai para o agendamento
-  nome: string;
-  valor: number | null;
-  procedimento_id: string | null; // id do procedimento (o de api-agendamento-procedimentos), quando vier
-}
 
 const numero = (v: unknown): number | null => {
   if (v === null || v === undefined || v === "") return null;
@@ -158,7 +130,7 @@ const nomeOuTexto = (v: any): string | null =>
   v && typeof v === "object" ? texto(v.nome ?? v.descricao ?? null) : texto(v);
 
 // Resposta de api-agendamento-agendar-instituicao: só o que o painel mostra.
-export function agendamentoFeito(corpo: any) {
+export function agendamentoFeito(corpo: any): AgendamentoFeito {
   const a = corpo?.agendamento && typeof corpo.agendamento === "object" ? corpo.agendamento : {};
   const pac = corpo?.paciente && typeof corpo.paciente === "object" ? corpo.paciente : {};
   return {
@@ -176,14 +148,6 @@ export function dataBr(iso: string): string {
   return `${d}/${m}/${a}`;
 }
 
-export interface Agendado {
-  id: string;
-  hora: string | null; // HH:MM
-  status: string | null; // como a Asa escreveu, em minúsculas
-  paciente: { id: string | null; nome: string | null; telefone: string | null; idade: number | null; etiqueta: string | null };
-  procedimentos: string[];
-  obs: string | null;
-}
 
 // api-agendamento-horarios-agendados: consultas já marcadas de um prestador num dia.
 export function agendados(corpo: any): Agendado[] {
@@ -212,11 +176,6 @@ export function agendados(corpo: any): Agendado[] {
 
 /* ---------- agendar por exame (procedimento) ---------- */
 
-export interface Exame {
-  id: string;
-  nome: string;
-  tipo: string | null; // "consulta" | "exame"
-}
 
 // api-agendamento-procedimentos: {procedimentos: [{id, descricao, tipo, odontologico}]}
 export function exames(corpo: any): Exame[] {
@@ -225,10 +184,6 @@ export function exames(corpo: any): Exame[] {
     .filter((p): p is Exame => !!p.id && !!p.nome);
 }
 
-export interface GrupoExame {
-  id: string;
-  nome: string;
-}
 
 // api-agendamento-grupos-procedimentos: {grupos_procedimentos: [{id, nome, tipo}]}. Só aparecem grupos com
 // algum procedimento de agenda online. Os procedimentos do grupo vêm no formato de exames().
@@ -239,9 +194,6 @@ export function gruposExames(corpo: any): GrupoExame[] {
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
-export interface ConvenioValor extends Convenio {
-  valor: number | null;
-}
 
 // api-agendamento-get-convenios-procedimento: {convenios: [{id, nome, valor}]}
 export function conveniosDoExame(corpo: any): ConvenioValor[] {
@@ -250,13 +202,6 @@ export function conveniosDoExame(corpo: any): ConvenioValor[] {
     .filter((c): c is ConvenioValor => !!c.id && !!c.nome);
 }
 
-export interface PrestadorDoExame {
-  id: string;
-  nome: string;
-  especialidade: string | null;
-  ordem_chegada: boolean;
-  valor: number | null; // do convênio pedido, quando houver
-}
 
 // api-agendamento-get-prestadores-procedimento: {prestadores: [{id, nome, especialidade, ordem_chegada,
 // convenios: [{convenio_id, convenio_nome, valor_procedimento}]}]}
@@ -276,25 +221,21 @@ export function prestadoresDoExame(corpo: any, convenioId?: string): PrestadorDo
     .filter((p): p is PrestadorDoExame => !!p.id && !!p.nome);
 }
 
-// Nome para comparação: sem acento, minúsculo, espaços colapsados. null se vazio.
-export function normalizarNome(v: unknown): string | null {
-  const s = String(v ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
-  return s || null;
-}
-
-// A consulta que acabamos de pedir, na agenda do dia: mesma hora, ativa, e do mesmo paciente (ou a
-// consulta remarcada). Sem como identificar o paciente, vale a única consulta ativa no horário, que
-// estava livre segundos antes.
-export function consultaNoHorario(
-  lista: Agendado[],
-  alvo: { horario: string; paciente_id?: string; nome?: string; original?: string },
-): Agendado | undefined {
-  const nome = normalizarNome(alvo.nome);
-  const noHorario = lista.filter((a) => a.hora === alvo.horario && !/cancel|desist/.test(a.status ?? ""));
-  return (
-    noHorario.find((a) => alvo.original && a.id === alvo.original) ??
-    noHorario.find((a) => alvo.paciente_id && a.paciente.id === alvo.paciente_id) ??
-    noHorario.find((a) => nome && normalizarNome(a.paciente.nome) === nome) ??
-    (noHorario.length === 1 ? noHorario[0] : undefined)
-  );
+// api-proximos-agendamento: consultas do período ainda não avisadas, para a confirmação de véspera.
+export function proximos(corpo: any): ConsultaD1[] {
+  return lista(corpo?.agendamentos ?? corpo?.msg ?? corpo)
+    .filter((a: any) => a && typeof a === "object")
+    .map((a: any) => ({
+      agendamento_id: texto(a.id ?? a.agendamento_id) ?? "",
+      data: dataIso(a.data ?? a.data_hora) ?? "",
+      hora: horaCurta(a.hora ?? a.horario ?? a.data_hora ?? a.data),
+      prestador: texto(a.profissional ?? a.nome_prestador ?? a.prestador),
+      paciente: texto(a.paciente ?? a.nome),
+      telefone: telefoneKentro(String(a.telefone1 ?? a.telefone ?? "")),
+      clinica: texto(a.clinica ?? a["clínica"]),
+      especialidade: texto(a.especialidade),
+      procedimento: texto(lista(a.procedimentos).map(nomeProcedimento).filter(Boolean).join(", ")) ?? nomeProcedimento(a.procedimento),
+      endereco: texto(a.clinica_endereco ?? a.endereco),
+    }))
+    .filter((c) => c.agendamento_id && c.data);
 }
