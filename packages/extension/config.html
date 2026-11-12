@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Configurar ClinFy</title>
-<link rel="stylesheet" href="styles.css?v=0.22.0">
+<link rel="stylesheet" href="styles.css?v=0.23.0">
 </head>
 <body class="page-config">
 <div class="app">
@@ -13,7 +13,7 @@
       <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
       <div>
         <div class="hd__title">Configurar ClinFy</div>
-        <div class="hd__sub">Credencial da clínica</div>
+        <div class="hd__sub">Conexão com o sistema da clínica</div>
       </div>
     </div>
     <span class="pill" id="pill" data-tone="idle"><i class="dot"></i><span id="pill-text">Carregando</span></span>
@@ -36,13 +36,20 @@
     </div>
 
     <form class="card form" id="form" autocomplete="off" hidden>
-      <div class="card__label">Credencial <span data-sis="da">do sistema da clínica</span></div>
-      <p class="hint">Cole o token de acesso da clínica fornecido <span data-sis="pela">pelo sistema da clínica</span>, o mesmo valor usado no header Authorization. Ele é validado <span data-sis="na">no sistema da clínica</span>, guardado cifrado no Conector e não volta para esta tela.</p>
+      <div class="card__label">Sistema da clínica</div>
+      <p class="hint">Escolha o sistema de gestão (ERP) que a clínica usa e preencha o acesso que ele fornece. O acesso é testado antes de gravar, fica cifrado no Conector e não volta para esta tela. Depois de gravado, trocar é com a implantação.</p>
       <label class="field">
-        <span>Token</span>
-        <input id="f-token" type="password" required spellcheck="false">
+        <span>Sistema</span>
+        <select id="f-erp" required></select>
       </label>
-      <button class="btn btn--primary" id="f-save" type="submit">Validar e salvar</button>
+      <div id="f-campos"></div>
+      <div id="f-outro" hidden>
+        <p class="hint">Não achou o sistema? Envie o pedido: a equipe da Kentro prepara a conexão e avisa quando estiver pronta. Se tiver a documentação da API, mande para a implantação.</p>
+        <label class="field"><span>Nome do sistema</span><input id="f-sistema" maxlength="80" spellcheck="false"></label>
+        <label class="field"><span>Contato para a implantação (nome, e-mail ou telefone)</span><input id="f-contato" maxlength="120"></label>
+        <label class="field"><span>Observação (opcional)</span><textarea id="f-obs" rows="2" maxlength="1000"></textarea></label>
+      </div>
+      <button class="btn btn--primary" id="f-save" type="submit">Testar e salvar</button>
       <p class="conn" id="f-msg" role="status"></p>
     </form>
     <div class="card form" id="fin" hidden>
@@ -64,9 +71,9 @@
     </div>
   </main>
 </div>
-<script src="core.js?v=0.22.0"></script>
-<script src="api.js?v=0.22.0"></script>
-<script src="bridge.js?v=0.22.0"></script>
-<script src="config.js?v=0.22.0"></script>
+<script src="core.js?v=0.23.0"></script>
+<script src="api.js?v=0.23.0"></script>
+<script src="bridge.js?v=0.23.0"></script>
+<script src="config.js?v=0.23.0"></script>
 </body>
 </html>

@@ -22,7 +22,7 @@ export function criarAdaptador(erp: string, credencial: unknown, log: LogErp): E
     case "asa":
       return new AsaAdapter(credencial as CredencialAsa, log);
     case "padrao":
-      return new PadraoAdapter(credencial as CredencialPadrao, log);
+      return new PadraoAdapter(credencial as Record<string, unknown>, log);
     default:
       throw new ErpDesconhecido(erp);
   }

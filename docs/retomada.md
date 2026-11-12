@@ -11,7 +11,21 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
-## 09/11: multi-ERP, fase 3: extensão genérica (0.22.0, sem deploy)
+## 12/11: conectores, partes A a D (0.23.0, sem commit e sem deploy)
+
+A ClinFy passa a ligar em qualquer ERP por **conector**: uma configuração em JSON que traduz as rotas da especificação para as do sistema. Desenho em [`conectores.md`](conectores.md); pesquisa do mercado em [`erps-mercado.md`](erps-mercado.md).
+
+- **A. Motor:** `src/erp/conector/motor.ts`. O padrão Kentro virou o conector que não traduz nada.
+- **B. Catálogo:** migração 013 e `src/erp/catalogo.ts`. `tenants.erp` aponta para o slug do conector.
+- **C. Central:** a seção "Central de conectores" da `/implantacao`, com conectores, pedidos, documentação (link ou arquivo; credenciais de coleções JSON removidas), configuração validada, teste só de leitura com credencial e publicação. Rotas em `src/routes/conectores.ts`.
+- 92 testes, com um ERP falso no estilo Feegow ligado só por configuração.
+- **D. Tela de conexão:** o "Configurar ClinFy" lista os sistemas publicados, monta os campos do escolhido, testa e salva. "Outro / não encontrei" vira pedido na Central.
+- **Falta:**
+    - exercitar a Central e a tela de conexão com banco depois do deploy: criar um rascunho, anexar documento, testar e ligar uma clínica;
+    - E, a Feegow, que depende de a rede voltar para ler `docs.feegow.com` e de uma credencial de homologação.
+- Em 12/11, esta máquina não alcançava o GitHub: o commit e o push ficam para quando a rede voltar.
+
+## 09/11: multi-ERP, fase 3: extensão genérica (0.22.0, no ar e validada)
 
 As telas escrevem o nome do sistema da clínica ("na Asa", "no Feegow"), e financeiro e confirmação só aparecem se o ERP tiver essas rotas. A implantação ganhou o bloco "Sistema da clínica (ERP)", com "Testar conexão". Detalhes em [`multi-erp.md`](multi-erp.md).
 

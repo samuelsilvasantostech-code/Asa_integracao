@@ -615,3 +615,9 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .combo__opt mark { background: none; color: inherit; font-weight: 700; }
 .combo__hint { font-weight: 400; font-size: 11.5px; }
 .combo__hint:empty { display: none; }
+
+/* Tela de conexão: campos do sistema escolhido e o pedido de sistema fora da lista. */
+#f-campos, #f-outro { display: grid; gap: 12px; }
+#f-campos:empty { display: none; }
+#f-outro[hidden] { display: none; }
+#f-campos .hint { margin: 2px 0 0; font-weight: 400; }

@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "kentro.asa-saude",
   "name": "ClinFy",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "description": "ClinFy: pacientes, consultas e agenda do sistema (ERP) da clínica, no atendimento e em tela cheia.",
   "author": {
     "name": "Kentro"

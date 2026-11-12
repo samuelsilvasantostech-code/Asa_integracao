@@ -6,6 +6,10 @@ import { telefoneKentro } from "../../confirmacao.js";
 import type { BuscaPaciente, ErpAdapter, FalhaErp, PedidoConta, PedidoMarcacao, Resultado, StatusConsulta, Vaga } from "../adaptador.js";
 import type { LogErp } from "../asa/adaptador.js";
 import type { Agendado, Consulta, ConsultaD1, Exame, Horario, Paciente } from "../modelo.js";
+import {
+  classificarErro, CONECTOR_PADRAO, mapearResposta, mensagemDeErro, montarRequisicao, rotaDaEspecificacao,
+  type ConectorConfig, type TipoErro,
+} from "../conector/motor.js";
 
 export interface CredencialPadrao {
   base_url: string; // ex.: https://erp.exemplo.com/api/v1 (sem barra no fim)
@@ -53,36 +57,49 @@ function consulta(a: any): Consulta {
 }
 
 export class PadraoAdapter implements ErpAdapter {
-  readonly erp = "padrao";
-  private readonly base: string;
+  readonly erp: string;
 
+  // `conector` traduz as rotas da especificação para as do ERP (erp/conector/motor.ts). Sem ele, o ERP fala
+  // a própria especificação. `credencial` = os campos que o conector pede (base_url e token, no padrão).
   constructor(
-    private readonly credencial: CredencialPadrao,
+    private readonly credencial: Record<string, unknown>,
     private readonly log: LogErp,
+    private readonly conector: ConectorConfig = CONECTOR_PADRAO,
+    nome = "padrao",
   ) {
-    this.base = String(credencial.base_url ?? "").replace(/\/+$/, "");
+    this.erp = nome;
   }
 
-  // Uma chamada à API do ERP. Erros viram FalhaErp pelos códigos HTTP da especificação.
+  // Uma chamada a uma rota da especificação, traduzida pelo conector. Erros viram FalhaErp: primeiro pelas
+  // regras do conector, depois pelos códigos HTTP da especificação.
   private async chamar<T>(
     metodo: "GET" | "POST",
     caminho: string,
     opcoes: { params?: Params; corpo?: unknown; idempotencia?: string; timeoutMs?: number } = {},
   ): Promise<Resultado<T>> {
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(opcoes.params ?? {})) if (v !== undefined && v !== null && v !== "") qs.append(k, String(v));
-    const url = `${this.base}${caminho}${qs.size ? "?" + qs.toString() : ""}`;
-    const headers: Record<string, string> = { Authorization: `Bearer ${this.credencial.token}`, Accept: "application/json", "User-Agent": USER_AGENT };
-    if (opcoes.corpo !== undefined) headers["Content-Type"] = "application/json";
-    if (opcoes.idempotencia) headers["Idempotency-Key"] = opcoes.idempotencia;
+    const c = this.conector;
+    const achada = rotaDaEspecificacao(metodo, caminho);
+    const rota = achada ? c.rotas[achada.chave] ?? null : null;
+    if (!rota && !c.especificacao) {
+      // O conector não descreve esta rota: o ERP não tem o recurso.
+      return falha("ERP_NAO_ENCONTRADO", 404, { naoEncontrado: true, msg: `o conector não tem ${achada?.chave ?? metodo + " " + caminho}` });
+    }
+    const entrada = { path: achada?.path ?? {}, query: opcoes.params ?? {}, corpo: opcoes.corpo, cred: this.credencial };
+    let req;
+    try {
+      req = montarRequisicao(c, rota, { metodo, caminho }, entrada, opcoes.idempotencia);
+    } catch (err: any) {
+      return falha("ERP_CONECTOR_INVALIDO", 0, { msg: String(err?.message ?? err) });
+    }
+    req.headers["User-Agent"] = USER_AGENT;
 
     let resp: Response;
     const inicio = Date.now();
     try {
-      resp = await fetch(url, {
-        method: metodo,
-        headers,
-        body: opcoes.corpo === undefined ? undefined : JSON.stringify(opcoes.corpo),
+      resp = await fetch(req.url, {
+        method: req.metodo,
+        headers: req.headers,
+        body: req.body,
         signal: AbortSignal.timeout(opcoes.timeoutMs ?? TEMPO_LEITURA_MS),
         redirect: "error", // o token nunca segue um redirecionamento
       });
@@ -98,22 +115,39 @@ export class PadraoAdapter implements ErpAdapter {
     } catch {
       // corpo não é JSON
     }
-    if (resp.ok) {
-      if (resp.status !== 204 && corpo === null) return falha("ERP_RESPOSTA_INVALIDA", resp.status);
-      return { ok: true, dados: corpo as T };
-    }
 
+    // Mensagem: a do conector, ou o envelope de erro da especificação.
     const codigo = texto(corpo?.erro?.codigo);
-    const mensagem = texto(corpo?.erro?.mensagem) ?? undefined;
-    const campos = corpo?.erro?.campos && typeof corpo.erro.campos === "object"
+    const camposErro = corpo?.erro?.campos && typeof corpo.erro.campos === "object"
       ? Object.entries(corpo.erro.campos).map(([k, v]) => `${k}: ${v}`).join("; ")
       : "";
-    const msg = [mensagem, campos].filter(Boolean).join(" — ").slice(0, 400) || undefined;
-    if (resp.status === 401) return falha("ERP_CREDENCIAL_INVALIDA", 401, { credencialInvalida: true, msg });
-    if (resp.status === 404) return falha("ERP_NAO_ENCONTRADO", 404, { naoEncontrado: true, msg });
-    if (resp.status >= 500 || resp.status === 429) return falha("ERP_FORA_DO_AR", resp.status, { msg });
-    // 400, 403, 409, 422: recusa de negócio. O código do ERP vai junto na mensagem, para o log e a tela.
-    return falha("ERP_RECUSOU", resp.status, { recusa: true, msg: msg ?? codigo ?? undefined, ...(codigo ? { codigoErp: codigo } : {}) });
+    const msg = mensagemDeErro(c, corpo) ?? ([texto(corpo?.erro?.mensagem), camposErro].filter(Boolean).join(" — ").slice(0, 400) || undefined);
+    const extra = codigo ? { codigoErp: codigo } : {};
+
+    let tipo: TipoErro | null;
+    try {
+      tipo = classificarErro(c, resp.status, corpo);
+    } catch (err: any) {
+      return falha("ERP_CONECTOR_INVALIDO", resp.status, { msg: String(err?.message ?? err) });
+    }
+    if (tipo === "credencial") return falha("ERP_CREDENCIAL_INVALIDA", resp.status, { credencialInvalida: true, msg, ...extra });
+    if (tipo === "nao_encontrado") return falha("ERP_NAO_ENCONTRADO", resp.status, { naoEncontrado: true, msg, ...extra });
+    if (tipo === "recusa") return falha("ERP_RECUSOU", resp.status, { recusa: true, msg: msg ?? codigo ?? undefined, ...extra });
+
+    if (resp.ok) {
+      if (resp.status !== 204 && corpo === null) return falha("ERP_RESPOSTA_INVALIDA", resp.status);
+      if (rota?.resposta === undefined) return { ok: true, dados: corpo as T };
+      try {
+        return { ok: true, dados: mapearResposta(rota.resposta, corpo) as T };
+      } catch (err: any) {
+        return falha("ERP_RESPOSTA_INVALIDA", resp.status, { msg: String(err?.message ?? err) });
+      }
+    }
+    if (resp.status === 401) return falha("ERP_CREDENCIAL_INVALIDA", 401, { credencialInvalida: true, msg, ...extra });
+    if (resp.status === 404) return falha("ERP_NAO_ENCONTRADO", 404, { naoEncontrado: true, msg, ...extra });
+    if (resp.status >= 500 || resp.status === 429) return falha("ERP_FORA_DO_AR", resp.status, { msg, ...extra });
+    // 400, 403, 409, 422: recusa de negócio. O código do ERP vai junto, para o log e a tela.
+    return falha("ERP_RECUSOU", resp.status, { recusa: true, msg: msg ?? codigo ?? undefined, ...extra });
   }
 
   // Transforma o sucesso; a falha passa adiante.

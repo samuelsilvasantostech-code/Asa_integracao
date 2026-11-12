@@ -38,6 +38,9 @@
     return {
       testConnection: function () { return request('GET', '/v1/tenant/conexao/teste'); },
       capabilities: function () { return request('GET', '/v1/capacidades', null, 8000); },
+      connectors: function () { return request('GET', '/v1/conectores'); },
+      connect: function (erp, credencial) { return request('POST', '/v1/conectores/ligar', { erp: erp, credencial: credencial }, 45000); },
+      requestSystem: function (payload) { return request('POST', '/v1/conectores/pedido', payload); },
       patient: function (by) { return request('GET', '/v1/paciente' + query({ telefone: by.telefone, cpf: by.cpf })); },
       schedule: function () { return request('GET', '/v1/agenda'); },
       days: function (providerId) { return request('GET', '/v1/agenda/dias' + query({ prestador_id: providerId })); },

@@ -91,20 +91,17 @@
 
       <form id="f-erp" class="bloco" autocomplete="off">
         <h3>Sistema da clínica (ERP)</h3>
-        <p class="dica">Qual ERP a clínica usa e como as telas da extensão escrevem o nome dele ("na Asa", "no Feegow"). No padrão Kentro, o endereço e o token são testados antes de gravar; o token fica cifrado e não volta para esta tela. Para manter a credencial já gravada, deixe endereço e token em branco.</p>
+        <p class="dica">Qual sistema a clínica usa (a lista vem da Central de conectores) e, se quiser, outro nome nas telas. Os campos de acesso são os que o conector pede: são testados antes de gravar, ficam cifrados e não voltam para esta tela. Para manter a credencial já gravada, deixe os campos em branco.</p>
         <div class="grade">
           <label class="campo"><span>ERP</span>
-            <select id="e-erp"><option value="asa">Asa Saúde (API própria)</option><option value="padrao">Padrão Kentro (especificação ClinFy)</option></select>
+            <select id="e-erp"><option value="asa">Asa</option><option value="padrao">Sistema próprio (padrão Kentro)</option></select>
           </label>
-          <label class="campo"><span>Nome nas telas</span><input id="e-nome" maxlength="40" placeholder="Asa, Feegow…" spellcheck="false"></label>
+          <label class="campo"><span>Nome nas telas (opcional)</span><input id="e-nome" maxlength="40" placeholder="o do conector" spellcheck="false"></label>
           <label class="campo"><span>Artigo</span>
             <select id="e-artigo"><option value="a">a (na Asa)</option><option value="o">o (no Feegow)</option></select>
           </label>
         </div>
-        <div class="grade" id="e-padrao" hidden>
-          <label class="campo campo--largo"><span>Endereço da API (https)</span><input id="e-url" type="url" placeholder="https://erp.exemplo.com/api/v1" spellcheck="false"></label>
-          <label class="campo"><span>Token</span><input id="e-token" type="password" autocomplete="off" spellcheck="false"></label>
-        </div>
+        <div class="grade" id="e-campos" hidden></div>
         <div class="acoes">
           <button type="submit" class="btn btn--primario">Salvar ERP</button>
           <button type="button" class="btn" id="e-testar">Testar conexão</button>
@@ -223,6 +220,97 @@
         </div>
         <p class="msg" id="m-historico" role="status"></p>
       </form>
+    </section>
+
+    <section class="cartao" id="central" aria-labelledby="h-central">
+      <div class="cabeca">
+        <h2 id="h-central">Central de conectores</h2>
+        <button type="button" class="btn" id="cx-atualizar">Atualizar</button>
+      </div>
+      <p class="dica">Um conector por sistema (ERP): ele traduz as rotas da especificação ClinFy para as do sistema. Caminho: <strong>rascunho</strong> → <strong>homologação</strong> (uma clínica liga para testar) → <strong>publicado</strong> (aparece para todas as clínicas).</p>
+      <div class="tabela-rolagem">
+        <table class="tabela">
+          <caption class="sr">Conectores do catálogo</caption>
+          <thead><tr><th scope="col">Sistema</th><th scope="col">Situação</th><th scope="col">Versão</th><th scope="col">Documentos</th><th scope="col">Clínicas</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
+          <tbody id="cx-lista"></tbody>
+        </table>
+      </div>
+      <p class="msg" id="m-cx" role="status"></p>
+
+      <div class="bloco">
+        <h3>Pedidos das clínicas</h3>
+        <p class="dica">Sistemas que uma clínica escolheu como "Outro / não encontrei". Crie o conector a partir do pedido e anexe a documentação.</p>
+        <div class="tabela-rolagem">
+          <table class="tabela">
+            <caption class="sr">Pedidos de sistemas fora do catálogo</caption>
+            <thead><tr><th scope="col">Sistema</th><th scope="col">Clínica</th><th scope="col">Contato</th><th scope="col">Situação</th><th scope="col">Desde</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
+            <tbody id="cx-pedidos"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <form id="f-cx-novo" class="bloco grade" autocomplete="off">
+        <h3>Novo conector</h3>
+        <label class="campo"><span>Nome do sistema</span><input id="cx-n-nome" maxlength="40" placeholder="Feegow" required></label>
+        <label class="campo"><span>Identificador</span><input id="cx-n-slug" maxlength="40" pattern="[a-z][a-z0-9-]{1,39}" placeholder="feegow" spellcheck="false" required></label>
+        <label class="campo"><span>Artigo</span><select id="cx-n-artigo"><option value="o">o (no Feegow)</option><option value="a">a (na Asa)</option></select></label>
+        <div class="acoes"><button type="submit" class="btn btn--primario">Criar rascunho</button></div>
+        <p class="msg" id="m-cx-novo" role="status"></p>
+      </form>
+
+      <div id="cx-detalhe" class="bloco" hidden>
+        <div class="cabeca">
+          <h3 id="cx-titulo" tabindex="-1">Conector</h3>
+          <button type="button" class="btn" id="cx-fechar">Fechar</button>
+        </div>
+        <dl class="resumo" id="cx-resumo"></dl>
+
+        <form id="f-cx-dados" class="grade" autocomplete="off">
+          <label class="campo"><span>Nome nas telas</span><input id="cx-nome" maxlength="40" required></label>
+          <label class="campo"><span>Artigo</span><select id="cx-artigo"><option value="o">o</option><option value="a">a</option></select></label>
+          <label class="campo"><span>Situação</span>
+            <select id="cx-situacao"><option value="rascunho">Rascunho</option><option value="homologacao">Homologação</option><option value="publicado">Publicado</option><option value="arquivado">Arquivado</option></select>
+          </label>
+          <label class="campo campo--largo"><span>Observação</span><textarea id="cx-obs" rows="2" maxlength="1000"></textarea></label>
+          <div class="acoes"><button type="submit" class="btn btn--primario">Salvar dados e situação</button></div>
+          <p class="msg" id="m-cx-dados" role="status"></p>
+        </form>
+
+        <form id="f-cx-config" class="bloco" autocomplete="off">
+          <h3>Configuração</h3>
+          <p class="dica">JSON do conector: autenticação, campos que a clínica preenche e a tradução de cada rota da especificação. É validado antes de gravar; cada gravação sobe a versão, e as clínicas passam a usar a nova em até 30 segundos.</p>
+          <label class="campo"><span class="sr">Configuração em JSON</span><textarea id="cx-config" class="mono" rows="18" spellcheck="false"></textarea></label>
+          <div class="acoes"><button type="submit" class="btn btn--primario">Validar e salvar</button></div>
+          <p class="msg" id="m-cx-config" role="status"></p>
+          <ul class="erros" id="cx-erros"></ul>
+        </form>
+
+        <div class="bloco">
+          <h3>Documentação</h3>
+          <p class="dica">Link ou arquivo da API do sistema (OpenAPI/Swagger, coleção do Postman, PDF). Fica só aqui, para a chave de administrador. Credenciais dentro de coleções do Postman e de OpenAPI em JSON são apagadas ao receber; em PDF e outros formatos, não: confira antes de enviar.</p>
+          <ul class="docs" id="cx-docs"></ul>
+          <form id="f-cx-doc" class="grade" autocomplete="off">
+            <label class="campo"><span>De onde veio</span><input id="cx-doc-origem" maxlength="200" placeholder="Clínica X, fornecedor…"></label>
+            <label class="campo"><span>Link</span><input id="cx-doc-url" type="url" spellcheck="false" placeholder="https://…"></label>
+            <label class="campo"><span>Ou arquivo (até 10 MB)</span><input id="cx-doc-arquivo" type="file"></label>
+            <div class="acoes"><button type="submit" class="btn btn--primario">Anexar</button></div>
+            <p class="msg" id="m-cx-doc" role="status"></p>
+          </form>
+        </div>
+
+        <form id="f-cx-teste" class="bloco" autocomplete="off">
+          <h3>Testar com credencial</h3>
+          <p class="dica">Só leitura: conexão, profissionais, dias e horários livres, agenda do dia e, se informar, a busca de um paciente. A credencial não é gravada. Funciona também com o rascunho.</p>
+          <div class="grade" id="cx-teste-campos"></div>
+          <div class="grade">
+            <label class="campo"><span>CPF de um paciente de teste (opcional)</span><input id="cx-teste-cpf" inputmode="numeric" maxlength="14"></label>
+            <label class="campo"><span>Ou telefone (opcional)</span><input id="cx-teste-tel" inputmode="tel" maxlength="20"></label>
+          </div>
+          <div class="acoes"><button type="submit" class="btn btn--primario">Testar</button></div>
+          <p class="msg" id="m-cx-teste" role="status"></p>
+          <ul class="passos" id="cx-passos"></ul>
+        </form>
+      </div>
     </section>
   </div>
 </main>

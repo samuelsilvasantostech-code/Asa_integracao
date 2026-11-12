@@ -2,11 +2,12 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { cifraDisponivel, cifrar, decifrar } from "../crypto.js";
 import { pool } from "../db.js";
 import { instituicaoDa, type CredencialAsa } from "../erp/asa/cliente.js";
-import { criarAdaptador } from "../erp/index.js";
+import { adaptadorPara, camposDe, carregarConector, type Conector } from "../erp/catalogo.js";
 import { perfilErp, tenantDaRequisicao } from "../tenant-auth.js";
 import { CAMPOS, datasAlvo, hojeEm, lerConfig, MAX_PARAMETROS, preencher, TEXTOS_PADRAO, variaveisTemplate, varsDa, varsResposta } from "../confirmacao.js";
 import { instituicaoConfere } from "../implantacao.js";
 import { adminAutorizado } from "./admin.js";
+import { ligarErp } from "./conectores.js";
 
 export async function tenantRoutes(app: FastifyInstance) {
   // O ERP da clínica para as telas: qual é, como as telas escrevem o nome dele e o que ele suporta. Não
@@ -33,7 +34,7 @@ export async function tenantRoutes(app: FastifyInstance) {
     let erp;
     try {
       credencial = JSON.parse(decifrar(tenant.credencial));
-      erp = criarAdaptador(tenant.erp, credencial, req.log);
+      erp = await adaptadorPara(tenant.erp, credencial, req.log);
     } catch (err) {
       req.log.error({ err, erp: tenant.erp }, "falha ao abrir a credencial ou o adaptador do ERP");
       return { ...base, ...estado("erro_interno") };
@@ -53,6 +54,62 @@ export async function tenantRoutes(app: FastifyInstance) {
     if (!tenant) return;
     if (tenant.credencial && !adminAutorizado(req)) return reply.code(403).send({ erro: "CREDENCIAL_JA_CADASTRADA" });
     return gravarCredencial(req, reply, tenant.id, req.body?.token, "clinica");
+  });
+
+  /* ---------- tela de conexão da clínica (Configurar ClinFy) ---------- */
+
+  // Sistemas que a clínica pode escolher (publicados), com os campos de cada um. O conector em homologação
+  // só aparece para a clínica que já está nele.
+  app.get("/v1/conectores", async (req, reply) => {
+    const tenant = await tenantDaRequisicao(req, reply);
+    if (!tenant) return;
+    const { rows } = await pool!.query<Conector>(
+      `SELECT slug, nome, artigo, tipo, situacao, versao, config FROM conectores
+        WHERE situacao = 'publicado' OR (situacao = 'homologacao' AND slug = $1) ORDER BY nome`,
+      [tenant.erp],
+    );
+    return {
+      atual: tenant.erp,
+      tem_credencial: !!tenant.credencial,
+      conectores: rows
+        .map((c) => ({ slug: c.slug, nome: c.slug === "padrao" ? "Sistema próprio (padrão Kentro)" : c.nome, artigo: c.artigo, campos: camposDe(c) }))
+        .filter((c) => c.campos.length > 0),
+    };
+  });
+
+  // Liga a clínica ao sistema escolhido. Só no primeiro cadastro: com credencial gravada, trocar é com a
+  // implantação (a chave da instalação está no navegador de todo atendente).
+  app.post<{ Body: { erp?: string; credencial?: Record<string, unknown> } }>("/v1/conectores/ligar", async (req, reply) => {
+    const tenant = await tenantDaRequisicao(req, reply);
+    if (!tenant) return;
+    if (tenant.credencial && !adminAutorizado(req)) return reply.code(403).send({ erro: "CREDENCIAL_JA_CADASTRADA" });
+    const slug = String(req.body?.erp ?? "");
+    const c = /^[a-z][a-z0-9-]{1,39}$/.test(slug) ? await carregarConector(slug) : null;
+    if (!c || !(c.situacao === "publicado" || (c.situacao === "homologacao" && tenant.erp === slug))) return reply.code(400).send({ erro: "ERP_INVALIDO" });
+    if (slug === "asa") {
+      // A Asa tem o próprio cadastro de token (instituição conferida). A clínica passa a ser da Asa antes.
+      if (tenant.erp !== "asa") await pool!.query("UPDATE tenants SET erp = 'asa', erp_capacidades = NULL, erp_testado_em = NULL WHERE id = $1", [tenant.id]);
+      return gravarCredencial(req, reply, tenant.id, req.body?.credencial?.token, "clinica");
+    }
+    return ligarErp(req, reply, tenant.id, slug, req.body?.credencial, "clinica");
+  });
+
+  // Sistema que não está na lista: vira pedido na Central de conectores. Até 5 pedidos abertos por clínica.
+  app.post<{ Body: { sistema?: string; contato?: string; observacao?: string } }>("/v1/conectores/pedido", async (req, reply) => {
+    const tenant = await tenantDaRequisicao(req, reply);
+    if (!tenant) return;
+    const sistema = String(req.body?.sistema ?? "").trim();
+    if (sistema.length < 2 || sistema.length > 80) return reply.code(400).send({ erro: "SISTEMA_INVALIDO" });
+    const contato = String(req.body?.contato ?? "").trim().slice(0, 120) || null;
+    const observacao = String(req.body?.observacao ?? "").trim().slice(0, 1000) || null;
+    const { rows } = await pool!.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM conector_pedidos WHERE tenant_id = $1 AND situacao IN ('aberto', 'em_andamento')",
+      [tenant.id],
+    );
+    if (rows[0].n >= 5) return reply.code(429).send({ erro: "MUITOS_PEDIDOS" });
+    await pool!.query("INSERT INTO conector_pedidos (tenant_id, sistema, contato, observacao) VALUES ($1, $2, $3, $4)", [tenant.id, sistema, contato, observacao]);
+    req.log.info({ tenant: tenant.id, sistema }, "pedido de conector aberto pela clínica");
+    return reply.code(201).send({ ok: true });
   });
 
   // Configuração da confirmação de véspera: a tela "Confirmação Asa" só lê. Quem grava é a implantação
@@ -117,7 +174,7 @@ export async function gravarCredencial(
 
   const credencial: CredencialAsa = { token };
   const instituicao_id = instituicaoDa(credencial);
-  const r = await criarAdaptador(atual[0].erp, credencial, req.log).testarConexao();
+  const r = await (await adaptadorPara(atual[0].erp, credencial, req.log)).testarConexao();
   if (!r.ok) {
     const status = r.credencialInvalida ? 422 : 502;
     return reply.code(status).send({ erro: r.erro });

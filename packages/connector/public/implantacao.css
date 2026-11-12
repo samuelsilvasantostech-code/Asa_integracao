@@ -89,3 +89,15 @@ code { background: var(--pinho-claro); padding: 1px 5px; border-radius: 4px; fon
 .segredo { margin-top: 10px; border: 2px solid var(--aviso); background: #fff8e8; border-radius: 8px; padding: 12px; }
 .segredo p { margin: 4px 0 8px; }
 .segredo__valor { font-family: ui-monospace, monospace; flex: 1 1 320px; }
+
+/* Central de conectores */
+.mono { font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: .85rem; line-height: 1.45; white-space: pre; tab-size: 2; }
+.erros { margin: 6px 0 0; padding-left: 20px; color: var(--erro); font-size: .9rem; }
+.docs, .passos { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; }
+.docs li { border: 1px solid var(--borda); border-radius: 6px; padding: 8px 10px; }
+.docs li .btn { margin-top: 6px; margin-right: 6px; }
+.docs a { word-break: break-all; }
+.passos li { padding: 6px 10px; border-radius: 6px; background: var(--fundo, #f6f7f6); font-size: .92rem; }
+.passo--ok strong { color: var(--ok); }
+.passo--falha strong { color: var(--erro); }
+.tabela td .btn + .btn { margin-left: 6px; }

@@ -3,7 +3,8 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { decifrar } from "./crypto.js";
 import { pool } from "./db.js";
 import { lerCapacidades, sistemaDe, type Capacidades, type Sistema } from "./erp/capacidades.js";
-import { criarAdaptador, type ErpAdapter } from "./erp/index.js";
+import { adaptadorPara } from "./erp/catalogo.js";
+import type { ErpAdapter } from "./erp/index.js";
 import { precisaMarcarUso } from "./implantacao.js";
 
 const hash = (valor: string) => createHash("sha256").update(valor).digest("hex");
@@ -45,13 +46,13 @@ export async function tenantDaRequisicao(req: FastifyRequest, reply: FastifyRepl
 }
 
 // Adaptador do ERP da clínica, com a credencial decifrada. Responde o erro e devolve null quando não dá.
-function adaptadorDe(req: FastifyRequest, reply: FastifyReply, erp: string, cifrada: Buffer | null): ErpAdapter | null {
+async function adaptadorDe(req: FastifyRequest, reply: FastifyReply, erp: string, cifrada: Buffer | null): Promise<ErpAdapter | null> {
   if (!cifrada) {
     reply.code(409).send({ erro: "CREDENCIAL_AUSENTE" });
     return null;
   }
   try {
-    return criarAdaptador(erp, JSON.parse(decifrar(cifrada)), req.log);
+    return await adaptadorPara(erp, JSON.parse(decifrar(cifrada)), req.log);
   } catch (err) {
     req.log.error({ err, erp }, "falha ao abrir a credencial ou o adaptador do ERP");
     reply.code(500).send({ erro: "ERRO_INTERNO" });
@@ -63,7 +64,7 @@ function adaptadorDe(req: FastifyRequest, reply: FastifyReply, erp: string, cifr
 export async function tenantComErp(req: FastifyRequest, reply: FastifyReply): Promise<{ tenant: Tenant; erp: ErpAdapter } | null> {
   const tenant = await tenantDaRequisicao(req, reply);
   if (!tenant) return null;
-  const erp = adaptadorDe(req, reply, tenant.erp, tenant.credencial);
+  const erp = await adaptadorDe(req, reply, tenant.erp, tenant.credencial);
   return erp ? { tenant, erp } : null;
 }
 
@@ -99,18 +100,21 @@ export async function tenantDaAutomacao(req: FastifyRequest, reply: FastifyReply
     reply.code(401).send({ erro: "CHAVE_INVALIDA" });
     return null;
   }
-  const erp = adaptadorDe(req, reply, t.erp, t.asa_credencial_cifrada);
+  const erp = await adaptadorDe(req, reply, t.erp, t.asa_credencial_cifrada);
   if (!erp) return null;
   return { id: t.id, nome: t.nome, confirmacao: t.confirmacao, erp };
 }
 
 // ERP da clínica como as telas precisam: qual é, como se chama e o que suporta. Sem chamar o ERP.
 export async function perfilErp(tenantId: string): Promise<{ erp: string; sistema: Sistema; capacidades: Capacidades } | null> {
-  const { rows } = await pool!.query<{ erp: string; sistema_nome: string | null; sistema_artigo: string | null; erp_capacidades: unknown }>(
-    "SELECT erp, sistema_nome, sistema_artigo, erp_capacidades FROM tenants WHERE id = $1",
+  // Sem nome próprio na clínica, vale o nome do conector ("Asa", "Feegow").
+  const { rows } = await pool!.query<{ erp: string; sistema_nome: string | null; sistema_artigo: string | null; erp_capacidades: unknown; c_nome: string | null; c_artigo: string | null }>(
+    `SELECT t.erp, t.sistema_nome, t.sistema_artigo, t.erp_capacidades, c.nome AS c_nome, c.artigo AS c_artigo
+       FROM tenants t LEFT JOIN conectores c ON c.slug = t.erp WHERE t.id = $1`,
     [tenantId],
   );
   const t = rows[0];
   if (!t) return null;
-  return { erp: t.erp, sistema: sistemaDe(t.sistema_nome, t.sistema_artigo, t.erp), capacidades: lerCapacidades(t.erp, t.erp_capacidades) };
+  const sistema = t.sistema_nome ? sistemaDe(t.sistema_nome, t.sistema_artigo, t.erp) : sistemaDe(t.c_nome, t.c_artigo, t.erp);
+  return { erp: t.erp, sistema, capacidades: lerCapacidades(t.erp, t.erp_capacidades) };
 }
