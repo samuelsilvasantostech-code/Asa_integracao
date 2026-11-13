@@ -6,7 +6,14 @@
   var TEXTOS = ['mensagem', 'confirmado', 'cancelado', 'remarcar', 'ja_respondido', 'indisponivel'];
   var ACOES = ['confirmar', 'remarcar', 'cancelar'];
   var ERROS = {
-    NAO_AUTORIZADO: 'Chave de administrador recusada.',
+    NAO_AUTORIZADO: 'Chave de administrador recusada, ou a sessão terminou. Entre de novo.',
+    LOGIN_INVALIDO: 'Usuário ou senha incorretos.',
+    JA_HA_USUARIOS: 'O primeiro acesso já foi criado. Entre com usuário e senha.',
+    USUARIO_INVALIDO: 'Usuário: 3 a 80 caracteres, só letras minúsculas, números e . _ @ -',
+    SENHA_FRACA: 'A senha precisa ter pelo menos 10 caracteres.',
+    USUARIO_JA_EXISTE: 'Já existe um usuário com esse nome de acesso.',
+    NAO_PODE_DESATIVAR_A_SI: 'Você não pode desativar o seu próprio acesso.',
+    USUARIO_NAO_ENCONTRADO: 'Usuário não encontrado.',
     MUITAS_TENTATIVAS: 'Muitas tentativas com chave errada. Aguarde alguns minutos.',
     BANCO_NAO_CONFIGURADO: 'O Conector está sem banco de dados.',
     ID_INVALIDO: 'Cliente inválido.',
@@ -81,8 +88,15 @@
   }
   function linhas(v) { return v.split(/[\n,;]+/).map(function (s) { return s.trim(); }).filter(Boolean); }
 
+  // Com sessão (usuário e senha), o cookie vai sozinho e o x-clinfy prova que o pedido saiu desta tela.
+  // Com a chave de administrador (emergência), ela vai no header.
+  function cabecalhos() {
+    var h = { 'x-clinfy': '1' };
+    if (chave) h['x-admin-key'] = chave;
+    return h;
+  }
   function chamar(metodo, caminho, corpo) {
-    var opt = { method: metodo, headers: { 'x-admin-key': chave }, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' };
+    var opt = { method: metodo, headers: cabecalhos(), cache: 'no-store', credentials: 'same-origin', referrerPolicy: 'no-referrer' };
     if (corpo !== undefined) { opt.headers['content-type'] = 'application/json'; opt.body = JSON.stringify(corpo); }
     return fetch(caminho, opt).then(function (r) {
       return r.json().catch(function () { return null; }).then(function (b) { return { status: r.status, body: b }; });
@@ -145,12 +159,72 @@
     });
     return ativar;
   }
-  var irPara = ligarAbas(['nav-clientes', 'nav-sistemas', 'nav-pedidos']);
+  var irPara = ligarAbas(['nav-clientes', 'nav-sistemas', 'nav-pedidos', 'nav-usuarios'], function (id) { if (id === 'nav-usuarios') carregarUsuarios(); });
   var abaDoCliente = ligarAbas(['da-sistema', 'da-instalacao', 'da-financeiro', 'da-confirmacao', 'da-avancado']);
 
   function urlManifest() { return location.origin + '/extensao/manifest.json'; }
 
   /* ---------- acesso ---------- */
+  var eu = null; // usuário da sessão; null quando entrou pela chave
+
+  function abrirArea() {
+    $('acesso').hidden = true;
+    $('area').hidden = false;
+    $('nav').hidden = false;
+    $('b-sair').hidden = false;
+    $('nav-usuarios').hidden = false;
+    $('quem').textContent = eu ? eu.nome : 'Chave de administrador';
+    $('u-eu').value = eu ? eu.usuario : '';
+    $('f-u-senha').hidden = !eu;
+    irPara('nav-clientes');
+    carregarConectores();
+  }
+
+  // Ao abrir a página: sessão ainda válida entra direto; sem nenhum usuário, mostra o primeiro acesso.
+  function conferirSessao() {
+    chamar('GET', '/admin/sessao').then(function (r) {
+      if (r.status === 200 && r.body && r.body.usuario) {
+        eu = r.body.usuario;
+        carregar().then(function (ok) { if (ok) abrirArea(); });
+        return;
+      }
+      var primeiro = !!(r.body && r.body.primeiro_acesso);
+      $('f-primeiro').hidden = !primeiro;
+      $('f-login').hidden = primeiro;
+      if (r.status === 503) msg('m-login', 'err', erroDe(r));
+      (primeiro ? $('p-chave') : $('l-usuario')).focus();
+    });
+  }
+
+  function login(ev) {
+    ev.preventDefault();
+    var corpo = { usuario: $('l-usuario').value, senha: $('l-senha').value };
+    msg('m-login', null, 'Conferindo…');
+    chamar('POST', '/admin/sessao', corpo).then(function (r) {
+      $('l-senha').value = '';
+      if (r.status !== 200) { msg('m-login', 'err', erroDe(r)); $('l-senha').focus(); return; }
+      msg('m-login', null, '');
+      conferirSessao();
+    });
+  }
+
+  function primeiroAcesso(ev) {
+    ev.preventDefault();
+    if ($('p-senha').value !== $('p-senha2').value) { msg('m-primeiro', 'err', 'As duas senhas não são iguais.'); return; }
+    var corpo = { nome: $('p-nome').value, usuario: $('p-usuario').value, senha: $('p-senha').value };
+    var chaveUmaVez = $('p-chave').value.trim();
+    msg('m-primeiro', null, 'Criando…');
+    fetch('/admin/primeiro-acesso', { method: 'POST', headers: { 'x-clinfy': '1', 'x-admin-key': chaveUmaVez, 'content-type': 'application/json' }, body: JSON.stringify(corpo), credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { return r.json().catch(function () { return null; }).then(function (b) { return { status: r.status, body: b }; }); }, function () { return { status: 0, body: null }; })
+      .then(function (r) {
+        $('p-chave').value = ''; $('p-senha').value = ''; $('p-senha2').value = '';
+        if (r.status !== 201) { msg('m-primeiro', 'err', erroDe(r)); return; }
+        msg('m-primeiro', 'ok', 'Acesso criado.');
+        conferirSessao();
+      });
+  }
+
+  // Emergência: entra com a ADMIN_KEY, que fica só nesta variável.
   function entrar(ev) {
     ev.preventDefault();
     chave = $('admin-key').value.trim();
@@ -160,19 +234,18 @@
     carregar().then(function (ok) {
       if (!ok) { chave = ''; return; }
       msg('m-acesso', null, '');
-      $('acesso').hidden = true;
-      $('area').hidden = false;
-      $('nav').hidden = false;
-      $('b-sair').hidden = false;
-      irPara('nav-clientes');
-      carregarConectores();
+      eu = null;
+      abrirArea();
     });
   }
+
   function sair() {
+    var tinhaSessao = !!eu;
     chave = '';
+    eu = null;
     tenants = []; atual = null; wiz = null;
     conectores = []; pedidos = []; conectorAtual = null;
-    ['lista', 's-chaves', 'w-chave', 'cx-lista', 'cx-pedidos', 'd-docs'].forEach(function (id) { $(id).textContent = ''; });
+    ['lista', 's-chaves', 'w-chave', 'cx-lista', 'cx-pedidos', 'd-docs', 'u-lista', 'quem'].forEach(function (id) { $(id).textContent = ''; });
     $('area').hidden = true;
     $('nav').hidden = true;
     $('b-sair').hidden = true;
@@ -180,8 +253,78 @@
     $('assistente').hidden = true;
     $('cx-detalhe').hidden = true;
     $('acesso').hidden = false;
-    msg('m-acesso', null, 'Saiu. A chave foi esquecida por esta página.');
-    $('admin-key').focus();
+    $('f-login').hidden = false;
+    $('f-primeiro').hidden = true;
+    msg('m-login', null, 'Saiu.');
+    if (tinhaSessao) chamar('DELETE', '/admin/sessao');
+    $('l-usuario').focus();
+  }
+
+  /* ---------- usuários ---------- */
+  function carregarUsuarios() {
+    msg('m-usuarios', null, 'Carregando…');
+    return chamar('GET', '/admin/usuarios').then(function (r) {
+      if (r.status !== 200 || !r.body) { msg('m-usuarios', 'err', erroDe(r)); return; }
+      msg('m-usuarios', null, r.body.usuarios.length ? '' : 'Nenhum usuário ainda.');
+      var tb = $('u-lista');
+      tb.textContent = '';
+      r.body.usuarios.forEach(function (u) {
+        var tr = el('tr');
+        var nome = el('td');
+        nome.appendChild(el('strong', null, u.nome));
+        if (eu && eu.id === u.id) nome.appendChild(el('span', 'sub', ' (você)'));
+        tr.appendChild(nome);
+        tr.appendChild(el('td', null, u.usuario));
+        var st = el('td');
+        st.appendChild(el('span', 'selo selo--' + (u.ativo ? 'ok' : 'off'), u.ativo ? 'Ativo' : 'Desativado'));
+        tr.appendChild(st);
+        tr.appendChild(el('td', null, dataHora(u.ultimo_acesso_em)));
+        tr.appendChild(el('td', null, dataHora(u.criado_em) + (u.criado_por ? ' · ' + u.criado_por : '')));
+        var acao = el('td');
+        if (!(eu && eu.id === u.id)) {
+          acao.appendChild(botao(u.ativo ? 'Desativar' : 'Reativar', null, function () { mudarUsuario(u, { ativo: !u.ativo }, u.ativo ? 'Desativar ' + u.nome + '? As sessões dele são encerradas.' : null); }));
+          acao.appendChild(botao('Nova senha', 'Definir nova senha para ' + u.nome, function () {
+            var s = window.prompt('Nova senha para ' + u.nome + ' (mínimo 10 caracteres):');
+            if (s) mudarUsuario(u, { senha: s }, null);
+          }));
+        }
+        tr.appendChild(acao);
+        tb.appendChild(tr);
+      });
+    });
+  }
+
+  function mudarUsuario(u, corpo, pergunta) {
+    if (pergunta && !window.confirm(pergunta)) return;
+    chamar('PATCH', '/admin/usuarios/' + encodeURIComponent(u.id), corpo).then(function (r) {
+      if (r.status !== 200) { msg('m-usuarios', 'err', erroDe(r)); return; }
+      msg('m-usuarios', 'ok', corpo.senha ? 'Senha de ' + u.nome + ' trocada.' : 'Salvo.');
+      carregarUsuarios();
+    });
+  }
+
+  function novoUsuario(ev) {
+    ev.preventDefault();
+    var corpo = { nome: $('u-nome').value, usuario: $('u-usuario').value, senha: $('u-senha').value };
+    msg('m-u-novo', null, 'Criando…');
+    chamar('POST', '/admin/usuarios', corpo).then(function (r) {
+      $('u-senha').value = '';
+      if (r.status !== 201) { msg('m-u-novo', 'err', erroDe(r)); return; }
+      msg('m-u-novo', 'ok', 'Usuário criado. Passe a senha inicial por um canal seguro e peça para trocar no primeiro acesso.');
+      $('f-u-novo').reset();
+      carregarUsuarios();
+    });
+  }
+
+  function trocarMinhaSenha(ev) {
+    ev.preventDefault();
+    if ($('u-nova').value !== $('u-nova2').value) { msg('m-u-senha', 'err', 'As duas senhas não são iguais.'); return; }
+    msg('m-u-senha', null, 'Salvando…');
+    chamar('PATCH', '/admin/usuarios/' + encodeURIComponent(eu.id), { senha: $('u-nova').value }).then(function (r) {
+      $('u-nova').value = ''; $('u-nova2').value = '';
+      if (r.status !== 200) { msg('m-u-senha', 'err', erroDe(r)); return; }
+      msg('m-u-senha', 'ok', 'Senha trocada. As suas outras sessões (outros navegadores) foram encerradas.');
+    });
   }
 
   /* ---------- lista ---------- */
@@ -946,7 +1089,7 @@
 
   // O arquivo vem como download (nunca aberto como página deste endereço).
   function baixarDoc(slug, d, msgId) {
-    fetch('/admin/conectores/' + encodeURIComponent(slug) + '/documentos/' + encodeURIComponent(d.id), { headers: { 'x-admin-key': chave } })
+    fetch('/admin/conectores/' + encodeURIComponent(slug) + '/documentos/' + encodeURIComponent(d.id), { headers: cabecalhos(), credentials: 'same-origin' })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
       .then(function (blob) {
         var url = URL.createObjectURL(blob);
@@ -1204,6 +1347,11 @@
   }
 
   $('f-acesso').addEventListener('submit', entrar);
+  $('f-login').addEventListener('submit', login);
+  $('f-primeiro').addEventListener('submit', primeiroAcesso);
+  $('u-atualizar').addEventListener('click', carregarUsuarios);
+  $('f-u-novo').addEventListener('submit', novoUsuario);
+  $('f-u-senha').addEventListener('submit', trocarMinhaSenha);
   $('b-sair').addEventListener('click', sair);
   $('b-atualizar').addEventListener('click', function () { msg('m-lista', null, 'Atualizando…'); carregar(); });
   $('b-fechar').addEventListener('click', fechar);
@@ -1239,4 +1387,5 @@
   $('b-automacao').addEventListener('click', chaveAutomacao);
   $('f-desligar').addEventListener('submit', desligar);
   $('f-historico').addEventListener('submit', apagarHistorico);
+  conferirSessao();
 })();

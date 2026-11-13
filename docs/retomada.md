@@ -11,7 +11,23 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
-## 13/11: página de implantação reorganizada (sem commit e sem deploy)
+## 13/11: entrada por usuário e senha na implantação (sem commit e sem deploy)
+
+- **Primeiro acesso:** a página pede a `ADMIN_KEY` uma vez e cria o usuário e a senha.
+- **Aba Usuários:** criar, desativar e definir nova senha para outros acessos, e trocar a própria senha.
+- A chave continua valendo como emergência.
+- **Arquivos:**
+    - migração 014;
+    - `src/admin-acesso.ts`;
+    - `src/routes/acesso.ts`;
+    - no hook do `/admin`, entra quem tem a chave ou uma sessão.
+- O detalhe está em `implantacao-clientes.md`.
+- **Verificação:**
+    - 101 testes passando;
+    - a tela foi vista com respostas simuladas;
+    - **com banco, só depois do deploy:** fazer o primeiro acesso, criar um segundo usuário, sair e entrar de novo.
+
+## 13/11: página de implantação reorganizada (commit 5424e09, no ar no Doca e em clinfy-implantacao.vercel.app; falta o teste com a chave)
 
 Pedido do usuário: na página `/implantacao`, identificar com clareza o sistema (ERP) do cliente e a chave única da instalação, e ter um lugar para anexar a documentação de um sistema sem documentação aberta.
 

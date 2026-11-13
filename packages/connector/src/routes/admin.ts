@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { usuarioDaSessao } from "../admin-acesso.js";
 import { config, problemaDeConfig } from "../config.js";
 import { CAMPOS, lerConfig, MAX_PARAMETROS, TEXTOS_PADRAO } from "../confirmacao.js";
 import { pool } from "../db.js";
@@ -7,6 +8,7 @@ import { FORMAS, lerFinanceiro } from "../financeiro.js";
 import { disparoUrlValida, idTenantValido, lerDadosTenant, type CampoTenant } from "../implantacao.js";
 import { Limite } from "../limite.js";
 import { perfilErp } from "../tenant-auth.js";
+import { usuariosAdmin } from "./acesso.js";
 import { conectoresAdmin } from "./conectores.js";
 import { gravarCredencial } from "./tenant.js";
 
@@ -43,8 +45,12 @@ export async function adminRoutes(app: FastifyInstance) {
   // req.url: ela chega crua (/%61dmin/...) e o roteador decodifica, o que abria as rotas sem chave.
   app.addHook("onRequest", async (req, reply) => {
     if (config.trustProxy && falhasPorIp.excedido(req.ip)) return reply.code(429).send({ erro: "MUITAS_TENTATIVAS" });
-    if (!adminAutorizado(req)) {
-      if (config.trustProxy) falhasPorIp.registrar(req.ip);
+    // Entra quem tem sessão (usuário e senha) ou a ADMIN_KEY. Sem chave enviada e sem sessão não conta como
+    // tentativa errada: é só a tela abrindo sem login.
+    const usuario = adminAutorizado(req) ? null : await usuarioDaSessao(req).catch(() => null);
+    if (usuario) (req as { usuarioAdmin?: unknown }).usuarioAdmin = usuario;
+    else if (!adminAutorizado(req)) {
+      if (config.trustProxy && req.headers["x-admin-key"] !== undefined) falhasPorIp.registrar(req.ip);
       return reply.code(401).send({ erro: "NAO_AUTORIZADO" });
     }
     const id = (req.params as { id?: unknown } | undefined)?.id;
@@ -78,7 +84,7 @@ export async function adminRoutes(app: FastifyInstance) {
     const { rows } = await pool!.query<{ id: string }>(
       `INSERT INTO tenants (nome, chave_instalacao_hash, kentro_instancia, asa_instituicao_id, implantado_por)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [c.nome, hash(chave), c.kentro_instancia ?? null, c.asa_instituicao_id ?? null, c.implantado_por ?? null],
+      [c.nome, hash(chave), c.kentro_instancia ?? null, c.asa_instituicao_id ?? null, c.implantado_por ?? (req as { usuarioAdmin?: { nome: string } }).usuarioAdmin?.nome ?? null],
     );
     req.log.info({ tenant: rows[0].id, implantado_por: c.implantado_por }, "implantação: cliente criado");
     return reply.code(201).send({ id: rows[0].id, nome: c.nome, chave_instalacao: chave });
@@ -116,6 +122,7 @@ export async function adminRoutes(app: FastifyInstance) {
   // Central de conectores e ligação da clínica a um sistema do catálogo (routes/conectores.ts), sob a
   // mesma chave de administrador deste plugin.
   await conectoresAdmin(app);
+  usuariosAdmin(app);
 
   // Configuração da confirmação de véspera. Só a implantação grava (a extensão só lê, desde a 0.19.0).
   // O que vier fora do formato volta ao padrão (lerConfig, a mesma validação de sempre).

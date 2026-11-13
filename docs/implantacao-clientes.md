@@ -6,7 +6,16 @@ Aberto em **30/10/2026** como tema a desenhar; construído em **03/11/2026** (0.
 
 `https://asa-integracao-samuels.kentro.com.br/implantacao`
 
-- Pede a **chave de administrador** do Conector (`ADMIN_KEY`). A chave fica só numa variável da aba: não vai para o armazenamento do navegador e some ao fechar a aba ou clicar em *Sair*.
+- Também em https://clinfy-implantacao.vercel.app, que é só um proxy para o Doca.
+- **Entrada por usuário e senha** (desde 13/11/2026):
+  - **Primeiro acesso:** enquanto não houver nenhum usuário, a página pede a `ADMIN_KEY` uma vez e cria o seu usuário e senha.
+  - Os outros acessos são criados na aba **Usuários**. Lá também dá para desativar alguém, definir uma nova senha e trocar a própria.
+  - **Senha:** mínimo de 10 caracteres, guardada com scrypt.
+  - **Sessão:** dura 12 horas e fica num cookie `HttpOnly`, `Secure`, `SameSite=Strict` (`__Host-clinfy_sessao`). O banco guarda só o hash do token.
+  - **Proteção:** todo pedido com sessão precisa do header `x-clinfy: 1`, contra CSRF.
+  - **Senha errada:** 5 tentativas por usuário em 15 minutos e, com `TRUST_PROXY`, 20 por IP.
+  - Tabelas `admin_usuarios` e `admin_sessoes` (migração 014).
+- A **chave de administrador** (`ADMIN_KEY`, no header `x-admin-key`) continua valendo para scripts e como emergência, em "Entrar com a chave de administrador". Ela fica só numa variável da aba: não vai para o armazenamento do navegador e some ao fechar a aba ou clicar em *Sair*.
 - A página não tem segredo: tudo o que ela mostra vem de `/admin/*`, que confere a chave a cada chamada.
 - Proteções: `Cache-Control: no-store`, CSP `default-src 'self'; frame-ancestors 'none'` (sem script de fora nem iframe), `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`.
 - O que dá para fazer:

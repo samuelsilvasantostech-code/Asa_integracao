@@ -17,22 +17,46 @@
     <button type="button" class="topo__aba" role="tab" id="nav-clientes" aria-controls="v-clientes" aria-selected="true">Clientes</button>
     <button type="button" class="topo__aba" role="tab" id="nav-sistemas" aria-controls="v-sistemas" aria-selected="false" tabindex="-1">Sistemas (ERP)</button>
     <button type="button" class="topo__aba" role="tab" id="nav-pedidos" aria-controls="v-pedidos" aria-selected="false" tabindex="-1">Pedidos <span class="contador" id="nav-pedidos-n" hidden></span></button>
+    <button type="button" class="topo__aba" role="tab" id="nav-usuarios" aria-controls="v-usuarios" aria-selected="false" tabindex="-1">Usuários</button>
+    <span class="topo__quem" id="quem"></span>
     <button type="button" class="btn btn--claro" id="b-sair" hidden>Sair</button>
   </nav>
 </header>
 
 <main>
-  <section class="cartao" id="acesso" aria-labelledby="h-acesso">
-    <h2 id="h-acesso">Acesso</h2>
-    <form id="f-acesso" class="linha" autocomplete="off">
-      <label class="campo">
-        <span>Chave de administrador</span>
-        <input id="admin-key" type="password" autocomplete="off" spellcheck="false" required>
-      </label>
-      <button type="submit" class="btn btn--primario" id="b-entrar">Entrar</button>
+  <section class="cartao cartao--acesso" id="acesso" aria-labelledby="h-acesso">
+    <h2 id="h-acesso">Entrar</h2>
+    <form id="f-login" class="grade" autocomplete="on">
+      <label class="campo"><span>Usuário</span><input id="l-usuario" name="username" autocomplete="username" spellcheck="false" autocapitalize="none" required></label>
+      <label class="campo"><span>Senha</span><input id="l-senha" name="password" type="password" autocomplete="current-password" required></label>
+      <div class="acoes"><button type="submit" class="btn btn--primario" id="b-login">Entrar</button></div>
     </form>
-    <p class="dica">A chave fica só nesta aba, enquanto ela estiver aberta. Não é gravada no navegador.</p>
-    <p class="msg" id="m-acesso" role="status"></p>
+    <p class="msg" id="m-login" role="status"></p>
+
+    <form id="f-primeiro" class="bloco grade" autocomplete="off" hidden>
+      <h3>Primeiro acesso</h3>
+      <p class="dica campo--largo">Ainda não há nenhum usuário. Crie o seu: informe a <strong>chave de administrador</strong> (a <code>ADMIN_KEY</code> das variáveis de ambiente do Conector no Doca) só desta vez, e escolha usuário e senha. Depois, os outros acessos são criados na aba Usuários.</p>
+      <label class="campo campo--largo"><span>Chave de administrador (ADMIN_KEY)</span><input id="p-chave" type="password" autocomplete="off" spellcheck="false" required></label>
+      <label class="campo"><span>Seu nome</span><input id="p-nome" maxlength="120" autocomplete="name" required></label>
+      <label class="campo"><span>Usuário (ou e-mail)</span><input id="p-usuario" maxlength="80" autocomplete="username" spellcheck="false" autocapitalize="none" required></label>
+      <label class="campo"><span>Senha (mínimo 10 caracteres)</span><input id="p-senha" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
+      <label class="campo"><span>Repita a senha</span><input id="p-senha2" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
+      <div class="acoes"><button type="submit" class="btn btn--primario">Criar meu acesso</button></div>
+      <p class="msg" id="m-primeiro" role="status"></p>
+    </form>
+
+    <details class="roteiro-caixa" id="acesso-chave">
+      <summary>Entrar com a chave de administrador (emergência)</summary>
+      <form id="f-acesso" class="linha" autocomplete="off">
+        <label class="campo">
+          <span>Chave de administrador (ADMIN_KEY)</span>
+          <input id="admin-key" type="password" autocomplete="off" spellcheck="false" required>
+        </label>
+        <button type="submit" class="btn" id="b-entrar">Entrar com a chave</button>
+      </form>
+      <p class="dica">A chave fica só nesta aba, enquanto ela estiver aberta. Não é gravada no navegador.</p>
+      <p class="msg" id="m-acesso" role="status"></p>
+    </details>
   </section>
 
   <div id="area" hidden>
@@ -423,6 +447,43 @@
             <tbody id="cx-pedidos"></tbody>
           </table>
         </div>
+      </section>
+    </section>
+
+    <!-- ==================== USUÁRIOS ==================== -->
+    <section id="v-usuarios" class="vista" role="tabpanel" aria-labelledby="nav-usuarios" hidden>
+      <section class="cartao" aria-labelledby="h-usuarios">
+        <div class="cabeca">
+          <h2 id="h-usuarios">Usuários da implantação</h2>
+          <button type="button" class="btn" id="u-atualizar">Atualizar</button>
+        </div>
+        <p class="dica">Quem entra nesta página com usuário e senha. Todos têm o mesmo acesso. Desativar ou trocar a senha encerra as sessões abertas daquele usuário. Cada sessão dura 12 horas.</p>
+        <div class="tabela-rolagem">
+          <table class="tabela">
+            <caption class="sr">Usuários da implantação</caption>
+            <thead><tr><th scope="col">Nome</th><th scope="col">Usuário</th><th scope="col">Situação</th><th scope="col">Último acesso</th><th scope="col">Criado</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
+            <tbody id="u-lista"></tbody>
+          </table>
+        </div>
+        <p class="msg" id="m-usuarios" role="status"></p>
+
+        <form id="f-u-novo" class="bloco grade" autocomplete="off">
+          <h3>Novo usuário</h3>
+          <label class="campo"><span>Nome</span><input id="u-nome" maxlength="120" required></label>
+          <label class="campo"><span>Usuário (ou e-mail)</span><input id="u-usuario" maxlength="80" spellcheck="false" autocapitalize="none" required></label>
+          <label class="campo"><span>Senha inicial (mínimo 10 caracteres)</span><input id="u-senha" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
+          <div class="acoes"><button type="submit" class="btn btn--primario">Criar usuário</button></div>
+          <p class="msg" id="m-u-novo" role="status"></p>
+        </form>
+
+        <form id="f-u-senha" class="bloco grade" autocomplete="off">
+          <h3>Trocar a minha senha</h3>
+          <input type="text" id="u-eu" autocomplete="username" hidden>
+          <label class="campo"><span>Nova senha (mínimo 10 caracteres)</span><input id="u-nova" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
+          <label class="campo"><span>Repita a nova senha</span><input id="u-nova2" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
+          <div class="acoes"><button type="submit" class="btn btn--primario">Trocar senha</button></div>
+          <p class="msg" id="m-u-senha" role="status"></p>
+        </form>
       </section>
     </section>
   </div>

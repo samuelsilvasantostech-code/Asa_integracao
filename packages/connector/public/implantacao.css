@@ -29,7 +29,9 @@ body { margin: 0; }
 .topo__aba:hover { opacity: 1; background: rgba(255, 255, 255, .08); }
 .topo__aba[aria-selected="true"] { background: var(--fundo); color: var(--pinho); opacity: 1; }
 .topo__aba:focus-visible, .aba:focus-visible { outline: 3px solid var(--foco); outline-offset: -3px; }
-.topo__nav #b-sair { margin: 0 0 6px auto; }
+.topo__quem { margin: 0 4px 10px auto; font-size: .88rem; opacity: .85; }
+.topo__nav #b-sair { margin: 0 0 6px 0; }
+.cartao--acesso { max-width: 560px; width: 100%; justify-self: center; }
 .btn--claro { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .5); }
 .btn--claro:hover { background: rgba(255, 255, 255, .12); }
 .contador { display: inline-block; min-width: 1.5em; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: var(--aviso); color: #fff; font-size: .78rem; text-align: center; }
