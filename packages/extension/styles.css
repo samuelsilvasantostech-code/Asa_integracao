@@ -621,3 +621,23 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 #f-campos:empty { display: none; }
 #f-outro[hidden] { display: none; }
 #f-campos .hint { margin: 2px 0 0; font-weight: 400; }
+
+/* Tela única do administrador (clinfy.html): barra com as abas Agenda, Painel e Configurar. */
+.page-hub { --hub-bar: 46px; }
+.hub__bar { position: sticky; top: 0; z-index: 30; height: var(--hub-bar); box-sizing: border-box; display: flex; align-items: center; gap: 18px;
+  padding: 0 14px; background: var(--deep); color: var(--on-deep); border-bottom: 1px solid var(--on-deep-line); }
+.hub__tabs { display: flex; gap: 2px; height: 100%; }
+.hub__tab { position: relative; padding: 0 14px; border: 0; background: none; color: var(--on-deep-muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.hub__tab:hover { color: var(--on-deep); }
+.hub__tab[aria-selected="true"] { color: var(--on-deep); }
+.hub__tab[aria-selected="true"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--deep-mint); }
+.hub__tab:focus-visible { outline: 2px solid var(--deep-mint); outline-offset: -4px; }
+.hub__sec[hidden] { display: none; }
+/* Na Agenda e no Painel a marca já está na barra: ficam só os controles e a situação. Em Configurar, o título
+   de cada parte (conexão, confirmação) continua. */
+.hub__sec.page-agenda .hd__brand, .hub__sec.page-dash .hd__brand { display: none; }
+.page-hub .app { min-height: 0; }
+.page-hub .page-agenda .app { height: calc(100vh - var(--hub-bar)); }
+@media (max-width: 760px) { .page-hub .page-agenda .app { height: auto; min-height: calc(100vh - var(--hub-bar)); } }
+.hub__cfg { display: flex; flex-direction: column; gap: 14px; padding-bottom: 28px; }
+.hub__cfg .app { margin: 0 auto; width: 100%; }

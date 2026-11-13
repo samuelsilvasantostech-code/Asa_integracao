@@ -16,7 +16,9 @@
   var rescheduling = null;                  // {consulta, paciente, busca}
   var booking = null;
 
-  function $(id) { return document.getElementById(id); }
+  // Na tela única (clinfy.html), os ids repetidos entre telas têm prefixo: o mapa vem de hub.js.
+  var IDS = (root.ClinFyIds && root.ClinFyIds.agenda) || {};
+  function $(id) { return document.getElementById(IDS[id] || id); }
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;

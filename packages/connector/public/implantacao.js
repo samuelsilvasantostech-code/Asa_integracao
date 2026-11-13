@@ -388,7 +388,7 @@
       }
       Array.prototype.forEach.call($('e-campos').querySelectorAll('input'), function (i) { i.value = ''; });
       if (r.body.soNome) msg('m-erp', 'ok', 'Nome nas telas salvo.');
-      else if (r.body.erp === 'asa') msg('m-erp', 'ok', 'Clínica de volta à Asa. Cadastre o token da Asa abaixo (ou pela tela Configurar ClinFy).');
+      else if (r.body.erp === 'asa') msg('m-erp', 'ok', 'Clínica de volta à Asa. Cadastre o token da Asa abaixo (ou em ClinFy → Configurar, na extensão).');
       else {
         msg('m-erp', 'ok', 'Sistema ligado: a conexão funcionou e ele listou ' + r.body.prestadores + ' profissional(is).');
         mostrarCapacidades(r.body.capacidades, new Date().toISOString());

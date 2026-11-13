@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClinFy</title>
+<link rel="stylesheet" href="styles.css?v=0.24.0">
+</head>
+<body class="page-hub">
+<!-- Gerado por packages/connector/tools/montar-clinfy.ts a partir de agenda, painel, config e confirmacao. Não editar à mão. -->
+<header class="hub__bar">
+  <div class="hd__brand">
+    <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
+    <div class="hd__title">ClinFy</div>
+  </div>
+  <nav class="hub__tabs" role="tablist" aria-label="Seções do ClinFy">
+    <button type="button" class="hub__tab" role="tab" id="tab-agenda" aria-controls="sec-agenda" aria-selected="false" tabindex="-1">Agenda</button>
+    <button type="button" class="hub__tab" role="tab" id="tab-painel" aria-controls="sec-painel" aria-selected="false" tabindex="-1">Painel</button>
+    <button type="button" class="hub__tab" role="tab" id="tab-configurar" aria-controls="sec-configurar" aria-selected="false" tabindex="-1">Configurar</button>
+  </nav>
+</header>
+<section class="hub__sec page-agenda" id="sec-agenda" role="tabpanel" aria-labelledby="tab-agenda" hidden>
+<div class="app">
+  <header class="hd">
+    <div class="hd__brand">
+      <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
+      <div>
+        <div class="hd__title">ClinFy</div>
+        <div class="hd__sub">Agenda da clínica</div>
+      </div>
+    </div>
+    <form class="lookup" id="q-form" autocomplete="off" role="search">
+      <label class="sr" for="q-input">Buscar paciente por CPF ou telefone</label>
+      <input id="q-input" inputmode="numeric" maxlength="18" placeholder="Buscar paciente: CPF ou telefone">
+      <button class="btn" type="submit">Buscar</button>
+    </form>
+    <span class="pill" id="ag-pill" data-tone="idle"><i class="dot"></i><span id="ag-pill-text">Carregando</span></span>
+  </header>
+
+  <div class="state" id="g-off" hidden>
+    <p class="state__title" id="g-off-title">Sem conexão com <span data-sis="a">o sistema da clínica</span></p>
+    <p class="state__text" id="g-off-text"></p>
+    <button class="btn" id="g-retry" type="button">Tentar de novo</button>
+  </div>
+
+  <div class="ws" id="ws" hidden>
+    <div class="bar">
+      <label class="field field--inline">
+        <span>Especialidade</span>
+        <select id="f-esp"><option value="">Carregando…</option></select>
+      </label>
+      <label class="field field--inline" id="f-prest-wrap">
+        <span>Profissional</span>
+        <select id="f-prest" disabled><option value="">Escolha a especialidade</option></select>
+      </label>
+      <div class="seg" role="group" aria-label="Visão da agenda">
+        <button class="seg__btn" type="button" data-view="dia" aria-pressed="true">Dia</button>
+        <button class="seg__btn" type="button" data-view="semana" aria-pressed="false">Semana</button>
+        <button class="seg__btn" type="button" data-view="lado" aria-pressed="false">Lado a lado</button>
+      </div>
+      <div class="daynav" role="group" aria-label="Data">
+        <button class="btn btn--icon" id="d-prev" type="button" aria-label="Dia anterior">‹</button>
+        <button class="btn" id="d-today" type="button">Hoje</button>
+        <button class="btn btn--icon" id="d-next" type="button" aria-label="Próximo dia">›</button>
+        <label class="daynav__label">
+          <span class="daynav__wd" id="d-wd"></span>
+          <span class="daynav__date" id="d-date"></span>
+          <input type="date" id="d-pick" aria-label="Escolher data">
+        </label>
+      </div>
+    </div>
+
+    <div class="banner" id="rs-banner" hidden>
+      <span id="rs-text"></span>
+      <button class="btn" id="rs-stop" type="button">Desistir de remarcar</button>
+    </div>
+
+    <div class="split">
+      <section class="day" aria-labelledby="day-title">
+        <h2 class="sr" id="day-title">Consultas</h2>
+        <p class="day__sum" id="day-sum"></p>
+        <div class="kpis" id="day-kpis" hidden></div>
+        <p class="muted" id="day-status">Escolha a especialidade e o profissional.</p>
+        <ol class="sheet" id="sheet"></ol>
+        <div class="grid" id="grid" hidden></div>
+      </section>
+
+      <aside class="side" id="side" aria-live="polite">
+        <div class="side__empty" id="s-empty">
+          <div class="tally" id="s-tally" hidden>
+            <p class="tally__title" id="st-title"></p>
+            <p class="tally__when" id="st-when"></p>
+            <dl class="tally__grid" id="st-grid"></dl>
+          </div>
+          <p class="state__text">Clique numa consulta para ver o paciente, ou num horário livre para marcar. Na semana e no lado a lado, o título da coluna abre aquele dia.</p>
+        </div>
+
+        <!-- consulta do dia -->
+        <div class="sv" id="s-appt" hidden>
+          <div class="sv__head">
+            <div class="sv__time" id="sa-time"></div>
+            <span class="seal" id="sa-seal"></span>
+          </div>
+          <div class="sv__who"><span class="avatar avatar--lg" id="sa-avatar" aria-hidden="true"></span><div class="sv__name" id="sa-name"></div></div>
+          <dl class="facts" id="sa-facts"></dl>
+          <div class="sv__actions" id="sa-actions"></div>
+          <p class="muted" id="sa-status" role="status"></p>
+        </div>
+
+        <!-- paciente buscado -->
+        <div class="sv" id="s-pac" hidden>
+          <div class="sv__name" id="sp-name"></div>
+          <p class="muted" id="sp-status"></p>
+          <dl class="facts" id="sp-facts" hidden></dl>
+          <p class="hint" id="sp-hint" hidden>Para marcar uma consulta para este paciente, escolha um horário livre na agenda.</p>
+          <div class="card__label" id="sp-list-label" hidden>Próximas consultas</div>
+          <ul class="list" id="sp-list"></ul>
+          <div class="card__label" id="sp-fin-label" hidden>Cobranças lançadas pela Kentro</div>
+          <ul class="list" id="sp-fin" hidden></ul>
+          <div class="booking__actions">
+            <button class="btn btn--primary" id="sp-charge" type="button" hidden>Lançar cobrança</button>
+            <button class="btn" id="sp-close" type="button">Fechar</button>
+          </div>
+        </div>
+
+        <!-- lançar cobrança (cobranca.js monta o formulário) -->
+        <div class="sv" id="s-charge" hidden></div>
+
+        <!-- marcar -->
+        <form class="sv" id="s-book" autocomplete="off" hidden>
+          <div class="sv__title" id="sb-title">Marcar consulta</div>
+          <p class="booking__slot" id="sb-slot"></p>
+          <div class="field" id="sb-pac-known" hidden>
+            <span>Paciente</span>
+            <p class="booking__who"><span id="sb-pac-name"></span> <button class="link" id="sb-pac-change" type="button">trocar</button></p>
+          </div>
+          <div class="field" id="sb-pac-find">
+            <span>Paciente (CPF ou telefone)</span>
+            <div class="inline-form">
+              <input id="sb-q" inputmode="numeric" maxlength="18">
+              <button class="btn" id="sb-q-go" type="button">Buscar</button>
+            </div>
+          </div>
+          <p class="muted" id="sb-pac-status"></p>
+          <fieldset class="booking__new" id="sb-new" hidden>
+            <legend>Paciente novo <span data-sis="na">no sistema da clínica</span></legend>
+            <label class="field"><span>Nome completo</span><input id="sb-nome" maxlength="120"></label>
+            <label class="field"><span>CPF</span><input id="sb-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></label>
+            <label class="field"><span>Nascimento</span><input id="sb-nasc" type="date"></label>
+            <label class="field"><span>Telefone</span><input id="sb-tel" inputmode="tel" maxlength="20"></label>
+          </fieldset>
+          <label class="field">
+            <span>Convênio</span>
+            <select id="sb-conv" required><option value="">Carregando…</option></select>
+          </label>
+          <label class="field">
+            <span>Procedimento</span>
+            <select id="sb-proc" required disabled><option value="">Escolha o convênio</option></select>
+          </label>
+          <label class="field">
+            <span>Observação (opcional)</span>
+            <textarea id="sb-obs" rows="2" maxlength="500"></textarea>
+          </label>
+          <div class="booking__actions">
+            <button class="btn btn--primary" type="submit">Revisar</button>
+            <button class="btn" id="sb-cancel" type="button">Fechar</button>
+          </div>
+          <p class="muted" id="sb-status"></p>
+        </form>
+
+        <div class="sv booking--review" id="s-review" hidden>
+          <div class="sv__title" id="sr-title">Confirme o agendamento</div>
+          <dl class="facts" id="sr-summary"></dl>
+          <p class="hint" id="sr-hint">Ao confirmar, a consulta é gravada na agenda da clínica <span data-sis="na">no sistema da clínica</span>.</p>
+          <div class="booking__actions">
+            <button class="btn btn--primary" id="sr-go" type="button">Confirmar agendamento</button>
+            <button class="btn" id="sr-back" type="button">Voltar</button>
+          </div>
+          <p class="muted" id="sr-status" role="status"></p>
+        </div>
+
+        <div class="sv booking--done" id="s-done" hidden>
+          <div class="sv__title" id="sd-title">Consulta marcada</div>
+          <dl class="facts" id="sd-facts"></dl>
+          <button class="btn" id="sd-close" type="button">Fechar</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+</section>
+<section class="hub__sec page-dash" id="sec-painel" role="tabpanel" aria-labelledby="tab-painel" hidden>
+<div class="app">
+  <header class="hd">
+    <div class="hd__brand">
+      <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
+      <div>
+        <div class="hd__title">ClinFy</div>
+        <div class="hd__sub">Painel da clínica</div>
+      </div>
+    </div>
+    <div class="seg seg--dark" role="group" aria-label="Período" id="period">
+      <button class="seg__btn" type="button" data-dias="1" aria-pressed="false">Hoje</button>
+      <button class="seg__btn" type="button" data-dias="7" aria-pressed="true">7 dias</button>
+      <button class="seg__btn" type="button" data-dias="30" aria-pressed="false">30 dias</button>
+      <button class="seg__btn" type="button" data-dias="90" aria-pressed="false">90 dias</button>
+    </div>
+    <span class="pill" id="pn-pill" data-tone="idle"><i class="dot"></i><span id="pn-pill-text">Carregando</span></span>
+  </header>
+
+  <main class="dash" aria-live="polite">
+    <p class="muted" id="d-status">Carregando os números…</p>
+
+    <section class="kpis kpis--hero" id="d-kpis" hidden></section>
+
+    <div class="dash__grid" id="d-body" hidden>
+      <section class="panel panel--wide" aria-labelledby="h-conf">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-conf">Confirmações</h2>
+          <p class="panel__sub" id="conf-sub"></p>
+        </header>
+        <div class="stack" id="conf-stack"></div>
+        <div class="legend" id="conf-legend"></div>
+        <h3 class="panel__h3">Enviadas por dia</h3>
+        <div class="cols cols--stacked" id="conf-days"></div>
+        <div class="legend" id="conf-days-legend"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-tratar">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-tratar">Precisa de contato</h2>
+          <p class="panel__sub">Consultas futuras em que o paciente pediu para remarcar, cancelou ou não recebeu a mensagem.</p>
+        </header>
+        <ul class="todo" id="tratar"></ul>
+      </section>
+
+      <section class="panel panel--wide" aria-labelledby="h-ativ">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-ativ">Atividade da equipe</h2>
+          <p class="panel__sub" id="ativ-sub"></p>
+        </header>
+        <div class="chips chips--stat" id="ativ-tipos"></div>
+        <h3 class="panel__h3">Ações gravadas <span data-sis="na">no sistema da clínica</span> por dia</h3>
+        <div class="cols" id="ativ-days"></div>
+        <h3 class="panel__h3">Por atendente</h3>
+        <div class="table-wrap"><table class="table" id="equipe"></table></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-cob">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-cob">Cobranças</h2>
+          <p class="panel__sub" id="cob-sub"></p>
+        </header>
+        <div class="hbars" id="cob-formas"></div>
+        <h3 class="panel__h3">Alertas</h3>
+        <ul class="alerts" id="alertas"></ul>
+      </section>
+
+      <section class="panel panel--full" aria-labelledby="h-ocup">
+        <header class="panel__hd panel__hd--row">
+          <div>
+            <h2 class="panel__title" id="h-ocup">Ocupação da agenda</h2>
+            <p class="panel__sub" id="ocup-sub">Consultas marcadas e horários livres de cada profissional no dia.</p>
+          </div>
+          <div class="panel__tools">
+            <label class="field field--inline">
+              <span>Especialidade</span>
+              <select id="oc-esp"><option value="">Todas</option></select>
+            </label>
+            <label class="field">
+              <span>Dia</span>
+              <input type="date" id="oc-day">
+            </label>
+            <button class="btn btn--primary" id="oc-go" type="button">Ver ocupação</button>
+          </div>
+        </header>
+        <p class="muted" id="oc-status">Escolha o dia e toque em "Ver ocupação". Cada profissional é uma consulta <span data-sis="ao">ao sistema da clínica</span>, por isso a lista chega aos poucos.</p>
+        <div class="hbars hbars--occ" id="oc-list"></div>
+        <div class="legend" id="oc-legend" hidden></div>
+      </section>
+    </div>
+  </main>
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+</div>
+</section>
+<section class="hub__sec hub__cfg" id="sec-configurar" role="tabpanel" aria-labelledby="tab-configurar" hidden>
+<div class="page-config">
+<div class="app">
+  <header class="hd">
+    <div class="hd__brand">
+      <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
+      <div>
+        <div class="hd__title">Conexão e financeiro</div>
+        <div class="hd__sub">Conexão com o sistema da clínica</div>
+      </div>
+    </div>
+    <span class="pill" id="cf-pill" data-tone="idle"><i class="dot"></i><span id="cf-pill-text">Carregando</span></span>
+  </header>
+
+  <main class="body">
+    <div class="card">
+      <div class="card__label">Situação</div>
+      <p class="conn" id="cf-conn-text">Verificando…</p>
+    </div>
+
+    <div class="card" id="token-locked" hidden>
+      <div class="card__label">Credencial <span data-sis="da">do sistema da clínica</span></div>
+      <p class="hint" id="token-locked-text">A credencial desta clínica fica guardada cifrada no Conector. Por segurança, cadastrar e trocar a credencial é feito pela implantação, com a chave de administrador do Conector.</p>
+    </div>
+
+    <div class="card" id="key-help" hidden>
+      <div class="card__label">Chave da instalação</div>
+      <p class="hint">A chave é gerada pela implantação no Conector, uma por clínica, e vale para todos os atendentes. Ela é cadastrada por um superusuário em Administração de extensões → esta instalação → campo "Chave da instalação".</p>
+    </div>
+
+    <form class="card form" id="form" autocomplete="off" hidden>
+      <div class="card__label">Sistema da clínica</div>
+      <p class="hint">Escolha o sistema de gestão (ERP) que a clínica usa e preencha o acesso que ele fornece. O acesso é testado antes de gravar, fica cifrado no Conector e não volta para esta tela. Depois de gravado, trocar é com a implantação.</p>
+      <label class="field">
+        <span>Sistema</span>
+        <select id="f-erp" required></select>
+      </label>
+      <div id="f-campos"></div>
+      <div id="f-outro" hidden>
+        <p class="hint">Não achou o sistema? Envie o pedido: a equipe da Kentro prepara a conexão e avisa quando estiver pronta. Se tiver a documentação da API, mande para a implantação.</p>
+        <label class="field"><span>Nome do sistema</span><input id="f-sistema" maxlength="80" spellcheck="false"></label>
+        <label class="field"><span>Contato para a implantação (nome, e-mail ou telefone)</span><input id="f-contato" maxlength="120"></label>
+        <label class="field"><span>Observação (opcional)</span><textarea id="f-obs" rows="2" maxlength="1000"></textarea></label>
+      </div>
+      <button class="btn btn--primary" id="f-save" type="submit">Testar e salvar</button>
+      <p class="conn" id="f-msg" role="status"></p>
+    </form>
+    <div class="card form" id="fin" hidden>
+      <div class="card__label">Financeiro</div>
+      <p class="hint">Permite lançar conta a receber do paciente <span data-sis="na">no sistema da clínica</span> pelo painel do atendimento e pela Agenda. A conta criada não pode ser editada nem excluída pela Kentro: correções são feitas direto <span data-sis="na">no sistema da clínica</span>.</p>
+      <label class="check"><input type="checkbox" id="fin-on" disabled> <span>Permitir lançar cobrança</span></label>
+      <label class="field">
+        <span>Quem pode lançar</span>
+        <select id="fin-who" disabled>
+          <option value="admin">Só administradores</option>
+          <option value="todos">Todos os atendentes</option>
+        </select>
+      </label>
+      <p class="hint">Alterado pela implantação.</p>
+    </div>
+    <div class="card">
+      <div class="card__label">Confirmação de véspera</div>
+      <p class="hint">A mensagem de confirmação e as respostas aceitas ficam logo abaixo, só para leitura: quem altera é a implantação.</p>
+    </div>
+  </main>
+</div>
+</div>
+<div class="page-config page-rem">
+<div class="app">
+  <header class="hd">
+    <div class="hd__brand">
+      <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg></span>
+      <div>
+        <div class="hd__title">Confirmação de consultas</div>
+        <div class="hd__sub">Lembrete pelo WhatsApp antes da consulta</div>
+      </div>
+    </div>
+    <span class="pill" id="cc-pill" data-tone="idle"><i class="dot"></i><span id="cc-pill-text">Carregando</span></span>
+  </header>
+
+  <main class="body">
+    <p class="conn" id="cc-conn-text">Carregando a configuração…</p>
+
+    <form class="form" id="rem" autocomplete="off" hidden>
+      <p class="hint">Alterado pela implantação. Para mudar algo aqui, fale com a implantação.</p>
+      <p class="hint" id="rem-auto" hidden>A automação de envio ainda não foi montada para esta clínica na Kentro. Nada é enviado enquanto ela não existir.</p>
+
+      <section class="card form" aria-labelledby="h-envio">
+        <h2 class="card__label" id="h-envio">Envio</h2>
+        <label class="check"><input type="checkbox" id="rem-on"> <span>Enviar lembretes</span></label>
+        <div class="row">
+          <label class="field"><span>Quando</span>
+            <select id="rem-days">
+              <option value="1">1 dia antes</option><option value="2">2 dias antes</option><option value="3">3 dias antes</option>
+              <option value="4">4 dias antes</option><option value="5">5 dias antes</option><option value="6">6 dias antes</option><option value="7">7 dias antes</option>
+            </select>
+          </label>
+          <label class="field"><span>Canal da clínica</span>
+            <select id="rem-channel">
+              <option value="oficial">WhatsApp oficial (template)</option>
+              <option value="nao_oficial">WhatsApp não oficial (texto)</option>
+            </select>
+          </label>
+        </div>
+        <label class="check" id="rem-fri-wrap"><input type="checkbox" id="rem-fri"> <span>Na sexta, mandar também os lembretes que cairiam no sábado e no domingo</span></label>
+        <p class="hint">O horário dos envios e a fila ficam na automação da Kentro.</p>
+      </section>
+
+      <section class="card form" aria-labelledby="h-teste">
+        <h2 class="card__label" id="h-teste">Modo teste</h2>
+        <label class="check"><input type="checkbox" id="rem-test"> <span>Enviar só para os telefones abaixo</span></label>
+        <label class="field"><span>Telefones permitidos (um por linha)</span><textarea id="rem-phones" rows="2" spellcheck="false" placeholder="(27) 99999-0000"></textarea></label>
+      </section>
+
+      <section class="card form" id="sec-tpl" aria-labelledby="h-tpl">
+        <h2 class="card__label" id="h-tpl">Template do lembrete</h2>
+        <p class="hint">O template aprovado é escolhido na automação da Kentro. Aqui você define o que entra em cada variável dele, na ordem em que aparecem.</p>
+        <label class="field"><span>Nome do template (para referência)</span><input id="tpl-name" maxlength="80" spellcheck="false" placeholder="lembrete_consulta"></label>
+        <ol class="params" id="tpl-params"></ol>
+        <p class="hint">Quantidade de variáveis aqui e no template aprovado precisa ser a mesma.</p>
+      </section>
+
+      <section class="card form" id="sec-msg" aria-labelledby="h-msg" hidden>
+        <h2 class="card__label" id="h-msg">Mensagem do lembrete</h2>
+        <label class="field"><span>Texto</span><textarea id="rem-t-mensagem" rows="4" data-text="mensagem"></textarea></label>
+        <div class="preview" data-preview="mensagem"></div>
+      </section>
+
+      <section class="card form" aria-labelledby="h-resp">
+        <h2 class="card__label" id="h-resp">Respostas ao paciente</h2>
+        <label class="field"><span>Quando confirma</span><textarea id="rem-t-confirmado" rows="2" data-text="confirmado"></textarea></label>
+        <div class="preview" data-preview="confirmado"></div>
+        <label class="field"><span>Quando cancela</span><textarea id="rem-t-cancelado" rows="2" data-text="cancelado"></textarea></label>
+        <div class="preview" data-preview="cancelado"></div>
+        <label class="field"><span>Quando pede para remarcar (depois a conversa vai para a equipe)</span><textarea id="rem-t-remarcar" rows="2" data-text="remarcar"></textarea></label>
+        <div class="preview" data-preview="remarcar"></div>
+        <label class="field"><span>Quando responde de novo</span><textarea id="rem-t-ja_respondido" rows="2" data-text="ja_respondido"></textarea></label>
+        <div class="preview" data-preview="ja_respondido"></div>
+        <label class="field"><span>Quando <span data-sis="a">o sistema da clínica</span> está fora do ar</span><textarea id="rem-t-indisponivel" rows="2" data-text="indisponivel"></textarea></label>
+        <div class="preview" data-preview="indisponivel"></div>
+        <p class="hint" id="rem-fields"></p>
+      </section>
+
+      <section class="card form" aria-labelledby="h-btn">
+        <h2 class="card__label" id="h-btn">Respostas aceitas</h2>
+        <p class="hint">Além de Confirmar, Remarcar e Cancelar (e 1, 2, 3, sim, confirmo), conte também estas respostas, uma por linha. A resposta precisa ser igual, sem contar acentos e maiúsculas. Use para botões com outro texto.</p>
+        <label class="field"><span>Contam como confirmar</span><textarea id="syn-confirmar" rows="2" placeholder="Sim, estarei lá" spellcheck="false"></textarea></label>
+        <label class="field"><span>Contam como remarcar</span><textarea id="syn-remarcar" rows="2" placeholder="Preciso de outro horário" spellcheck="false"></textarea></label>
+        <label class="field"><span>Contam como cancelar</span><textarea id="syn-cancelar" rows="2" placeholder="Não vou poder ir" spellcheck="false"></textarea></label>
+      </section>
+
+      <p class="hint">Alterado pela implantação.</p>
+    </form>
+  </main>
+</div>
+</div>
+</section>
+<script src="core.js?v=0.24.0"></script>
+<script src="api.js?v=0.24.0"></script>
+<script src="bridge.js?v=0.24.0"></script>
+<script src="cobranca.js?v=0.24.0"></script>
+<script src="hub.js?v=0.24.0"></script>
+<script src="agenda.js?v=0.24.0"></script>
+<script src="painel.js?v=0.24.0"></script>
+<script src="config.js?v=0.24.0"></script>
+<script src="confirmacao.js?v=0.24.0"></script>
+</body>
+</html>

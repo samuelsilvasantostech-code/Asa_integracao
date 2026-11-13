@@ -11,7 +11,23 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
-## 12/11: conectores, partes A a D (0.23.0, sem commit e sem deploy)
+## 12/11: tela única do administrador (0.24.0, sem commit e sem deploy)
+
+Pedido do usuário: o administrador com **um ícone só**.
+
+- **Administrador:** o ícone "ClinFy" (`clinfy.html`, tela cheia) tem as abas:
+    - Agenda;
+    - Painel;
+    - Configurar, com a conexão com o sistema, o financeiro e a confirmação.
+- **Supervisor e atendente:** só o ícone "Agenda ClinFy".
+- Saíram da barra os menus Painel, Confirmação e Configurar. Os arquivos continuam e são a fonte da tela única.
+- **Como a tela única é feita:**
+    - o `clinfy.html` é **montado** por `packages/connector/tools/montar-clinfy.ts` a partir de `agenda.html`, `painel.html`, `config.html` e `confirmacao.html`. **Mudou uma dessas telas, rode o montador**; o teste `test/clinfy.test.ts` falha se esquecer;
+    - os três ids repetidos entre telas (`pill`, `pill-text`, `conn-text`) ganham prefixo por seção. O mapa fica em `hub.js`, e cada tela o consulta na própria função `$`.
+- Conferido no navegador com a Kentro simulada: abas, Agenda, Configurar e a situação de cada seção sem interferência.
+- Endereço da implantação (clientes, sistema de cada clínica e Central de conectores): https://asa-integracao-samuels.kentro.com.br/implantacao, com a `ADMIN_KEY`.
+
+## 12/11: conectores, partes A a D (0.23.0, no ar)
 
 A ClinFy passa a ligar em qualquer ERP por **conector**: uma configuração em JSON que traduz as rotas da especificação para as do sistema. Desenho em [`conectores.md`](conectores.md); pesquisa do mercado em [`erps-mercado.md`](erps-mercado.md).
 

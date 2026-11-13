@@ -39,7 +39,7 @@
       var asa = !body.erp || body.erp === 'asa';
       switch (body.conexao || body.asa) {
         case 'ok': return { tone: 'ok', pill: 'Conectado', text: nome + ': conectado ' + sis('ao') + (body.instituicao_id ? ' (instituição ' + body.instituicao_id + ')' : '') + '.', retry: false };
-        case 'credencial_ausente': return { tone: 'warn', pill: 'Sem credencial', text: nome + ': a credencial ' + sis('da') + ' ainda não foi cadastrada. ' + (asa ? 'Um administrador cadastra em "Configurar ClinFy".' : 'Fale com a implantação.'), retry: true };
+        case 'credencial_ausente': return { tone: 'warn', pill: 'Sem credencial', text: nome + ': a credencial ' + sis('da') + ' ainda não foi cadastrada. ' + (asa ? 'Um administrador cadastra em ClinFy → Configurar.' : 'Fale com a implantação.'), retry: true };
         case 'credencial_invalida': return { tone: 'err', pill: 'Credencial recusada', text: nome + ': ' + sis('a') + ' recusou a credencial cadastrada. Fale com a implantação para trocar a credencial.', retry: true };
         default: return { tone: 'err', pill: 'Sistema fora do ar', text: nome + ': ' + sis('a') + ' não respondeu agora.', retry: true };
       }
@@ -158,7 +158,7 @@
 
   function confirmationError(status, body) {
     var erro = body && body.erro;
-    if (erro === 'MODO_TESTE') return 'A confirmação está em modo teste e o telefone deste paciente não está na lista de teste (tela Confirmação ClinFy).';
+    if (erro === 'MODO_TESTE') return 'A confirmação está em modo teste e o telefone deste paciente não está na lista de teste (ClinFy → Configurar, na parte da confirmação).';
     if (erro === 'SEM_TELEFONE') return ('O cadastro do paciente ' + sis('na') + ' está sem um celular válido para receber a mensagem.');
     if (erro === 'JA_RESPONDIDA') return 'O paciente já respondeu a confirmação desta consulta.';
     if (erro === 'EM_ENVIO') return 'A confirmação desta consulta está saindo agora. Aguarde um instante.';

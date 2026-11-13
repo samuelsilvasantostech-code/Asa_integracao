@@ -7,7 +7,9 @@
   var C = root.AsaCore, B = root.AsaBridge, omni = root.omni;
   var api = null, dias = 7, seq = 0, sched = null, ocSeq = 0;
 
-  function $(id) { return document.getElementById(id); }
+  // Na tela única (clinfy.html), os ids repetidos entre telas têm prefixo: o mapa vem de hub.js.
+  var IDS = (root.ClinFyIds && root.ClinFyIds.painel) || {};
+  function $(id) { return document.getElementById(IDS[id] || id); }
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;

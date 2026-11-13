@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "kentro.asa-saude",
   "name": "ClinFy",
-  "version": "0.23.0",
+  "version": "0.24.0",
   "description": "ClinFy: pacientes, consultas e agenda do sistema (ERP) da clínica, no atendimento e em tela cheia.",
   "author": {
     "name": "Kentro"
@@ -39,6 +39,21 @@
       "url": "chat.html"
     },
     {
+      "id": "clinfy",
+      "type": "topMenu",
+      "title": "ClinFy",
+      "icon": "icon-clinfy.svg",
+      "url": "clinfy.html",
+      "presentation": {
+        "mode": "fullscreen"
+      },
+      "visibility": {
+        "userTypes": [
+          0
+        ]
+      }
+    },
+    {
       "id": "agenda",
       "type": "topMenu",
       "title": "Agenda ClinFy",
@@ -49,59 +64,8 @@
       },
       "visibility": {
         "userTypes": [
-          0,
           1,
           2
-        ]
-      }
-    },
-    {
-      "id": "painel-clinica",
-      "type": "topMenu",
-      "title": "Painel ClinFy",
-      "icon": "icon-painel.svg",
-      "url": "painel.html",
-      "presentation": {
-        "mode": "fullscreen"
-      },
-      "visibility": {
-        "userTypes": [
-          0,
-          1
-        ]
-      }
-    },
-    {
-      "id": "confirmacao",
-      "type": "topMenu",
-      "title": "Confirmação ClinFy",
-      "icon": "icon-confirmacao.svg",
-      "url": "confirmacao.html",
-      "presentation": {
-        "mode": "dialog",
-        "size": "lg"
-      },
-      "visibility": {
-        "userTypes": [
-          0,
-          1,
-          2
-        ]
-      }
-    },
-    {
-      "id": "configurar",
-      "type": "topMenu",
-      "title": "Configurar ClinFy",
-      "icon": "icon-config.svg",
-      "url": "config.html",
-      "presentation": {
-        "mode": "dialog",
-        "size": "md"
-      },
-      "visibility": {
-        "userTypes": [
-          0
         ]
       }
     }

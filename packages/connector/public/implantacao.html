@@ -34,7 +34,7 @@
       <li><strong>Criar o cliente</strong> aqui (nome, instância da Kentro e, se a clínica usa a Asa, a instituição). Copie a chave da instalação: ela aparece uma vez só.</li>
       <li><strong>Instalar a extensão na Kentro</strong> da clínica pela URL do manifest (<code>/extensao/manifest.json</code> deste Conector). Na instalação, cole a chave em <code>apiKey</code>, preencha <code>queueIds</code> e <strong>restrinja o público</strong> a quem vai testar.</li>
       <li>Anote aqui o <strong>id da instalação</strong> (Editar vínculo).</li>
-      <li><strong>Sistema da clínica:</strong> na Asa, a clínica cola o token em <em>Configurar ClinFy</em> (menu superior da Kentro, só administradores); em outro ERP no padrão Kentro, a implantação cadastra o endereço e o token no bloco <em>Sistema da clínica (ERP)</em> e testa a conexão.</li>
+      <li><strong>Sistema da clínica:</strong> na Asa, a clínica cola o token em <em>ClinFy → Configurar</em> (ícone ClinFy na barra da Kentro, só administradores); em outro ERP no padrão Kentro, a implantação cadastra o endereço e o token no bloco <em>Sistema da clínica (ERP)</em> e testa a conexão.</li>
       <li><strong>Conferir aqui</strong>: credencial ok (origem "clínica") e último uso preenchido.</li>
       <li>Configurar financeiro e confirmação, se a clínica for usar, e então <strong>abrir o público</strong> da instalação para toda a equipe.</li>
     </ol>
@@ -112,7 +112,7 @@
 
       <form id="f-token" class="bloco" autocomplete="off">
         <h3>Token da Asa</h3>
-        <p class="dica">Normalmente a própria clínica cola o token em <em>Configurar ClinFy</em>. Use aqui para trocar um token já gravado. Ele é validado na Asa e guardado cifrado; não volta para esta tela.</p>
+        <p class="dica">Normalmente a própria clínica cola o token em <em>ClinFy → Configurar</em>. Use aqui para trocar um token já gravado. Ele é validado na Asa e guardado cifrado; não volta para esta tela.</p>
         <div class="linha">
           <label class="campo"><span>Token</span><input id="t-token" type="password" autocomplete="off" spellcheck="false" required></label>
           <button type="submit" class="btn btn--primario">Validar e gravar</button>
