@@ -5,6 +5,7 @@ import type { ErpAdapter } from "./adaptador.js";
 import { AsaAdapter, type LogErp } from "./asa/adaptador.js";
 import type { CredencialAsa } from "./asa/cliente.js";
 import { CONECTOR_PADRAO, validarConector, type CampoConector, type ConectorConfig } from "./conector/motor.js";
+import { FeegowAdapter, type CredencialFeegow } from "./feegow/adaptador.js";
 import { baseUrlValida, ErpDesconhecido } from "./index.js";
 import { PadraoAdapter } from "./padrao/adaptador.js";
 
@@ -50,9 +51,15 @@ export function configDe(c: Conector): ConectorConfig | null {
   return c.config ?? (c.slug === "padrao" ? CONECTOR_PADRAO : null);
 }
 
+const CAMPOS_FEEGOW: CampoConector[] = [
+  { chave: "token", rotulo: "Token da API da Feegow", tipo: "segredo", obrigatorio: true, ajuda: "Liberado pelo usuário master da licença no Feegow Clinic (header x-access-token)." },
+  { chave: "unidade_id", rotulo: "Unidade (opcional)", tipo: "texto", ajuda: "Número da unidade na Feegow. Vazio = todas; 0 = matriz." },
+];
+
 // Campos que a clínica preenche para ligar este sistema.
 export function camposDe(c: Conector): CampoConector[] {
   if (c.slug === "asa") return [{ chave: "token", rotulo: "Token da Asa", tipo: "segredo", obrigatorio: true, ajuda: "Fornecido pela Asa: o mesmo valor do header Authorization." }];
+  if (c.slug === "feegow") return CAMPOS_FEEGOW;
   return configDe(c)?.campos ?? [];
 }
 
@@ -64,6 +71,7 @@ export async function adaptadorPara(slug: string, credencial: unknown, log: LogE
   if (!conector && !SITUACOES_EM_USO.includes(c.situacao)) throw new ErpDesconhecido(`${slug} (${c.situacao})`);
   if (c.tipo === "codigo") {
     if (c.slug === "asa") return new AsaAdapter(credencial as CredencialAsa, log);
+    if (c.slug === "feegow") return new FeegowAdapter(credencial as CredencialFeegow, log);
     throw new ErpDesconhecido(slug);
   }
   const cfg = configDe(c);

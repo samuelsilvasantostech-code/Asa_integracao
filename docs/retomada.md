@@ -11,7 +11,37 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
-## 13/11: entrada por usuário e senha na implantação (sem commit e sem deploy)
+## 13/11: conector da Feegow (sem commit e sem deploy; falta testar com credencial real)
+
+- **Adaptador em código** (`src/erp/feegow/adaptador.ts`), e não por configuração, por três motivos:
+    - a Feegow busca horários **por especialidade**, num objeto aninhado profissional → local → data;
+    - a marcação pede local, especialidade, procedimento e valor em centavos;
+    - as datas vão em `DD-MM-YYYY`.
+- **No catálogo:** a migração 015 cadastra `feegow` em **homologação**. Campos: token (`x-access-token`, liberado pelo usuário master da licença) e unidade (opcional).
+- **O que faz:**
+    - buscar paciente: CPF por `patient/search`, telefone por `patient/list`;
+    - consultas futuras;
+    - especialidades e profissionais;
+    - dias e horários livres (`appoints/available-schedule`, tipo E): a vaga leva `fg:<local>:<especialidade>`;
+    - agenda do dia;
+    - convênios do profissional, com "Particular" (id 0) primeiro;
+    - consultas do profissional com valor;
+    - exames (tipo 3);
+    - marcar: cadastra o paciente novo; no particular, o valor vem do procedimento; no convênio, valor 0 com o plano do paciente;
+    - remarcar: no mesmo profissional usa `reschedule`; com outro, marca a nova e desmarca a antiga;
+    - confirmar (status 7), ausente (6) e cancelar (`cancel-appoint`, motivo 1);
+    - consultas a confirmar (status 1 no período).
+- **Fora, por ora:**
+    - financeiro (a API tem, mas o mapeamento não foi feito);
+    - grupos de exames;
+    - registro de "lembrete enviado" (a Feegow não tem; fica na trilha do Conector).
+- **Testes:** `test/feegow.test.ts`, com a Feegow simulada a partir dos exemplos da documentação. Ao todo, 108 testes passando.
+- **Pendente:**
+    - testar com um token real de homologação, em Implantação → Sistemas (ERP) → Feegow → "Testar com credencial";
+    - depois, ligar uma clínica de teste e publicar.
+    - Pontos a conferir no teste real: o limite de período do `available-schedule` (usamos 30 dias), o campo do celular no `patient/create` (mandamos `celular` e `celular1`) e se `status_id=1` filtra a busca de agendamentos.
+
+## 13/11: entrada por usuário e senha na implantação (commit c90b31f, no ar; primeiro usuário criado pelo usuário em 13/11)
 
 - **Primeiro acesso:** a página pede a `ADMIN_KEY` uma vez e cria o usuário e a senha.
 - **Aba Usuários:** criar, desativar e definir nova senha para outros acessos, e trocar a própria senha.
