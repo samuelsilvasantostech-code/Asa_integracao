@@ -22,7 +22,19 @@
 body { margin: 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.topo { background: var(--pinho); color: #fff; padding: 20px 24px; }
+.topo { background: var(--pinho); color: #fff; padding: 16px 24px 0; }
+.topo__marca { max-width: 1100px; margin: 0 auto; padding-bottom: 14px; }
+.topo__nav { max-width: 1100px; margin: 0 auto; display: flex; gap: 4px; align-items: flex-end; flex-wrap: wrap; }
+.topo__aba { font: inherit; font-weight: 600; color: #fff; background: transparent; border: 0; border-radius: 8px 8px 0 0; padding: 9px 16px; cursor: pointer; opacity: .8; }
+.topo__aba:hover { opacity: 1; background: rgba(255, 255, 255, .08); }
+.topo__aba[aria-selected="true"] { background: var(--fundo); color: var(--pinho); opacity: 1; }
+.topo__aba:focus-visible, .aba:focus-visible { outline: 3px solid var(--foco); outline-offset: -3px; }
+.topo__nav #b-sair { margin: 0 0 6px auto; }
+.btn--claro { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .5); }
+.btn--claro:hover { background: rgba(255, 255, 255, .12); }
+.contador { display: inline-block; min-width: 1.5em; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: var(--aviso); color: #fff; font-size: .78rem; text-align: center; }
+.vista { display: grid; gap: 16px; }
+#area { display: grid; gap: 16px; }
 .topo h1 { margin: 0 0 4px; font-size: 1.35rem; }
 .topo p { margin: 0; opacity: .85; }
 
@@ -101,3 +113,30 @@ code { background: var(--pinho-claro); padding: 1px 5px; border-radius: 4px; fon
 .passo--ok strong { color: var(--ok); }
 .passo--falha strong { color: var(--erro); }
 .tabela td .btn + .btn { margin-left: 6px; }
+
+/* Assistente de novo cliente */
+.etapas { list-style: none; counter-reset: etapa; display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 16px; padding: 0; }
+.etapas li { counter-increment: etapa; flex: 1 1 150px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--borda); color: var(--suave); font-weight: 600; font-size: .9rem; }
+.etapas li::before { content: counter(etapa) ". "; }
+.etapas li[data-estado="atual"] { border-color: var(--pinho); background: var(--pinho-claro); color: var(--pinho); }
+.etapas li[data-estado="feita"] { color: var(--ok); }
+.etapas li[data-estado="feita"]::before { content: "✔ "; }
+.etapas li[data-estado="pulada"] { color: var(--suave); font-style: italic; }
+.etapas li[data-estado="pulada"]::before { content: "– "; }
+.etapa .acoes { margin-top: 4px; }
+.caixa-aviso { border: 1px solid var(--borda); border-left: 4px solid var(--aviso); background: #fffaf0; border-radius: 8px; padding: 10px 14px; margin: 10px 0; }
+.caixa-aviso .btn { margin-top: 4px; }
+.roteiro-caixa { margin-top: 14px; }
+.roteiro-caixa summary { cursor: pointer; font-weight: 600; color: var(--pinho); margin-bottom: 8px; }
+
+/* Abas do detalhe do cliente */
+.abas { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 2px solid var(--borda); margin: 16px 0 0; }
+.aba { font: inherit; font-weight: 600; color: var(--suave); background: transparent; border: 0; border-bottom: 3px solid transparent; margin-bottom: -2px; padding: 8px 14px; cursor: pointer; }
+.aba:hover { color: var(--texto); }
+.aba[aria-selected="true"] { color: var(--pinho); border-bottom-color: var(--pinho); }
+.painel-aba > .bloco:first-child, .painel-aba > .caixa-aviso:first-child + .bloco { border-top: 0; margin-top: 4px; }
+@media (max-width: 600px) {
+  .topo { padding: 14px 16px 0; }
+  .topo__aba { padding: 8px 10px; }
+  .cartao { padding: 14px; }
+}

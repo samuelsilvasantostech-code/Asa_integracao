@@ -98,7 +98,7 @@ export async function conectoresAdmin(app: FastifyInstance) {
          FROM conectores c ORDER BY (c.situacao = 'arquivado'), c.nome`,
     );
     const { rows: pedidos } = await pool!.query(
-      `SELECT p.id, p.sistema, p.contato, p.observacao, p.situacao, p.conector_slug, p.criado_em, t.nome AS clinica
+      `SELECT p.id, p.tenant_id, p.sistema, p.contato, p.observacao, p.situacao, p.conector_slug, p.criado_em, t.nome AS clinica
          FROM conector_pedidos p LEFT JOIN tenants t ON t.id = p.tenant_id
         ORDER BY (p.situacao IN ('atendido', 'recusado')), p.criado_em DESC LIMIT 200`,
     );
@@ -282,6 +282,26 @@ export async function conectoresAdmin(app: FastifyInstance) {
     );
     if (!rowCount) return reply.code(404).send({ erro: "PEDIDO_NAO_ENCONTRADO" });
     return { ok: true };
+  });
+
+  // Pedido aberto pela implantação (cliente novo com sistema fora da lista), já ligado ao cliente e ao
+  // rascunho do conector, quando houver.
+  app.post<{ Body: { tenant_id?: string; sistema?: string; contato?: string; observacao?: string; conector_slug?: string } }>("/admin/pedidos", async (req, reply) => {
+    const b = req.body ?? {};
+    const sistema = String(b.sistema ?? "").trim();
+    if (sistema.length < 2 || sistema.length > 80) return reply.code(400).send({ erro: "SISTEMA_INVALIDO" });
+    if (b.tenant_id && !/^[0-9a-f-]{36}$/.test(b.tenant_id)) return reply.code(400).send({ erro: "ID_INVALIDO" });
+    if (b.conector_slug && !SLUG.test(b.conector_slug)) return reply.code(400).send({ erro: "SLUG_INVALIDO" });
+    const { rows } = await pool!.query<{ id: string }>(
+      `INSERT INTO conector_pedidos (tenant_id, sistema, contato, observacao, conector_slug, situacao)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [
+        b.tenant_id ?? null, sistema, String(b.contato ?? "").trim().slice(0, 120) || null, String(b.observacao ?? "").trim().slice(0, 1000) || null,
+        b.conector_slug ?? null, b.conector_slug ? "em_andamento" : "aberto",
+      ],
+    );
+    req.log.info({ pedido: rows[0].id, sistema, tenant: b.tenant_id }, "central: pedido aberto pela implantação");
+    return reply.code(201).send({ ok: true, id: rows[0].id });
   });
 
   /* ---------- clínica: ligar e testar (implantação) ---------- */

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    { "source": "/", "destination": "/implantacao", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/implantacao", "destination": "https://asa-integracao-samuels.kentro.com.br/implantacao" },
+    { "source": "/implantacao/:path*", "destination": "https://asa-integracao-samuels.kentro.com.br/implantacao/:path*" },
+    { "source": "/admin/:path*", "destination": "https://asa-integracao-samuels.kentro.com.br/admin/:path*" },
+    { "source": "/extensao/:path*", "destination": "https://asa-integracao-samuels.kentro.com.br/extensao/:path*" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ]
+}

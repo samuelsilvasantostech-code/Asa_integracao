@@ -11,7 +11,36 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
-## 12/11: tela única do administrador (0.24.0, sem commit e sem deploy)
+## 13/11: página de implantação reorganizada (sem commit e sem deploy)
+
+Pedido do usuário: na página `/implantacao`, identificar com clareza o sistema (ERP) do cliente e a chave única da instalação, e ter um lugar para anexar a documentação de um sistema sem documentação aberta.
+
+- **Abas no topo:**
+    - Clientes;
+    - Sistemas (ERP), que é a antiga Central de conectores;
+    - Pedidos, com um contador dos pedidos em aberto.
+- O cartão de acesso some depois de entrar. O roteiro de implantação virou um bloco recolhível.
+- **"+ Novo cliente"** é um assistente de 4 passos:
+    1. **Clínica**: cria o cliente.
+    2. **Sistema (ERP)**: a lista vem do catálogo; na Asa, pede a instituição. Em "Outro sistema", você informa o nome, o contato e a documentação (link ou arquivo). Isso cria o conector em rascunho (ou reaproveita um existente), abre um pedido ligado ao cliente (`POST /admin/pedidos`) e anexa a documentação.
+    3. **Acesso ao sistema**: mostra os campos que o conector pede, testa e grava. Dá para pular, e então a clínica preenche em ClinFy → Configurar.
+    4. **Instalação na Kentro**: a chave única (prefixo `clinfy_`, mostrada uma vez, com botão de copiar), a URL do manifest, o passo a passo e o id da instalação.
+- **Detalhe do cliente**, em abas:
+    - Sistema (ERP): ERP, token da Asa, aviso de pedido em aberto e **documentação do sistema**, com anexo direto no conector do sistema ou do pedido;
+    - Instalação: vínculo, chave e URL do manifest;
+    - Financeiro;
+    - Confirmação;
+    - Avançado: desligar e apagar o histórico.
+- **Servidor:**
+    - a chave nova da instalação usa o prefixo `clinfy_`; as `asa_` continuam valendo;
+    - a lista de pedidos traz o `tenant_id`;
+    - nova rota `POST /admin/pedidos`.
+- **Verificação:**
+    - 95 testes passando;
+    - conferido no navegador local com respostas simuladas: lista, assistente nos caminhos "Outro" e Asa, abas, Pedidos e Sistemas;
+    - **com banco de verdade, só depois do deploy.**
+
+## 12/11: tela única do administrador (0.24.0, no ar desde 13/11)
 
 Pedido do usuário: o administrador com **um ícone só**.
 

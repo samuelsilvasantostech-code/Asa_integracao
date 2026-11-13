@@ -9,12 +9,20 @@
 </head>
 <body>
 <header class="topo">
-  <h1>Implantação · ClinFy</h1>
-  <p>Cadastro e acompanhamento das clínicas no Conector. Exige a chave de administrador.</p>
+  <div class="topo__marca">
+    <h1>Implantação · ClinFy</h1>
+    <p>Clínicas, sistemas (ERP) e chaves de instalação do Conector.</p>
+  </div>
+  <nav class="topo__nav" id="nav" role="tablist" aria-label="Áreas da implantação" hidden>
+    <button type="button" class="topo__aba" role="tab" id="nav-clientes" aria-controls="v-clientes" aria-selected="true">Clientes</button>
+    <button type="button" class="topo__aba" role="tab" id="nav-sistemas" aria-controls="v-sistemas" aria-selected="false" tabindex="-1">Sistemas (ERP)</button>
+    <button type="button" class="topo__aba" role="tab" id="nav-pedidos" aria-controls="v-pedidos" aria-selected="false" tabindex="-1">Pedidos <span class="contador" id="nav-pedidos-n" hidden></span></button>
+    <button type="button" class="btn btn--claro" id="b-sair" hidden>Sair</button>
+  </nav>
 </header>
 
 <main>
-  <section class="cartao" aria-labelledby="h-acesso">
+  <section class="cartao" id="acesso" aria-labelledby="h-acesso">
     <h2 id="h-acesso">Acesso</h2>
     <form id="f-acesso" class="linha" autocomplete="off">
       <label class="campo">
@@ -22,245 +30,335 @@
         <input id="admin-key" type="password" autocomplete="off" spellcheck="false" required>
       </label>
       <button type="submit" class="btn btn--primario" id="b-entrar">Entrar</button>
-      <button type="button" class="btn" id="b-sair" hidden>Sair</button>
     </form>
     <p class="dica">A chave fica só nesta aba, enquanto ela estiver aberta. Não é gravada no navegador.</p>
     <p class="msg" id="m-acesso" role="status"></p>
   </section>
 
-  <section class="cartao" aria-labelledby="h-roteiro">
-    <h2 id="h-roteiro">Roteiro de implantação</h2>
-    <ol class="roteiro">
-      <li><strong>Criar o cliente</strong> aqui (nome, instância da Kentro e, se a clínica usa a Asa, a instituição). Copie a chave da instalação: ela aparece uma vez só.</li>
-      <li><strong>Instalar a extensão na Kentro</strong> da clínica pela URL do manifest (<code>/extensao/manifest.json</code> deste Conector). Na instalação, cole a chave em <code>apiKey</code>, preencha <code>queueIds</code> e <strong>restrinja o público</strong> a quem vai testar.</li>
-      <li>Anote aqui o <strong>id da instalação</strong> (Editar vínculo).</li>
-      <li><strong>Sistema da clínica:</strong> na Asa, a clínica cola o token em <em>ClinFy → Configurar</em> (ícone ClinFy na barra da Kentro, só administradores); em outro ERP no padrão Kentro, a implantação cadastra o endereço e o token no bloco <em>Sistema da clínica (ERP)</em> e testa a conexão.</li>
-      <li><strong>Conferir aqui</strong>: credencial ok (origem "clínica") e último uso preenchido.</li>
-      <li>Configurar financeiro e confirmação, se a clínica for usar, e então <strong>abrir o público</strong> da instalação para toda a equipe.</li>
-    </ol>
-  </section>
-
   <div id="area" hidden>
-    <section class="cartao" aria-labelledby="h-clientes">
-      <div class="cabeca">
-        <h2 id="h-clientes">Clientes</h2>
-        <button type="button" class="btn" id="b-atualizar">Atualizar</button>
-      </div>
-      <div class="tabela-rolagem">
-        <table class="tabela">
-          <caption class="sr">Clínicas cadastradas no Conector</caption>
-          <thead>
-            <tr><th scope="col">Cliente</th><th scope="col">Situação</th><th scope="col">Credencial do ERP</th><th scope="col">Instituição</th><th scope="col">Instância · instalação</th><th scope="col">Último uso</th><th scope="col"><span class="sr">Ações</span></th></tr>
-          </thead>
-          <tbody id="lista"></tbody>
-        </table>
-      </div>
-      <p class="msg" id="m-lista" role="status"></p>
-    </section>
-
-    <section class="cartao" aria-labelledby="h-novo">
-      <h2 id="h-novo">Novo cliente</h2>
-      <form id="f-novo" class="grade" autocomplete="off">
-        <label class="campo"><span>Nome da clínica</span><input id="n-nome" maxlength="120" required></label>
-        <label class="campo"><span>Instância da Kentro</span><input id="n-instancia" placeholder="clinica.atenderbem.com" spellcheck="false"></label>
-        <label class="campo"><span>Instituição da Asa (só clínicas na Asa)</span><input id="n-instituicao" inputmode="numeric" pattern="\d*" maxlength="12"></label>
-        <label class="campo"><span>Implantado por</span><input id="n-por" maxlength="120"></label>
-        <div class="acoes"><button type="submit" class="btn btn--primario">Criar cliente</button></div>
-      </form>
-      <p class="msg" id="m-novo" role="status"></p>
-      <div id="s-novo"></div>
-    </section>
-
-    <section class="cartao" id="detalhe" aria-labelledby="h-detalhe" hidden>
-      <div class="cabeca">
-        <h2 id="h-detalhe">Cliente</h2>
-        <button type="button" class="btn" id="b-fechar">Fechar</button>
-      </div>
-      <dl class="resumo" id="resumo"></dl>
-
-      <form id="f-vinculo" class="bloco grade" autocomplete="off">
-        <h3>Vínculo e observação</h3>
-        <label class="campo"><span>Nome</span><input id="v-nome" maxlength="120" required></label>
-        <label class="campo"><span>Instância da Kentro</span><input id="v-instancia" spellcheck="false" placeholder="clinica.atenderbem.com"></label>
-        <label class="campo"><span>Id da instalação na Kentro</span><input id="v-instalacao" inputmode="numeric" pattern="\d*" maxlength="10"></label>
-        <label class="campo"><span>Instituição da Asa (só Asa)</span><input id="v-instituicao" inputmode="numeric" pattern="\d*" maxlength="12"></label>
-        <label class="campo campo--largo"><span>Observação</span><textarea id="v-obs" rows="2" maxlength="1000"></textarea></label>
-        <div class="acoes"><button type="submit" class="btn btn--primario">Salvar vínculo</button></div>
-        <p class="msg" id="m-vinculo" role="status"></p>
-      </form>
-
-      <form id="f-erp" class="bloco" autocomplete="off">
-        <h3>Sistema da clínica (ERP)</h3>
-        <p class="dica">Qual sistema a clínica usa (a lista vem da Central de conectores) e, se quiser, outro nome nas telas. Os campos de acesso são os que o conector pede: são testados antes de gravar, ficam cifrados e não voltam para esta tela. Para manter a credencial já gravada, deixe os campos em branco.</p>
-        <div class="grade">
-          <label class="campo"><span>ERP</span>
-            <select id="e-erp"><option value="asa">Asa</option><option value="padrao">Sistema próprio (padrão Kentro)</option></select>
-          </label>
-          <label class="campo"><span>Nome nas telas (opcional)</span><input id="e-nome" maxlength="40" placeholder="o do conector" spellcheck="false"></label>
-          <label class="campo"><span>Artigo</span>
-            <select id="e-artigo"><option value="a">a (na Asa)</option><option value="o">o (no Feegow)</option></select>
-          </label>
-        </div>
-        <div class="grade" id="e-campos" hidden></div>
-        <div class="acoes">
-          <button type="submit" class="btn btn--primario">Salvar ERP</button>
-          <button type="button" class="btn" id="e-testar">Testar conexão</button>
-        </div>
-        <p class="msg" id="m-erp" role="status"></p>
-        <dl class="resumo" id="e-caps"></dl>
-      </form>
-
-      <form id="f-token" class="bloco" autocomplete="off">
-        <h3>Token da Asa</h3>
-        <p class="dica">Normalmente a própria clínica cola o token em <em>ClinFy → Configurar</em>. Use aqui para trocar um token já gravado. Ele é validado na Asa e guardado cifrado; não volta para esta tela.</p>
-        <div class="linha">
-          <label class="campo"><span>Token</span><input id="t-token" type="password" autocomplete="off" spellcheck="false" required></label>
-          <button type="submit" class="btn btn--primario">Validar e gravar</button>
-        </div>
-        <p class="msg" id="m-token" role="status"></p>
-      </form>
-
-      <form id="f-fin" class="bloco" autocomplete="off">
-        <h3>Financeiro</h3>
-        <p class="dica">Permite lançar conta a receber do paciente no ERP da clínica pelo painel (só se o ERP tiver essas rotas). Na Asa, a conta criada não pode ser editada nem excluída pela Kentro. "Quem pode lançar" é só uma regra da tela da extensão: o Conector não sabe quem é o usuário da Kentro.</p>
-        <label class="marca"><input type="checkbox" id="fin-on"> <span>Permitir lançar cobrança</span></label>
-        <label class="campo"><span>Quem pode lançar</span>
-          <select id="fin-quem"><option value="admin">Só administradores</option><option value="todos">Todos os atendentes</option></select>
-        </label>
-        <div class="acoes"><button type="submit" class="btn btn--primario">Salvar financeiro</button></div>
-        <p class="msg" id="m-fin" role="status"></p>
-      </form>
-
-      <form id="f-conf" class="bloco" autocomplete="off">
-        <h3>Confirmação de véspera</h3>
-        <fieldset>
-          <legend>Envio</legend>
-          <label class="marca"><input type="checkbox" id="c-on"> <span>Enviar lembretes</span></label>
-          <div class="grade">
-            <label class="campo"><span>Quando</span>
-              <select id="c-dias">
-                <option value="1">1 dia antes</option><option value="2">2 dias antes</option><option value="3">3 dias antes</option><option value="4">4 dias antes</option>
-                <option value="5">5 dias antes</option><option value="6">6 dias antes</option><option value="7">7 dias antes</option>
-              </select>
-            </label>
-            <label class="campo"><span>Canal da clínica</span>
-              <select id="c-canal"><option value="oficial">WhatsApp oficial (template)</option><option value="nao_oficial">WhatsApp não oficial (texto)</option></select>
-            </label>
+    <!-- ==================== CLIENTES ==================== -->
+    <section id="v-clientes" class="vista" role="tabpanel" aria-labelledby="nav-clientes">
+      <section class="cartao" aria-labelledby="h-clientes">
+        <div class="cabeca">
+          <h2 id="h-clientes">Clientes</h2>
+          <div class="acoes">
+            <button type="button" class="btn" id="b-atualizar">Atualizar</button>
+            <button type="button" class="btn btn--primario" id="b-novo">+ Novo cliente</button>
           </div>
-          <label class="marca"><input type="checkbox" id="c-sexta"> <span>Na sexta, mandar também os lembretes que cairiam no sábado e no domingo</span></label>
-        </fieldset>
-        <fieldset>
-          <legend>Modo teste</legend>
-          <label class="marca"><input type="checkbox" id="c-teste"> <span>Enviar só para os telefones abaixo</span></label>
-          <label class="campo"><span>Telefones permitidos (um por linha)</span><textarea id="c-telefones" rows="2" spellcheck="false"></textarea></label>
-        </fieldset>
-        <fieldset id="c-sec-tpl">
-          <legend>Template do lembrete</legend>
-          <label class="campo"><span>Nome do template (referência)</span><input id="c-tpl-nome" maxlength="80" spellcheck="false"></label>
-          <ol class="params" id="c-params"></ol>
-          <button type="button" class="btn" id="c-param-add">Adicionar variável</button>
-        </fieldset>
-        <fieldset>
-          <legend>Textos</legend>
-          <label class="campo" id="c-wrap-mensagem"><span>Mensagem do lembrete (canal não oficial)</span><textarea id="c-t-mensagem" rows="3"></textarea></label>
-          <label class="campo"><span>Quando confirma</span><textarea id="c-t-confirmado" rows="2"></textarea></label>
-          <label class="campo"><span>Quando cancela</span><textarea id="c-t-cancelado" rows="2"></textarea></label>
-          <label class="campo"><span>Quando pede para remarcar</span><textarea id="c-t-remarcar" rows="2"></textarea></label>
-          <label class="campo"><span>Quando responde de novo</span><textarea id="c-t-ja_respondido" rows="2"></textarea></label>
-          <label class="campo"><span>Quando o ERP está fora do ar</span><textarea id="c-t-indisponivel" rows="2"></textarea></label>
-          <p class="dica" id="c-campos"></p>
-        </fieldset>
-        <fieldset>
-          <legend>Respostas aceitas (além de Confirmar, Remarcar e Cancelar), uma por linha</legend>
-          <label class="campo"><span>Contam como confirmar</span><textarea id="c-s-confirmar" rows="2" spellcheck="false"></textarea></label>
-          <label class="campo"><span>Contam como remarcar</span><textarea id="c-s-remarcar" rows="2" spellcheck="false"></textarea></label>
-          <label class="campo"><span>Contam como cancelar</span><textarea id="c-s-cancelar" rows="2" spellcheck="false"></textarea></label>
-        </fieldset>
-        <div class="acoes"><button type="submit" class="btn btn--primario">Salvar confirmação</button></div>
-        <p class="msg" id="m-conf" role="status"></p>
-      </form>
-
-      <form id="f-disparo" class="bloco" autocomplete="off">
-        <h3>URL de disparo</h3>
-        <p class="dica">Captura de webhook da Kentro que roda a automação de disparo na hora (botão "Enviar confirmação"). Só endereço <code>https://…/webhookcapture/capture/…</code> em <code>*.atenderbem.com</code> ou <code>*.kentro.com.br</code>. Vazio remove.</p>
-        <div class="linha">
-          <label class="campo campo--largo"><span>URL</span><input id="d-url" type="url" spellcheck="false"></label>
-          <button type="submit" class="btn btn--primario">Salvar URL</button>
         </div>
-        <p class="msg" id="m-disparo" role="status"></p>
-      </form>
-
-      <div class="bloco">
-        <h3>Chaves</h3>
-        <p class="dica">Cada chave aparece uma vez só. Gerar de novo invalida a anterior na hora: a chave da instalação precisa ser colada de novo na Kentro; a da automação, no fluxo de confirmação.</p>
-        <div class="linha">
-          <button type="button" class="btn" id="b-rotacionar">Gerar nova chave da instalação</button>
-          <button type="button" class="btn" id="b-automacao">Gerar chave da automação</button>
-        </div>
-        <p class="msg" id="m-chaves" role="status"></p>
-        <div id="s-chaves"></div>
-      </div>
-
-      <form id="f-desligar" class="bloco perigo" autocomplete="off">
-        <h3>Desligar cliente</h3>
-        <p class="dica">Desativa o cliente e apaga a credencial do ERP, a chave da automação e a URL de disparo. A chave da instalação deixa de valer. O histórico fica até ser apagado abaixo.</p>
-        <div class="linha">
-          <label class="campo"><span>Digite o nome do cliente para confirmar</span><input id="x-nome" autocomplete="off" spellcheck="false"></label>
-          <button type="submit" class="btn btn--perigo">Desligar</button>
-        </div>
-        <p class="msg" id="m-desligar" role="status"></p>
-      </form>
-
-      <form id="f-historico" class="bloco perigo" autocomplete="off" hidden>
-        <h3>Apagar histórico</h3>
-        <p class="dica">Apaga de vez as trilhas deste cliente (agendamentos, confirmações e cobranças). Não tem volta. O cadastro do cliente continua na lista, desligado.</p>
-        <div class="linha">
-          <label class="campo"><span>Digite o nome do cliente para confirmar</span><input id="h-nome" autocomplete="off" spellcheck="false"></label>
-          <button type="submit" class="btn btn--perigo">Apagar histórico</button>
-        </div>
-        <p class="msg" id="m-historico" role="status"></p>
-      </form>
-    </section>
-
-    <section class="cartao" id="central" aria-labelledby="h-central">
-      <div class="cabeca">
-        <h2 id="h-central">Central de conectores</h2>
-        <button type="button" class="btn" id="cx-atualizar">Atualizar</button>
-      </div>
-      <p class="dica">Um conector por sistema (ERP): ele traduz as rotas da especificação ClinFy para as do sistema. Caminho: <strong>rascunho</strong> → <strong>homologação</strong> (uma clínica liga para testar) → <strong>publicado</strong> (aparece para todas as clínicas).</p>
-      <div class="tabela-rolagem">
-        <table class="tabela">
-          <caption class="sr">Conectores do catálogo</caption>
-          <thead><tr><th scope="col">Sistema</th><th scope="col">Situação</th><th scope="col">Versão</th><th scope="col">Documentos</th><th scope="col">Clínicas</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
-          <tbody id="cx-lista"></tbody>
-        </table>
-      </div>
-      <p class="msg" id="m-cx" role="status"></p>
-
-      <div class="bloco">
-        <h3>Pedidos das clínicas</h3>
-        <p class="dica">Sistemas que uma clínica escolheu como "Outro / não encontrei". Crie o conector a partir do pedido e anexe a documentação.</p>
+        <p class="dica">Cada cliente é uma clínica: um sistema (ERP), uma chave de instalação única e as configurações dela.</p>
         <div class="tabela-rolagem">
           <table class="tabela">
-            <caption class="sr">Pedidos de sistemas fora do catálogo</caption>
-            <thead><tr><th scope="col">Sistema</th><th scope="col">Clínica</th><th scope="col">Contato</th><th scope="col">Situação</th><th scope="col">Desde</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
-            <tbody id="cx-pedidos"></tbody>
+            <caption class="sr">Clínicas cadastradas no Conector</caption>
+            <thead>
+              <tr><th scope="col">Cliente</th><th scope="col">Sistema (ERP)</th><th scope="col">Conexão</th><th scope="col">Instalação na Kentro</th><th scope="col">Último uso</th><th scope="col"><span class="sr">Ações</span></th></tr>
+            </thead>
+            <tbody id="lista"></tbody>
           </table>
         </div>
-      </div>
+        <p class="msg" id="m-lista" role="status"></p>
+        <details class="roteiro-caixa">
+          <summary>Roteiro de implantação</summary>
+          <ol class="roteiro">
+            <li><strong>+ Novo cliente</strong>: o assistente cria a clínica, liga o sistema (ERP), testa o acesso e mostra a <strong>chave da instalação</strong> (ela aparece uma vez só).</li>
+            <li><strong>Instalar a extensão na Kentro</strong> da clínica pela URL do manifest. Na instalação, cole a chave em <code>apiKey</code>, preencha <code>queueIds</code> e <strong>restrinja o público</strong> a quem vai testar.</li>
+            <li>Anotar o <strong>id da instalação</strong> (último passo do assistente, ou aba Instalação do cliente).</li>
+            <li>Sistema fora da lista: anexe a documentação no assistente ou na aba Sistema. O conector é preparado em <strong>Sistemas (ERP)</strong> e, publicado, a clínica liga.</li>
+            <li>Configurar financeiro e confirmação, se a clínica for usar, e então <strong>abrir o público</strong> da instalação para toda a equipe.</li>
+          </ol>
+        </details>
+      </section>
 
-      <form id="f-cx-novo" class="bloco grade" autocomplete="off">
-        <h3>Novo conector</h3>
-        <label class="campo"><span>Nome do sistema</span><input id="cx-n-nome" maxlength="40" placeholder="Feegow" required></label>
-        <label class="campo"><span>Identificador</span><input id="cx-n-slug" maxlength="40" pattern="[a-z][a-z0-9-]{1,39}" placeholder="feegow" spellcheck="false" required></label>
-        <label class="campo"><span>Artigo</span><select id="cx-n-artigo"><option value="o">o (no Feegow)</option><option value="a">a (na Asa)</option></select></label>
-        <div class="acoes"><button type="submit" class="btn btn--primario">Criar rascunho</button></div>
-        <p class="msg" id="m-cx-novo" role="status"></p>
-      </form>
-
-      <div id="cx-detalhe" class="bloco" hidden>
+      <!-- Assistente de novo cliente -->
+      <section class="cartao" id="assistente" aria-labelledby="h-assistente" hidden>
         <div class="cabeca">
-          <h3 id="cx-titulo" tabindex="-1">Conector</h3>
+          <h2 id="h-assistente" tabindex="-1">Novo cliente</h2>
+          <button type="button" class="btn" id="w-fechar">Fechar</button>
+        </div>
+        <ol class="etapas" id="w-etapas">
+          <li data-etapa="1">Clínica</li>
+          <li data-etapa="2">Sistema (ERP)</li>
+          <li data-etapa="3">Acesso ao sistema</li>
+          <li data-etapa="4">Instalação na Kentro</li>
+        </ol>
+
+        <form id="w-1" class="etapa grade" autocomplete="off">
+          <label class="campo"><span>Nome da clínica</span><input id="w-nome" maxlength="120" required></label>
+          <label class="campo"><span>Instância da Kentro</span><input id="w-instancia" placeholder="clinica.atenderbem.com" spellcheck="false"></label>
+          <label class="campo"><span>Implantado por</span><input id="w-por" maxlength="120"></label>
+          <div class="acoes"><button type="submit" class="btn btn--primario">Criar e continuar</button></div>
+          <p class="msg" id="m-w-1" role="status"></p>
+        </form>
+
+        <form id="w-2" class="etapa" autocomplete="off" hidden>
+          <p class="dica">Qual sistema de gestão (ERP) a clínica usa? A lista vem de <strong>Sistemas (ERP)</strong>: são os conectores publicados ou em homologação.</p>
+          <div class="grade">
+            <label class="campo"><span>Sistema</span><select id="w-erp" required></select></label>
+            <label class="campo" id="w-asa" hidden><span>Instituição da Asa (número)</span><input id="w-instituicao" inputmode="numeric" pattern="\d*" maxlength="12"></label>
+          </div>
+          <div id="w-outro" class="caixa-aviso" hidden>
+            <p class="dica">O sistema ainda não tem conector. Informe o nome e, se tiver, anexe a documentação da API (link ou arquivo). O cliente fica registrado com um <strong>pedido</strong>; o conector é preparado em Sistemas (ERP) a partir da documentação.</p>
+            <div class="grade">
+              <label class="campo"><span>Nome do sistema</span><input id="w-sistema" maxlength="40" placeholder="Feegow, Clinicorp…"></label>
+              <label class="campo"><span>Contato na clínica ou no fornecedor</span><input id="w-contato" maxlength="120"></label>
+              <label class="campo campo--largo"><span>Link da documentação (opcional)</span><input id="w-doc-url" type="url" spellcheck="false" placeholder="https://…"></label>
+              <label class="campo campo--largo"><span>Ou arquivo (opcional, até 10 MB)</span><input id="w-doc-arquivo" type="file"></label>
+            </div>
+          </div>
+          <div class="acoes"><button type="submit" class="btn btn--primario">Continuar</button></div>
+          <p class="msg" id="m-w-2" role="status"></p>
+        </form>
+
+        <form id="w-3" class="etapa" autocomplete="off" hidden>
+          <p class="dica" id="w-3-dica">Os campos que o sistema pede. O acesso é testado antes de gravar, fica cifrado e não volta para esta tela.</p>
+          <div class="grade" id="w-campos"></div>
+          <div class="acoes">
+            <button type="submit" class="btn btn--primario">Testar e salvar</button>
+            <button type="button" class="btn" id="w-pular">A clínica preenche depois</button>
+          </div>
+          <p class="msg" id="m-w-3" role="status"></p>
+        </form>
+
+        <div id="w-4" class="etapa" hidden>
+          <p class="dica">Esta é a <strong>chave da instalação</strong> deste cliente: única, aparece <strong>só agora</strong>. Se perder, gere outra na aba Instalação do cliente.</p>
+          <div id="w-chave"></div>
+          <ol class="roteiro">
+            <li>Na Kentro da clínica, instale a extensão pela URL do manifest: <code id="w-manifest"></code></li>
+            <li>Na instalação, cole a chave em <code>apiKey</code> e preencha <code>queueIds</code> com as filas que vão usar.</li>
+            <li>Restrinja o público a quem vai testar e anote abaixo o id da instalação.</li>
+          </ol>
+          <form id="w-4f" class="linha" autocomplete="off">
+            <label class="campo"><span>Id da instalação na Kentro (opcional)</span><input id="w-instalacao" inputmode="numeric" pattern="\d*" maxlength="10"></label>
+            <button type="submit" class="btn btn--primario">Concluir</button>
+          </form>
+          <p class="msg" id="m-w-4" role="status"></p>
+        </div>
+      </section>
+
+      <!-- Detalhe do cliente -->
+      <section class="cartao" id="detalhe" aria-labelledby="h-detalhe" hidden>
+        <div class="cabeca">
+          <h2 id="h-detalhe">Cliente</h2>
+          <button type="button" class="btn" id="b-fechar">Fechar</button>
+        </div>
+        <dl class="resumo" id="resumo"></dl>
+
+        <div class="abas" role="tablist" aria-label="Configurações do cliente" id="d-abas">
+          <button type="button" class="aba" role="tab" id="da-sistema" aria-controls="dp-sistema" aria-selected="true">Sistema (ERP)</button>
+          <button type="button" class="aba" role="tab" id="da-instalacao" aria-controls="dp-instalacao" aria-selected="false" tabindex="-1">Instalação</button>
+          <button type="button" class="aba" role="tab" id="da-financeiro" aria-controls="dp-financeiro" aria-selected="false" tabindex="-1">Financeiro</button>
+          <button type="button" class="aba" role="tab" id="da-confirmacao" aria-controls="dp-confirmacao" aria-selected="false" tabindex="-1">Confirmação</button>
+          <button type="button" class="aba" role="tab" id="da-avancado" aria-controls="dp-avancado" aria-selected="false" tabindex="-1">Avançado</button>
+        </div>
+
+        <!-- Sistema -->
+        <div class="painel-aba" id="dp-sistema" role="tabpanel" aria-labelledby="da-sistema">
+          <div id="d-pedido" class="caixa-aviso" hidden></div>
+
+          <form id="f-erp" class="bloco" autocomplete="off">
+            <h3>Sistema da clínica (ERP)</h3>
+            <p class="dica">Qual sistema a clínica usa (a lista vem de Sistemas (ERP)) e, se quiser, outro nome nas telas. Os campos de acesso são os que o sistema pede: são testados antes de gravar, ficam cifrados e não voltam para esta tela. Para manter o acesso já gravado, deixe os campos em branco.</p>
+            <div class="grade">
+              <label class="campo"><span>Sistema</span>
+                <select id="e-erp"><option value="asa">Asa</option><option value="padrao">Sistema próprio (padrão Kentro)</option></select>
+              </label>
+              <label class="campo"><span>Nome nas telas (opcional)</span><input id="e-nome" maxlength="40" placeholder="o do conector" spellcheck="false"></label>
+              <label class="campo"><span>Artigo</span>
+                <select id="e-artigo"><option value="a">a (na Asa)</option><option value="o">o (no Feegow)</option></select>
+              </label>
+            </div>
+            <div class="grade" id="e-campos" hidden></div>
+            <div class="acoes">
+              <button type="submit" class="btn btn--primario">Salvar sistema</button>
+              <button type="button" class="btn" id="e-testar">Testar conexão</button>
+            </div>
+            <p class="msg" id="m-erp" role="status"></p>
+            <dl class="resumo" id="e-caps"></dl>
+          </form>
+
+          <form id="f-token" class="bloco" autocomplete="off">
+            <h3>Token da Asa</h3>
+            <p class="dica">Normalmente a própria clínica cola o token em <em>ClinFy → Configurar</em>. Use aqui para cadastrar ou trocar o token. Ele é validado na Asa e guardado cifrado; não volta para esta tela.</p>
+            <div class="linha">
+              <label class="campo"><span>Token</span><input id="t-token" type="password" autocomplete="off" spellcheck="false" required></label>
+              <button type="submit" class="btn btn--primario">Validar e gravar</button>
+            </div>
+            <p class="msg" id="m-token" role="status"></p>
+          </form>
+
+          <div class="bloco">
+            <h3>Documentação do sistema</h3>
+            <p class="dica">Para sistema sem documentação aberta: anexe aqui o que a clínica ou o fornecedor mandar (OpenAPI/Swagger, coleção do Postman, PDF ou link). Vai para o conector do sistema, em Sistemas (ERP), e é a base para ler a API e personalizar a extensão. Credenciais dentro de coleções JSON são apagadas ao receber.</p>
+            <p class="dica" id="d-doc-destino"></p>
+            <ul class="docs" id="d-docs"></ul>
+            <form id="f-d-doc" class="grade" autocomplete="off">
+              <label class="campo"><span>De onde veio</span><input id="d-doc-origem" maxlength="200" placeholder="Clínica, fornecedor…"></label>
+              <label class="campo"><span>Link</span><input id="d-doc-url" type="url" spellcheck="false" placeholder="https://…"></label>
+              <label class="campo"><span>Ou arquivo (até 10 MB)</span><input id="d-doc-arquivo" type="file"></label>
+              <div class="acoes"><button type="submit" class="btn btn--primario">Anexar</button></div>
+              <p class="msg" id="m-d-doc" role="status"></p>
+            </form>
+          </div>
+        </div>
+
+        <!-- Instalação -->
+        <div class="painel-aba" id="dp-instalacao" role="tabpanel" aria-labelledby="da-instalacao" hidden>
+          <form id="f-vinculo" class="bloco grade" autocomplete="off">
+            <h3>Clínica e instalação na Kentro</h3>
+            <label class="campo"><span>Nome</span><input id="v-nome" maxlength="120" required></label>
+            <label class="campo"><span>Instância da Kentro</span><input id="v-instancia" spellcheck="false" placeholder="clinica.atenderbem.com"></label>
+            <label class="campo"><span>Id da instalação na Kentro</span><input id="v-instalacao" inputmode="numeric" pattern="\d*" maxlength="10"></label>
+            <label class="campo"><span>Instituição da Asa (só Asa)</span><input id="v-instituicao" inputmode="numeric" pattern="\d*" maxlength="12"></label>
+            <label class="campo campo--largo"><span>Observação</span><textarea id="v-obs" rows="2" maxlength="1000"></textarea></label>
+            <div class="acoes"><button type="submit" class="btn btn--primario">Salvar</button></div>
+            <p class="msg" id="m-vinculo" role="status"></p>
+          </form>
+
+          <div class="bloco">
+            <h3>Chave da instalação</h3>
+            <p class="dica">Única por cliente: é ela que liga a extensão instalada na Kentro a este cliente. Fica guardada só como hash, então não dá para ver de novo; gerar outra invalida a anterior na hora (cole a nova em <code>apiKey</code> na Kentro).</p>
+            <p class="dica">URL do manifest para instalar na Kentro: <code id="d-manifest"></code></p>
+            <div class="linha">
+              <button type="button" class="btn" id="b-rotacionar">Gerar nova chave da instalação</button>
+              <button type="button" class="btn" id="b-automacao">Gerar chave da automação</button>
+            </div>
+            <p class="dica">A chave da automação vale só para o fluxo de confirmação de véspera na Kentro.</p>
+            <p class="msg" id="m-chaves" role="status"></p>
+            <div id="s-chaves"></div>
+          </div>
+        </div>
+
+        <!-- Financeiro -->
+        <div class="painel-aba" id="dp-financeiro" role="tabpanel" aria-labelledby="da-financeiro" hidden>
+          <form id="f-fin" class="bloco" autocomplete="off">
+            <h3>Financeiro</h3>
+            <p class="dica">Permite lançar conta a receber do paciente no sistema da clínica pelo painel (só se o sistema tiver essas rotas). Na Asa, a conta criada não pode ser editada nem excluída pela Kentro. "Quem pode lançar" é só uma regra da tela da extensão: o Conector não sabe quem é o usuário da Kentro.</p>
+            <label class="marca"><input type="checkbox" id="fin-on"> <span>Permitir lançar cobrança</span></label>
+            <label class="campo"><span>Quem pode lançar</span>
+              <select id="fin-quem"><option value="admin">Só administradores</option><option value="todos">Todos os atendentes</option></select>
+            </label>
+            <div class="acoes"><button type="submit" class="btn btn--primario">Salvar financeiro</button></div>
+            <p class="msg" id="m-fin" role="status"></p>
+          </form>
+        </div>
+
+        <!-- Confirmação -->
+        <div class="painel-aba" id="dp-confirmacao" role="tabpanel" aria-labelledby="da-confirmacao" hidden>
+          <form id="f-conf" class="bloco" autocomplete="off">
+            <h3>Confirmação de véspera</h3>
+            <fieldset>
+              <legend>Envio</legend>
+              <label class="marca"><input type="checkbox" id="c-on"> <span>Enviar lembretes</span></label>
+              <div class="grade">
+                <label class="campo"><span>Quando</span>
+                  <select id="c-dias">
+                    <option value="1">1 dia antes</option><option value="2">2 dias antes</option><option value="3">3 dias antes</option><option value="4">4 dias antes</option>
+                    <option value="5">5 dias antes</option><option value="6">6 dias antes</option><option value="7">7 dias antes</option>
+                  </select>
+                </label>
+                <label class="campo"><span>Canal da clínica</span>
+                  <select id="c-canal"><option value="oficial">WhatsApp oficial (template)</option><option value="nao_oficial">WhatsApp não oficial (texto)</option></select>
+                </label>
+              </div>
+              <label class="marca"><input type="checkbox" id="c-sexta"> <span>Na sexta, mandar também os lembretes que cairiam no sábado e no domingo</span></label>
+            </fieldset>
+            <fieldset>
+              <legend>Modo teste</legend>
+              <label class="marca"><input type="checkbox" id="c-teste"> <span>Enviar só para os telefones abaixo</span></label>
+              <label class="campo"><span>Telefones permitidos (um por linha)</span><textarea id="c-telefones" rows="2" spellcheck="false"></textarea></label>
+            </fieldset>
+            <fieldset id="c-sec-tpl">
+              <legend>Template do lembrete</legend>
+              <label class="campo"><span>Nome do template (referência)</span><input id="c-tpl-nome" maxlength="80" spellcheck="false"></label>
+              <ol class="params" id="c-params"></ol>
+              <button type="button" class="btn" id="c-param-add">Adicionar variável</button>
+            </fieldset>
+            <fieldset>
+              <legend>Textos</legend>
+              <label class="campo" id="c-wrap-mensagem"><span>Mensagem do lembrete (canal não oficial)</span><textarea id="c-t-mensagem" rows="3"></textarea></label>
+              <label class="campo"><span>Quando confirma</span><textarea id="c-t-confirmado" rows="2"></textarea></label>
+              <label class="campo"><span>Quando cancela</span><textarea id="c-t-cancelado" rows="2"></textarea></label>
+              <label class="campo"><span>Quando pede para remarcar</span><textarea id="c-t-remarcar" rows="2"></textarea></label>
+              <label class="campo"><span>Quando responde de novo</span><textarea id="c-t-ja_respondido" rows="2"></textarea></label>
+              <label class="campo"><span>Quando o sistema está fora do ar</span><textarea id="c-t-indisponivel" rows="2"></textarea></label>
+              <p class="dica" id="c-campos"></p>
+            </fieldset>
+            <fieldset>
+              <legend>Respostas aceitas (além de Confirmar, Remarcar e Cancelar), uma por linha</legend>
+              <label class="campo"><span>Contam como confirmar</span><textarea id="c-s-confirmar" rows="2" spellcheck="false"></textarea></label>
+              <label class="campo"><span>Contam como remarcar</span><textarea id="c-s-remarcar" rows="2" spellcheck="false"></textarea></label>
+              <label class="campo"><span>Contam como cancelar</span><textarea id="c-s-cancelar" rows="2" spellcheck="false"></textarea></label>
+            </fieldset>
+            <div class="acoes"><button type="submit" class="btn btn--primario">Salvar confirmação</button></div>
+            <p class="msg" id="m-conf" role="status"></p>
+          </form>
+
+          <form id="f-disparo" class="bloco" autocomplete="off">
+            <h3>URL de disparo</h3>
+            <p class="dica">Captura de webhook da Kentro que roda a automação de disparo na hora (botão "Enviar confirmação"). Só endereço <code>https://…/webhookcapture/capture/…</code> em <code>*.atenderbem.com</code> ou <code>*.kentro.com.br</code>. Vazio remove.</p>
+            <div class="linha">
+              <label class="campo campo--largo"><span>URL</span><input id="d-url" type="url" spellcheck="false"></label>
+              <button type="submit" class="btn btn--primario">Salvar URL</button>
+            </div>
+            <p class="msg" id="m-disparo" role="status"></p>
+          </form>
+        </div>
+
+        <!-- Avançado -->
+        <div class="painel-aba" id="dp-avancado" role="tabpanel" aria-labelledby="da-avancado" hidden>
+          <form id="f-desligar" class="bloco perigo" autocomplete="off">
+            <h3>Desligar cliente</h3>
+            <p class="dica">Desativa o cliente e apaga o acesso ao sistema, a chave da automação e a URL de disparo. A chave da instalação deixa de valer. O histórico fica até ser apagado abaixo.</p>
+            <div class="linha">
+              <label class="campo"><span>Digite o nome do cliente para confirmar</span><input id="x-nome" autocomplete="off" spellcheck="false"></label>
+              <button type="submit" class="btn btn--perigo">Desligar</button>
+            </div>
+            <p class="msg" id="m-desligar" role="status"></p>
+          </form>
+
+          <form id="f-historico" class="bloco perigo" autocomplete="off" hidden>
+            <h3>Apagar histórico</h3>
+            <p class="dica">Apaga de vez as trilhas deste cliente (agendamentos, confirmações e cobranças). Não tem volta. O cadastro do cliente continua na lista, desligado.</p>
+            <div class="linha">
+              <label class="campo"><span>Digite o nome do cliente para confirmar</span><input id="h-nome" autocomplete="off" spellcheck="false"></label>
+              <button type="submit" class="btn btn--perigo">Apagar histórico</button>
+            </div>
+            <p class="msg" id="m-historico" role="status"></p>
+          </form>
+        </div>
+      </section>
+    </section>
+
+    <!-- ==================== SISTEMAS (ERP) ==================== -->
+    <section id="v-sistemas" class="vista" role="tabpanel" aria-labelledby="nav-sistemas" hidden>
+      <section class="cartao" id="central" aria-labelledby="h-central">
+        <div class="cabeca">
+          <h2 id="h-central">Sistemas (ERP)</h2>
+          <button type="button" class="btn" id="cx-atualizar">Atualizar</button>
+        </div>
+        <p class="dica">Um conector por sistema: ele traduz as rotas da especificação ClinFy para as do sistema. Caminho: <strong>rascunho</strong> → <strong>homologação</strong> (uma clínica liga para testar) → <strong>publicado</strong> (aparece para todas as clínicas).</p>
+        <div class="tabela-rolagem">
+          <table class="tabela">
+            <caption class="sr">Conectores do catálogo</caption>
+            <thead><tr><th scope="col">Sistema</th><th scope="col">Situação</th><th scope="col">Versão</th><th scope="col">Documentos</th><th scope="col">Clínicas</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
+            <tbody id="cx-lista"></tbody>
+          </table>
+        </div>
+        <p class="msg" id="m-cx" role="status"></p>
+
+        <form id="f-cx-novo" class="bloco grade" autocomplete="off">
+          <h3>Novo sistema</h3>
+          <label class="campo"><span>Nome do sistema</span><input id="cx-n-nome" maxlength="40" placeholder="Feegow" required></label>
+          <label class="campo"><span>Identificador</span><input id="cx-n-slug" maxlength="40" pattern="[a-z][a-z0-9-]{1,39}" placeholder="feegow" spellcheck="false" required></label>
+          <label class="campo"><span>Artigo</span><select id="cx-n-artigo"><option value="o">o (no Feegow)</option><option value="a">a (na Asa)</option></select></label>
+          <div class="acoes"><button type="submit" class="btn btn--primario">Criar rascunho</button></div>
+          <p class="msg" id="m-cx-novo" role="status"></p>
+        </form>
+      </section>
+
+      <section class="cartao" id="cx-detalhe" hidden>
+        <div class="cabeca">
+          <h2 id="cx-titulo" tabindex="-1">Conector</h2>
           <button type="button" class="btn" id="cx-fechar">Fechar</button>
         </div>
         <dl class="resumo" id="cx-resumo"></dl>
@@ -276,15 +374,6 @@
           <p class="msg" id="m-cx-dados" role="status"></p>
         </form>
 
-        <form id="f-cx-config" class="bloco" autocomplete="off">
-          <h3>Configuração</h3>
-          <p class="dica">JSON do conector: autenticação, campos que a clínica preenche e a tradução de cada rota da especificação. É validado antes de gravar; cada gravação sobe a versão, e as clínicas passam a usar a nova em até 30 segundos.</p>
-          <label class="campo"><span class="sr">Configuração em JSON</span><textarea id="cx-config" class="mono" rows="18" spellcheck="false"></textarea></label>
-          <div class="acoes"><button type="submit" class="btn btn--primario">Validar e salvar</button></div>
-          <p class="msg" id="m-cx-config" role="status"></p>
-          <ul class="erros" id="cx-erros"></ul>
-        </form>
-
         <div class="bloco">
           <h3>Documentação</h3>
           <p class="dica">Link ou arquivo da API do sistema (OpenAPI/Swagger, coleção do Postman, PDF). Fica só aqui, para a chave de administrador. Credenciais dentro de coleções do Postman e de OpenAPI em JSON são apagadas ao receber; em PDF e outros formatos, não: confira antes de enviar.</p>
@@ -298,6 +387,15 @@
           </form>
         </div>
 
+        <form id="f-cx-config" class="bloco" autocomplete="off">
+          <h3>Configuração</h3>
+          <p class="dica">JSON do conector: autenticação, campos que a clínica preenche e a tradução de cada rota da especificação. É validado antes de gravar; cada gravação sobe a versão, e as clínicas passam a usar a nova em até 30 segundos.</p>
+          <label class="campo"><span class="sr">Configuração em JSON</span><textarea id="cx-config" class="mono" rows="18" spellcheck="false"></textarea></label>
+          <div class="acoes"><button type="submit" class="btn btn--primario">Validar e salvar</button></div>
+          <p class="msg" id="m-cx-config" role="status"></p>
+          <ul class="erros" id="cx-erros"></ul>
+        </form>
+
         <form id="f-cx-teste" class="bloco" autocomplete="off">
           <h3>Testar com credencial</h3>
           <p class="dica">Só leitura: conexão, profissionais, dias e horários livres, agenda do dia e, se informar, a busca de um paciente. A credencial não é gravada. Funciona também com o rascunho.</p>
@@ -310,7 +408,22 @@
           <p class="msg" id="m-cx-teste" role="status"></p>
           <ul class="passos" id="cx-passos"></ul>
         </form>
-      </div>
+      </section>
+    </section>
+
+    <!-- ==================== PEDIDOS ==================== -->
+    <section id="v-pedidos" class="vista" role="tabpanel" aria-labelledby="nav-pedidos" hidden>
+      <section class="cartao" aria-labelledby="h-pedidos">
+        <h2 id="h-pedidos">Pedidos de sistemas</h2>
+        <p class="dica">Sistemas que ainda não têm conector: pedidos das clínicas (Outro / não encontrei) e os abertos no assistente de novo cliente. Crie o conector, anexe a documentação e acompanhe até publicar.</p>
+        <div class="tabela-rolagem">
+          <table class="tabela">
+            <caption class="sr">Pedidos de sistemas fora do catálogo</caption>
+            <thead><tr><th scope="col">Sistema</th><th scope="col">Clínica</th><th scope="col">Contato</th><th scope="col">Situação</th><th scope="col">Desde</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
+            <tbody id="cx-pedidos"></tbody>
+          </table>
+        </div>
+      </section>
     </section>
   </div>
 </main>

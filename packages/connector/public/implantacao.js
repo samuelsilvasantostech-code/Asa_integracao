@@ -121,6 +121,35 @@
     box.appendChild(s);
   }
 
+  /* ---------- abas (topo e detalhe do cliente) ---------- */
+  // Um grupo de abas = botões role=tab cujo aria-controls aponta o painel. Setas mudam de aba.
+  function ligarAbas(ids, aoTrocar) {
+    function ativar(id, foco) {
+      ids.forEach(function (outro) {
+        var b = $(outro), sel = outro === id;
+        b.setAttribute('aria-selected', sel ? 'true' : 'false');
+        b.tabIndex = sel ? 0 : -1;
+        $(b.getAttribute('aria-controls')).hidden = !sel;
+      });
+      if (foco) $(id).focus();
+      if (aoTrocar) aoTrocar(id);
+    }
+    ids.forEach(function (id, i) {
+      $(id).addEventListener('click', function () { ativar(id); });
+      $(id).addEventListener('keydown', function (ev) {
+        var d = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0;
+        if (!d) return;
+        ev.preventDefault();
+        ativar(ids[(i + d + ids.length) % ids.length], true);
+      });
+    });
+    return ativar;
+  }
+  var irPara = ligarAbas(['nav-clientes', 'nav-sistemas', 'nav-pedidos']);
+  var abaDoCliente = ligarAbas(['da-sistema', 'da-instalacao', 'da-financeiro', 'da-confirmacao', 'da-avancado']);
+
+  function urlManifest() { return location.origin + '/extensao/manifest.json'; }
+
   /* ---------- acesso ---------- */
   function entrar(ev) {
     ev.preventDefault();
@@ -130,31 +159,29 @@
     msg('m-acesso', null, 'Conferindo…');
     carregar().then(function (ok) {
       if (!ok) { chave = ''; return; }
-      msg('m-acesso', 'ok', 'Chave aceita.');
+      msg('m-acesso', null, '');
+      $('acesso').hidden = true;
       $('area').hidden = false;
+      $('nav').hidden = false;
       $('b-sair').hidden = false;
-      $('b-entrar').hidden = true;
-      $('admin-key').disabled = true;
+      irPara('nav-clientes');
       carregarConectores();
     });
   }
   function sair() {
     chave = '';
-    tenants = [];
-    atual = null;
-    $('lista').textContent = '';
-    $('s-novo').textContent = '';
-    $('s-chaves').textContent = '';
-    $('area').hidden = true;
-    $('detalhe').hidden = true;
-    $('cx-detalhe').hidden = true;
+    tenants = []; atual = null; wiz = null;
     conectores = []; pedidos = []; conectorAtual = null;
-    $('cx-lista').textContent = '';
-    $('cx-pedidos').textContent = '';
+    ['lista', 's-chaves', 'w-chave', 'cx-lista', 'cx-pedidos', 'd-docs'].forEach(function (id) { $(id).textContent = ''; });
+    $('area').hidden = true;
+    $('nav').hidden = true;
     $('b-sair').hidden = true;
-    $('b-entrar').hidden = false;
-    $('admin-key').disabled = false;
+    $('detalhe').hidden = true;
+    $('assistente').hidden = true;
+    $('cx-detalhe').hidden = true;
+    $('acesso').hidden = false;
     msg('m-acesso', null, 'Saiu. A chave foi esquecida por esta página.');
+    $('admin-key').focus();
   }
 
   /* ---------- lista ---------- */
@@ -167,7 +194,7 @@
       tenants = r.body.tenants || [];
       opcoes = r.body.opcoes || null;
       desenharLista();
-      msg('m-lista', null, tenants.length ? '' : 'Nenhum cliente cadastrado.');
+      msg('m-lista', null, tenants.length ? '' : 'Nenhum cliente cadastrado. Use + Novo cliente.');
       if (atual) {
         var achado = tenants.filter(function (t) { return t.id === atual.id; })[0];
         if (achado) abrir(achado); else fechar();
@@ -181,9 +208,18 @@
     return t.ativo ? { tom: 'ok', texto: 'Ativo' } : { tom: 'warn', texto: 'Inativo' };
   }
   function credencial(t) {
-    if (!t.tem_credencial) return 'Sem token';
+    if (!t.tem_credencial) return 'Sem acesso cadastrado';
     var origem = t.credencial_origem === 'clinica' ? 'pela clínica' : t.credencial_origem === 'implantacao' ? 'pela implantação' : '';
     return 'Ok' + (origem ? ', ' + origem : '') + (t.credencial_gravada_em ? ' em ' + dataHora(t.credencial_gravada_em) : '');
+  }
+  function nomeConector(slug) {
+    if (slug === 'padrao') return 'Sistema próprio (padrão Kentro)';
+    var c = conectores.filter(function (x) { return x.slug === slug; })[0];
+    return c ? c.nome : (NOMES_ERP[slug] || slug || '—');
+  }
+  // Pedido de sistema ainda em aberto deste cliente (o sistema dele não tem conector publicado).
+  function pedidoDe(t) {
+    return pedidos.filter(function (p) { return p.tenant_id === t.id && (p.situacao === 'aberto' || p.situacao === 'em_andamento'); })[0] || null;
   }
 
   function desenharLista() {
@@ -193,39 +229,243 @@
       var tr = el('tr');
       var nome = el('td');
       nome.appendChild(el('strong', null, t.nome));
+      var st = situacao(t);
+      nome.appendChild(document.createTextNode(' '));
+      nome.appendChild(el('span', 'selo selo--' + st.tom, st.texto));
       if (t.observacao) nome.appendChild(el('div', 'sub', t.observacao));
       tr.appendChild(nome);
-      var st = situacao(t);
-      var td = el('td');
-      td.appendChild(el('span', 'selo selo--' + st.tom, st.texto));
-      tr.appendChild(td);
-      tr.appendChild(el('td', t.tem_credencial ? null : 'falta', credencial(t)));
-      tr.appendChild(el('td', null, t.asa_instituicao_id || '—'));
-      tr.appendChild(el('td', null, (t.kentro_instancia || '—') + ' · ' + (t.kentro_instalacao_id != null ? '#' + t.kentro_instalacao_id : '—')));
+
+      var sis = el('td');
+      var ped = pedidoDe(t);
+      if (ped) {
+        sis.appendChild(el('strong', null, ped.sistema));
+        sis.appendChild(el('div', 'sub falta', 'Aguardando conector'));
+      } else {
+        sis.appendChild(el('strong', null, nomeConector(t.erp || 'asa')));
+        if (t.sistema_nome) sis.appendChild(el('div', 'sub', 'Nas telas: ' + t.sistema_nome));
+      }
+      tr.appendChild(sis);
+
+      var con = el('td', t.tem_credencial ? null : 'falta', t.tem_credencial ? 'Acesso ok' : 'Sem acesso');
+      con.appendChild(el('div', 'sub', t.erp_testado_em ? 'Testado em ' + dataHora(t.erp_testado_em) : 'Não testado'));
+      tr.appendChild(con);
+
+      var inst = el('td');
+      inst.appendChild(el('div', t.kentro_instalacao_id != null ? null : 'falta', t.kentro_instalacao_id != null ? 'Instalação #' + t.kentro_instalacao_id : 'Id não anotado'));
+      inst.appendChild(el('div', 'sub', t.kentro_instancia || 'Instância não informada'));
+      tr.appendChild(inst);
+
       tr.appendChild(el('td', null, dataHora(t.ultimo_uso_em)));
       var acao = el('td');
-      var b = el('button', 'btn', 'Abrir');
-      b.type = 'button';
-      b.setAttribute('aria-label', 'Abrir ' + t.nome);
-      b.addEventListener('click', function () { abrir(t); $('detalhe').scrollIntoView({ behavior: 'smooth' }); $('h-detalhe').focus(); });
-      acao.appendChild(b);
+      acao.appendChild(botao('Abrir', 'Abrir ' + t.nome, function () { abrir(t, true); }));
       tr.appendChild(acao);
       tb.appendChild(tr);
     });
   }
 
-  /* ---------- novo cliente ---------- */
-  function criar(ev) {
+  /* ---------- assistente de novo cliente ---------- */
+  // Estado só desta tela: o cliente criado, a chave (mostrada uma vez) e o sistema escolhido.
+  var wiz = null;
+  var OUTRO = '__outro__';
+
+  function etapa(n) {
+    ['w-1', 'w-2', 'w-3', 'w-4'].forEach(function (id, i) { $(id).hidden = i + 1 !== n; });
+    Array.prototype.forEach.call($('w-etapas').children, function (li) {
+      var k = Number(li.getAttribute('data-etapa'));
+      li.setAttribute('data-estado', k === 3 && n > 3 && wiz && wiz.pulou3 ? 'pulada' : k < n ? 'feita' : k === n ? 'atual' : 'futura');
+      if (k === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+    });
+    if (wiz) wiz.etapa = n;
+  }
+
+  function novoCliente() {
+    fechar();
+    wiz = { etapa: 1 };
+    ['w-1', 'w-2', 'w-3', 'w-4f'].forEach(function (id) { $(id).reset(); });
+    ['m-w-1', 'm-w-2', 'm-w-3', 'm-w-4'].forEach(function (id) { msg(id, null, ''); });
+    $('w-chave').textContent = '';
+    $('h-assistente').textContent = 'Novo cliente';
+    $('assistente').hidden = false;
+    etapa(1);
+    $('assistente').scrollIntoView({ behavior: 'smooth' });
+    $('w-nome').focus();
+  }
+
+  function fecharAssistente() {
+    if (wiz && wiz.etapa === 4 && $('w-chave').textContent && !window.confirm('A chave da instalação não aparece de novo. Já copiou?')) return;
+    var criado = wiz && wiz.tenant;
+    wiz = null;
+    $('assistente').hidden = true;
+    $('w-chave').textContent = '';
+    if (criado) carregar().then(function () {
+      var t = tenants.filter(function (x) { return x.id === criado.id; })[0];
+      if (t) abrir(t, true);
+    });
+  }
+
+  function w1(ev) {
     ev.preventDefault();
-    var corpo = { nome: $('n-nome').value, kentro_instancia: $('n-instancia').value, asa_instituicao_id: $('n-instituicao').value, implantado_por: $('n-por').value };
-    msg('m-novo', null, 'Criando…');
-    $('s-novo').textContent = '';
-    chamar('POST', '/admin/tenants', corpo).then(function (r) {
-      if (r.status !== 201 || !r.body) { msg('m-novo', 'err', erroDe(r)); return; }
-      msg('m-novo', 'ok', 'Cliente "' + r.body.nome + '" criado.');
-      mostrarSegredo('s-novo', 'Chave da instalação de ' + r.body.nome, r.body.chave_instalacao);
-      $('f-novo').reset();
+    if (wiz.tenant) { etapa(2); return; }
+    msg('m-w-1', null, 'Criando…');
+    chamar('POST', '/admin/tenants', { nome: $('w-nome').value, kentro_instancia: $('w-instancia').value, implantado_por: $('w-por').value }).then(function (r) {
+      if (r.status !== 201 || !r.body) { msg('m-w-1', 'err', erroDe(r)); return; }
+      wiz.tenant = { id: r.body.id, nome: r.body.nome };
+      wiz.chave = r.body.chave_instalacao;
+      $('h-assistente').textContent = 'Novo cliente · ' + r.body.nome;
+      msg('m-w-1', 'ok', 'Cliente criado.');
       carregar();
+      opcoesErp();
+      etapa(2);
+      $('w-erp').focus();
+    });
+  }
+
+  function opcoesErp() {
+    var sel = $('w-erp'), antes = sel.value;
+    sel.textContent = '';
+    var usaveis = conectores.filter(function (c) { return c.situacao === 'publicado' || c.situacao === 'homologacao'; });
+    if (!usaveis.length) usaveis = [{ slug: 'asa', nome: 'Asa', situacao: 'publicado' }, { slug: 'padrao', nome: '', situacao: 'publicado' }];
+    usaveis.forEach(function (c) {
+      var o = el('option', null, nomeConector(c.slug) + (c.situacao === 'homologacao' ? ' · em homologação' : ''));
+      o.value = c.slug;
+      sel.appendChild(o);
+    });
+    var outro = el('option', null, 'Outro sistema (não está na lista)');
+    outro.value = OUTRO;
+    sel.appendChild(outro);
+    if (antes) sel.value = antes;
+    if (!sel.value) sel.selectedIndex = 0;
+    trocarErpAssistente();
+  }
+
+  function trocarErpAssistente() {
+    var v = $('w-erp').value;
+    $('w-asa').hidden = v !== 'asa';
+    $('w-outro').hidden = v !== OUTRO;
+    $('w-sistema').required = v === OUTRO;
+  }
+
+  // Lê o arquivo escolhido (se houver) como base64; sem arquivo, usa o link; sem os dois, devolve null.
+  function lerDocumento(campoArquivo, campoUrl, origem) {
+    var arq = $(campoArquivo).files && $(campoArquivo).files[0];
+    var url = $(campoUrl).value.trim();
+    if (!arq) return Promise.resolve(url ? { tipo: 'link', url: url, origem: origem } : null);
+    if (arq.size > 10 * 1024 * 1024) return Promise.reject(new Error('O arquivo passa de 10 MB.'));
+    return new Promise(function (ok, falha) {
+      var leitor = new FileReader();
+      leitor.onload = function () {
+        var dados = String(leitor.result);
+        ok({ tipo: 'arquivo', nome_arquivo: arq.name, mime: arq.type, conteudo_base64: dados.slice(dados.indexOf(',') + 1), origem: origem });
+      };
+      leitor.onerror = function () { falha(new Error('Não deu para ler o arquivo.')); };
+      leitor.readAsDataURL(arq);
+    });
+  }
+
+  function anexarEm(slug, doc) {
+    return chamar('POST', '/admin/conectores/' + encodeURIComponent(slug) + '/documentos', doc);
+  }
+
+  // Cria o rascunho do conector (ou reaproveita o que já existe com o mesmo identificador).
+  function garantirConector(nome, pedidoId) {
+    var slug = slugDe(nome);
+    if (!slug || slug.length < 2) return Promise.resolve({ erro: 'SLUG_INVALIDO' });
+    var corpo = { nome: nome, slug: slug, artigo: 'o' };
+    if (pedidoId) corpo.pedido_id = pedidoId;
+    return chamar('POST', '/admin/conectores', corpo).then(function (r) {
+      if (r.status === 201 || (r.body && r.body.erro === 'SLUG_JA_EXISTE')) return { slug: slug, novo: r.status === 201 };
+      return { erro: r.body && r.body.erro && ERROS[r.body.erro] ? r.body.erro : null, texto: erroDe(r) };
+    });
+  }
+
+  function w2(ev) {
+    ev.preventDefault();
+    var erp = $('w-erp').value, t = wiz.tenant;
+    if (erp === OUTRO) {
+      var sistema = $('w-sistema').value.trim();
+      if (!sistema) { msg('m-w-2', 'err', 'Informe o nome do sistema.'); return; }
+      var doc;
+      msg('m-w-2', null, 'Registrando o sistema…');
+      lerDocumento('w-doc-arquivo', 'w-doc-url', $('w-contato').value || t.nome).then(function (d) {
+        doc = d;
+        return garantirConector(sistema);
+      }).then(function (c) {
+        if (!c.slug) throw new Error(c.erro ? ERROS[c.erro] : c.texto);
+        wiz.conector = c.slug;
+        return chamar('POST', '/admin/pedidos', { tenant_id: t.id, sistema: sistema, contato: $('w-contato').value, conector_slug: c.slug });
+      }).then(function (r) {
+        if (r.status !== 201) throw new Error(erroDe(r));
+        return doc ? anexarEm(wiz.conector, doc) : null;
+      }).then(function (r) {
+        if (r && r.status !== 201) throw new Error('O pedido foi aberto, mas a documentação não subiu: ' + erroDe(r) + ' Anexe de novo na aba Sistema do cliente.');
+        wiz.pulou3 = true;
+        carregarConectores();
+        msg('m-w-4', 'ok', 'Pedido aberto para ' + sistema + (doc ? ', com a documentação anexada' : ', sem documentação: anexe depois na aba Sistema do cliente') + '. O conector é preparado em Sistemas (ERP).');
+        mostrarChaveAssistente();
+      }).catch(function (e) { msg('m-w-2', 'err', e.message); });
+      return;
+    }
+    wiz.erp = erp;
+    var passo = Promise.resolve({ status: 200 });
+    var inst = $('w-instituicao').value.trim();
+    if (erp === 'asa' && inst) passo = chamar('PATCH', rotaDo(t.id), { asa_instituicao_id: inst });
+    msg('m-w-2', null, '');
+    passo.then(function (r) {
+      if (r.status !== 200) { msg('m-w-2', 'err', erroDe(r)); return; }
+      var campos = erp === 'asa' ? Promise.resolve([{ chave: 'token', rotulo: 'Token da Asa', tipo: 'segredo', obrigatorio: true }]) : camposDoConector(erp);
+      return campos.then(function (lista) {
+        montarCampos($('w-campos'), lista, 'w-c-');
+        $('w-3-dica').textContent = 'Os campos que ' + nomeConector(erp) + ' pede. O acesso é testado antes de gravar, fica cifrado e não volta para esta tela.';
+        msg('m-w-3', null, lista.length ? '' : 'Este sistema não pede campos de acesso.');
+        etapa(3);
+        var primeiro = $('w-campos').querySelector('input');
+        if (primeiro) primeiro.focus();
+      });
+    });
+  }
+
+  function w3(ev) {
+    ev.preventDefault();
+    var t = wiz.tenant, cred = lerCampos($('w-campos'));
+    msg('m-w-3', null, 'Testando o acesso ao sistema…');
+    var r0 = wiz.erp === 'asa'
+      ? chamar('PUT', rotaDo(t.id, '/credencial'), { token: cred.token || '' })
+      : chamar('PUT', rotaDo(t.id, '/erp'), { erp: wiz.erp, credencial: cred });
+    r0.then(function (r) {
+      if (r.status !== 200 || !r.body || !r.body.ok) {
+        var extra = (r.body && r.body.campo ? ' Campo: ' + r.body.campo + '.' : '') + (r.body && r.body.msg ? ' Resposta do sistema: ' + r.body.msg : '');
+        msg('m-w-3', 'err', erroDe(r) + extra);
+        return;
+      }
+      Array.prototype.forEach.call($('w-campos').querySelectorAll('input'), function (i) { i.value = ''; });
+      var n = r.body.prestadores;
+      msg('m-w-4', 'ok', 'Sistema ligado: ' + nomeConector(wiz.erp) + (n != null ? ' respondeu com ' + n + ' profissional(is).' : ' respondeu.'));
+      mostrarChaveAssistente();
+    });
+  }
+
+  function pularAcesso() {
+    wiz.pulou3 = true;
+    msg('m-w-4', null, 'O acesso ao sistema ficou para depois: a clínica escolhe e preenche em ClinFy → Configurar, ou você completa na aba Sistema do cliente.');
+    mostrarChaveAssistente();
+  }
+
+  function mostrarChaveAssistente() {
+    $('w-manifest').textContent = urlManifest();
+    if (wiz.chave) mostrarSegredo('w-chave', 'Chave da instalação de ' + wiz.tenant.nome, wiz.chave);
+    etapa(4);
+    $('w-instalacao').focus();
+  }
+
+  function w4(ev) {
+    ev.preventDefault();
+    var id = $('w-instalacao').value.trim();
+    var fim = function () { wiz.chave = null; $('w-chave').textContent = ''; fecharAssistente(); };
+    if (!id) { fim(); return; }
+    msg('m-w-4', null, 'Salvando…');
+    chamar('PATCH', rotaDo(wiz.tenant.id), { kentro_instalacao_id: id }).then(function (r) {
+      if (r.status !== 200) { msg('m-w-4', 'err', erroDe(r)); return; }
+      fim();
     });
   }
 
@@ -238,23 +478,24 @@
   function resumo(t) {
     var dl = $('resumo');
     dl.textContent = '';
+    var ped = pedidoDe(t);
     [
       ['Situação', situacao(t).texto],
-      ['ERP', (NOMES_ERP[t.erp] || t.erp) + (t.sistema_nome ? ' · nas telas: ' + t.sistema_nome : '')],
-      ['Credencial do ERP', credencial(t)],
+      ['Sistema (ERP)', ped ? ped.sistema + ' (aguardando conector)' : nomeConector(t.erp || 'asa') + (t.sistema_nome ? ' · nas telas: ' + t.sistema_nome : '')],
+      ['Acesso ao sistema', credencial(t)],
+      ['Instalação na Kentro', (t.kentro_instalacao_id != null ? '#' + t.kentro_instalacao_id : 'id não anotado') + ' · ' + (t.kentro_instancia || 'instância não informada')],
       ['Último uso', dataHora(t.ultimo_uso_em)],
-      ['Criado em', dataHora(t.criado_em) + (t.implantado_por ? ' por ' + t.implantado_por : '')],
-      ['Chave da automação', t.tem_chave_automacao ? 'Gerada' : 'Não gerada'],
-      ['URL de disparo', t.tem_disparo ? 'Cadastrada' : 'Não cadastrada']
+      ['Criado em', dataHora(t.criado_em) + (t.implantado_por ? ' por ' + t.implantado_por : '')]
     ].forEach(function (p) {
       dl.appendChild(el('dt', null, p[0]));
       dl.appendChild(el('dd', null, p[1]));
     });
   }
 
-  function abrir(t) {
+  function abrir(t, mostrar) {
     var outro = !atual || atual.id !== t.id;
     atual = t;
+    if (mostrar && wiz) { wiz = null; $('assistente').hidden = true; }
     $('detalhe').hidden = false;
     $('h-detalhe').textContent = t.nome;
     $('h-detalhe').tabIndex = -1;
@@ -264,10 +505,12 @@
     $('v-instalacao').value = t.kentro_instalacao_id != null ? String(t.kentro_instalacao_id) : '';
     $('v-instituicao').value = t.asa_instituicao_id || '';
     $('v-obs').value = t.observacao || '';
+    $('d-manifest').textContent = urlManifest();
     $('fin-on').checked = !!t.financeiro.ativo;
     $('fin-quem').value = t.financeiro.quem;
     $('d-url').value = t.disparo_url || '';
     preencherConfirmacao(t.confirmacao);
+    if (outro) $('e-erp').value = '';
     preencherSelectErp();
     $('e-erp').value = t.erp || 'asa';
     $('e-nome').value = t.sistema_nome || '';
@@ -278,12 +521,62 @@
     $('f-desligar').hidden = desligado;
     $('f-historico').hidden = !desligado;
     if (outro) {
-      ['m-erp', 'm-vinculo', 'm-token', 'm-fin', 'm-conf', 'm-disparo', 'm-chaves', 'm-desligar', 'm-historico'].forEach(function (id) { msg(id, null, ''); });
+      ['m-erp', 'm-vinculo', 'm-token', 'm-fin', 'm-conf', 'm-disparo', 'm-chaves', 'm-desligar', 'm-historico', 'm-d-doc'].forEach(function (id) { msg(id, null, ''); });
       $('s-chaves').textContent = '';
       $('x-nome').value = '';
       $('h-nome').value = '';
       $('t-token').value = '';
+      $('f-d-doc').reset();
+      abaDoCliente('da-sistema');
     }
+    sistemaDoCliente(t);
+    if (mostrar) { $('detalhe').scrollIntoView({ behavior: 'smooth' }); $('h-detalhe').focus(); }
+  }
+
+  /* ---------- aba Sistema: pedido em aberto e documentação ---------- */
+  // Para onde vai a documentação: o conector do pedido em aberto; sem pedido, o conector do sistema atual.
+  function destinoDocs(t) {
+    var ped = pedidoDe(t);
+    if (ped) return { slug: ped.conector_slug || null, pedido: ped };
+    return { slug: t.erp || 'asa', pedido: null };
+  }
+
+  function sistemaDoCliente(t) {
+    var d = destinoDocs(t), caixa = $('d-pedido');
+    caixa.textContent = '';
+    caixa.hidden = !d.pedido;
+    if (d.pedido) {
+      caixa.appendChild(el('strong', null, 'Sistema pedido: ' + d.pedido.sistema));
+      caixa.appendChild(el('p', 'dica', 'Este sistema ainda não tem conector publicado (pedido ' + (PEDIDOS[d.pedido.situacao] || d.pedido.situacao).toLowerCase() + ' desde ' + dataHora(d.pedido.criado_em) + '). A documentação anexada abaixo vai para o conector dele; quando ele for publicado, escolha-o aqui em "Sistema" e preencha o acesso.'));
+      if (d.pedido.conector_slug) caixa.appendChild(botao('Abrir em Sistemas (ERP)', null, function () { irPara('nav-sistemas'); abrirConector(d.pedido.conector_slug); }));
+    }
+    $('d-doc-destino').textContent = d.slug ? 'Destino: conector ' + nomeConector(d.slug) + ' (' + d.slug + ').' : 'Destino: o conector de ' + d.pedido.sistema + ' é criado como rascunho ao anexar.';
+    $('d-docs').textContent = '';
+    if (!d.slug) { $('d-docs').appendChild(el('li', 'sub', 'Nenhuma documentação anexada.')); return; }
+    chamar('GET', '/admin/conectores/' + encodeURIComponent(d.slug)).then(function (r) {
+      if (!atual || atual.id !== t.id) return;
+      desenharDocs($('d-docs'), r.status === 200 && r.body ? r.body.documentos || [] : [], d.slug, 'm-d-doc', function () { if (atual) sistemaDoCliente(atual); carregarConectores(); });
+    });
+  }
+
+  function anexarDocCliente(ev) {
+    ev.preventDefault();
+    var t = atual, d = destinoDocs(t), doc;
+    msg('m-d-doc', null, 'Enviando…');
+    lerDocumento('d-doc-arquivo', 'd-doc-url', $('d-doc-origem').value || t.nome).then(function (x) {
+      if (!x) throw new Error('Informe um link ou escolha um arquivo.');
+      doc = x;
+      if (d.slug) return { slug: d.slug };
+      return garantirConector(d.pedido.sistema, d.pedido.id);
+    }).then(function (c) {
+      if (!c.slug) throw new Error(c.erro ? ERROS[c.erro] : c.texto);
+      return anexarEm(c.slug, doc);
+    }).then(function (r) {
+      if (r.status !== 201) throw new Error(erroDe(r));
+      msg('m-d-doc', 'ok', 'Anexado.' + (r.body && r.body.limpezas ? ' ' + r.body.limpezas + ' credencial(is) removida(s) do arquivo.' : ''));
+      $('f-d-doc').reset();
+      return carregarConectores();
+    }).catch(function (e) { msg('m-d-doc', 'err', e.message); });
   }
 
   /* ---------- sistema da clínica (ERP) ---------- */
@@ -435,8 +728,12 @@
       camposCache = {};
       msg('m-cx', null, '');
       desenharCentral();
-      preencherSelectErp();
-      if (atual) trocarErp();
+      var abertos = pedidos.filter(function (p) { return p.situacao === 'aberto' || p.situacao === 'em_andamento'; }).length;
+      $('nav-pedidos-n').textContent = String(abertos);
+      $('nav-pedidos-n').hidden = !abertos;
+      desenharLista();
+      if (atual) { preencherSelectErp(); $('e-erp').value = atual.erp || 'asa'; trocarErp(); resumo(atual); sistemaDoCliente(atual); }
+      if (wiz && wiz.etapa === 2) opcoesErp();
     });
   }
 
@@ -507,6 +804,7 @@
 
   function comecarPeloPedido(p) {
     pedidoAtual = p;
+    irPara('nav-sistemas');
     $('cx-n-nome').value = p.sistema;
     $('cx-n-slug').value = slugDe(p.sistema);
     msg('m-cx-novo', null, 'Criando o conector do pedido de ' + (p.clinica || 'uma clínica') + '. Confira o nome e o identificador.');
@@ -539,6 +837,7 @@
       if (r.status !== 200 || !r.body) { msg('m-cx', 'err', erroDe(r)); return; }
       var c = r.body;
       conectorAtual = c;
+      irPara('nav-sistemas');
       $('cx-detalhe').hidden = false;
       $('cx-titulo').textContent = c.slug === 'padrao' ? 'Sistema próprio (padrão Kentro)' : c.nome;
       var dl = $('cx-resumo');
@@ -561,7 +860,7 @@
       $('cx-erros').textContent = '';
       ['m-cx-dados', 'm-cx-config', 'm-cx-doc', 'm-cx-teste'].forEach(function (id) { msg(id, null, ''); });
       if (c.slug === 'padrao') msg('m-cx-config', null, 'O padrão Kentro não traduz nada: a configuração é a do código, só para consulta.');
-      desenharDocs(c.documentos || []);
+      desenharDocs($('cx-docs'), c.documentos || [], c.slug, 'm-cx-doc', function () { abrirConector(c.slug); carregarConectores(); });
       montarCampos($('cx-teste-campos'), c.campos || [], 'cx-t-');
       $('cx-passos').textContent = '';
       $('cx-titulo').focus();
@@ -615,8 +914,8 @@
     return n < 1024 ? n + ' B' : n < 1048576 ? Math.round(n / 1024) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
   }
 
-  function desenharDocs(docs) {
-    var ul = $('cx-docs');
+  // Lista de documentos de um conector; serve à Central e à aba Sistema do cliente.
+  function desenharDocs(ul, docs, slug, msgId, depois) {
     ul.textContent = '';
     if (!docs.length) { ul.appendChild(el('li', 'sub', 'Nenhuma documentação anexada.')); return; }
     docs.forEach(function (d) {
@@ -631,14 +930,14 @@
         li.appendChild(el('strong', null, d.nome_arquivo));
         li.appendChild(el('span', 'sub', ' · ' + tamanho(d.tamanho) + (d.limpezas ? ' · ' + d.limpezas + ' credencial(is) removida(s)' : '')));
         li.appendChild(document.createTextNode(' '));
-        li.appendChild(botao('Baixar', 'Baixar ' + d.nome_arquivo, function () { baixarDoc(d); }));
+        li.appendChild(botao('Baixar', 'Baixar ' + d.nome_arquivo, function () { baixarDoc(slug, d, msgId); }));
       }
       li.appendChild(el('div', 'sub', (d.origem ? 'De ' + d.origem + ' · ' : '') + dataHora(d.criado_em)));
       li.appendChild(botao('Remover', null, function () {
         if (!window.confirm('Remover este documento?')) return;
-        chamar('DELETE', '/admin/conectores/' + encodeURIComponent(conectorAtual.slug) + '/documentos/' + encodeURIComponent(d.id)).then(function (r) {
-          if (r.status !== 200) { msg('m-cx-doc', 'err', erroDe(r)); return; }
-          abrirConector(conectorAtual.slug);
+        chamar('DELETE', '/admin/conectores/' + encodeURIComponent(slug) + '/documentos/' + encodeURIComponent(d.id)).then(function (r) {
+          if (r.status !== 200) { msg(msgId, 'err', erroDe(r)); return; }
+          depois();
         });
       }));
       ul.appendChild(li);
@@ -646,8 +945,8 @@
   }
 
   // O arquivo vem como download (nunca aberto como página deste endereço).
-  function baixarDoc(d) {
-    fetch('/admin/conectores/' + encodeURIComponent(conectorAtual.slug) + '/documentos/' + encodeURIComponent(d.id), { headers: { 'x-admin-key': chave } })
+  function baixarDoc(slug, d, msgId) {
+    fetch('/admin/conectores/' + encodeURIComponent(slug) + '/documentos/' + encodeURIComponent(d.id), { headers: { 'x-admin-key': chave } })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
       .then(function (blob) {
         var url = URL.createObjectURL(blob);
@@ -658,7 +957,7 @@
         a.click();
         a.remove();
         setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
-      }, function (e) { msg('m-cx-doc', 'err', 'Não deu para baixar (' + e.message + ').'); });
+      }, function (e) { msg(msgId, 'err', 'Não deu para baixar (' + e.message + ').'); });
   }
 
   function anexarDoc(ev) {
@@ -908,7 +1207,15 @@
   $('b-sair').addEventListener('click', sair);
   $('b-atualizar').addEventListener('click', function () { msg('m-lista', null, 'Atualizando…'); carregar(); });
   $('b-fechar').addEventListener('click', fechar);
-  $('f-novo').addEventListener('submit', criar);
+  $('b-novo').addEventListener('click', novoCliente);
+  $('w-fechar').addEventListener('click', fecharAssistente);
+  $('w-1').addEventListener('submit', w1);
+  $('w-2').addEventListener('submit', w2);
+  $('w-erp').addEventListener('change', trocarErpAssistente);
+  $('w-3').addEventListener('submit', w3);
+  $('w-pular').addEventListener('click', pularAcesso);
+  $('w-4f').addEventListener('submit', w4);
+  $('f-d-doc').addEventListener('submit', anexarDocCliente);
   $('f-vinculo').addEventListener('submit', salvarVinculo);
   $('f-token').addEventListener('submit', salvarToken);
   $('f-erp').addEventListener('submit', salvarErp);

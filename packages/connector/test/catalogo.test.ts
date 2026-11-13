@@ -76,7 +76,7 @@ test("Central: rotas existem e exigem a chave de administrador", async () => {
   for (const [method, url] of [
     ["GET", "/admin/conectores"], ["GET", "/admin/conectores/feegow"], ["POST", "/admin/conectores"], ["PUT", "/admin/conectores/feegow"],
     ["POST", "/admin/conectores/feegow/situacao"], ["POST", "/admin/conectores/feegow/testar"], ["POST", "/admin/conectores/feegow/documentos"],
-    ["PATCH", "/admin/pedidos/0b6c7a3e-1d2f-4a5b-9c8d-7e6f5a4b3c2d"],
+    ["PATCH", "/admin/pedidos/0b6c7a3e-1d2f-4a5b-9c8d-7e6f5a4b3c2d"], ["POST", "/admin/pedidos"],
   ] as const) {
     assert.equal((await app.inject({ method, url })).statusCode, 401, `${method} ${url} sem chave`);
     assert.equal((await app.inject({ method, url, headers: { "x-admin-key": CHAVE } })).statusCode, 503, `${method} ${url} com chave, sem banco`);

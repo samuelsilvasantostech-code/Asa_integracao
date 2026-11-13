@@ -74,7 +74,7 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!r.ok) return reply.code(400).send({ erro: r.erro === "NADA_PARA_ALTERAR" ? "NOME_OBRIGATORIO" : r.erro });
     const c = r.campos;
     if (!c.nome) return reply.code(400).send({ erro: "NOME_OBRIGATORIO" });
-    const chave = "asa_" + randomBytes(24).toString("base64url");
+    const chave = "clinfy_" + randomBytes(24).toString("base64url");
     const { rows } = await pool!.query<{ id: string }>(
       `INSERT INTO tenants (nome, chave_instalacao_hash, kentro_instancia, asa_instituicao_id, implantado_por)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
@@ -196,7 +196,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // Gera uma chave nova e invalida a anterior.
   app.post<{ Params: { id: string } }>("/admin/tenants/:id/rotacionar-chave", async (req, reply) => {
-    const chave = "asa_" + randomBytes(24).toString("base64url");
+    const chave = "clinfy_" + randomBytes(24).toString("base64url");
     const { rowCount } = await pool!.query(
       "UPDATE tenants SET chave_instalacao_hash = $1, atualizado_em = now() WHERE id = $2",
       [hash(chave), req.params.id],
