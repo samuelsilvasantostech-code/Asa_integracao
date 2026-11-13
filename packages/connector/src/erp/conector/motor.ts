@@ -70,8 +70,14 @@ export interface Regra {
 }
 
 export interface RotaConfig {
-  metodo: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  caminho: string; // modelo, ex.: "/patient/{{path.id}}"
+  metodo?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; // obrigatório, menos em rota `fixo`
+  caminho?: string; // modelo, ex.: "/patient/{{path.id}}"; obrigatório, menos em rota `fixo`
+  // Resposta fixa, sem chamar o ERP: para o que o ERP não tem e o ClinFy precisa de um valor certo
+  // (ex.: só "Particular" nos convênios, ou "lembrete registrado" quando o ERP não guarda isso).
+  fixo?: unknown;
+  // Condição para a rota valer (mesmas regras de $se): falsa = a rota não existe para este pedido.
+  // Ex.: ["{{corpo.status}}", "confirmado"] quando o ERP só confirma e não marca ausência.
+  se?: unknown;
   query?: Record<string, string>;
   corpo?: unknown; // modelo JSON
   formato_corpo?: "json" | "form" | "query";
@@ -112,6 +118,8 @@ function caminhoEm(obj: unknown, caminho: string): unknown {
 
 const vazio = (v: unknown) => v === undefined || v === null || v === "";
 const dois = (n: number | string) => String(n).padStart(2, "0");
+// Hoje no fuso das clínicas (YYYY-MM-DD). Fonte `hoje` nos modelos.
+export const hojeSp = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
 
 // "2026-11-20" (ou ISO com hora) → formato com YYYY, MM, DD.
 function formatarData(v: unknown, fmt: string): unknown {
@@ -146,6 +154,11 @@ function aplicarFiltro(v: unknown, filtro: string): unknown {
       return m ? (arg || "HH:MM").replace("HH", dois(m[1])).replace("MM", m[2]).replace("SS", m[3] ?? "00") : v;
     }
     case "hora_curta": { const m = /(\d{1,2}):(\d{2})/.exec(String(v ?? "")); return m ? `${dois(m[1])}:${m[2]}` : null; }
+    // "2026-11-20 | mais_dias:30" → "2026-12-20" (também aceita número negativo).
+    case "mais_dias": {
+      const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v ?? ""));
+      return m ? new Date(Date.parse(m[1] + "T12:00:00Z") + Number(arg || 0) * 864e5).toISOString().slice(0, 10) : v;
+    }
     case "centavos": return vazio(v) ? v : Math.round(Number(String(v).replace(",", ".")) * 100);
     case "reais": return vazio(v) ? null : Number(v) / 100;
     case "digitos": return vazio(v) ? v : String(v).replace(/\D/g, "");
@@ -167,7 +180,7 @@ function aplicarFiltro(v: unknown, filtro: string): unknown {
   }
 }
 
-const FILTROS = ["data", "data_iso", "hora", "hora_curta", "centavos", "reais", "digitos", "sem_ddi", "texto", "numero", "minusculas", "padrao", "igual", "mapa"];
+const FILTROS = ["mais_dias", "data", "data_iso", "hora", "hora_curta", "centavos", "reais", "digitos", "sem_ddi", "texto", "numero", "minusculas", "padrao", "igual", "mapa"];
 
 /* ---------- modelos ---------- */
 
@@ -209,6 +222,7 @@ export interface EntradaRota {
 }
 
 const resolverRequisicao = (e: EntradaRota): Resolver => (fonte) => {
+  if (fonte === "hoje") return hojeSp();
   const [raiz, ...resto] = fonte.split(".");
   const base = raiz === "path" ? e.path : raiz === "query" ? e.query : raiz === "corpo" ? e.corpo : raiz === "cred" ? e.cred : undefined;
   if (base === undefined) throw new Error(`fonte desconhecida no modelo: ${fonte}`);
@@ -219,19 +233,45 @@ export function renderizarRequisicao(modelo: unknown, e: EntradaRota): unknown {
   return renderizarCom(modelo, resolverRequisicao(e));
 }
 
+// Condição de $se/$exceto/se: um modelo (vale se não for vazio, false, "false", "0" ou lista vazia), um par
+// [a, b] (vale se a == b, como texto), ou uma lista de condições (todas precisam valer).
+function condicao(c: unknown, resolver: Resolver): boolean {
+  if (Array.isArray(c) && c.length === 2 && c.every((x) => typeof x === "string")) {
+    return String(renderizarCom(c[0], resolver) ?? "") === String(renderizarCom(c[1], resolver) ?? "");
+  }
+  if (Array.isArray(c)) return c.every((x) => condicao(x, resolver));
+  const v = renderizarCom(c, resolver);
+  return !(vazio(v) || v === false || v === "false" || v === "0" || v === 0 || (Array.isArray(v) && !v.length));
+}
+
+export function condicaoDaRequisicao(c: unknown, e: EntradaRota): boolean {
+  return condicao(c, resolverRequisicao(e));
+}
+
 // Mapa de resposta. {"$lista": "{{$.content}}", "$item": {...}} vira uma lista, com $ = cada item.
-export function mapearResposta(mapa: unknown, corpo: unknown): unknown {
+// "$se" e "$exceto" filtram os itens (ver condicao). `req` dá acesso ao pedido: {{$req.query.data}}, {{$req.path.id}}.
+export function mapearResposta(mapa: unknown, corpo: unknown, req?: Partial<EntradaRota>): unknown {
   const andar = (m: unknown, atual: unknown): unknown => {
     const resolver: Resolver = (fonte) => {
       if (fonte === "$") return atual;
+      if (fonte === "hoje") return hojeSp();
       if (fonte.startsWith("$raiz")) return caminhoEm(corpo, fonte.slice(5).replace(/^\./, ""));
+      if (fonte.startsWith("$req.")) {
+        const [raiz, ...resto] = fonte.slice(5).split(".");
+        if (raiz !== "path" && raiz !== "query" && raiz !== "corpo") throw new Error(`fonte desconhecida na resposta: ${fonte}`);
+        return caminhoEm(req?.[raiz], resto.join("."));
+      }
       if (fonte.startsWith("$.")) return caminhoEm(atual, fonte.slice(2));
       throw new Error(`fonte desconhecida na resposta: ${fonte}`);
     };
     if (m && typeof m === "object" && !Array.isArray(m) && "$lista" in (m as object)) {
       const lista = renderizarCom((m as any).$lista, resolver);
       const itens = Array.isArray(lista) ? lista : lista && typeof lista === "object" ? Object.values(lista) : [];
-      return itens.map((item) => andar((m as any).$item ?? "{{$}}", item));
+      const se = (m as any).$se, exceto = (m as any).$exceto;
+      const resolverDo = (item: unknown): Resolver => (fonte) => (fonte === "$" ? item : fonte.startsWith("$.") ? caminhoEm(item, fonte.slice(2)) : resolver(fonte));
+      return itens
+        .filter((item) => (se === undefined || condicao(se, resolverDo(item))) && (exceto === undefined || !exceto.some?.((x: unknown) => condicao(x, resolverDo(item)))))
+        .map((item) => andar((m as any).$item ?? "{{$}}", item));
     }
     if (m && typeof m === "object" && !Array.isArray(m)) {
       const out: Record<string, unknown> = {};
@@ -290,8 +330,8 @@ export function montarRequisicao(
   let caminho = original.caminho;
   let body: string | undefined;
   if (rota) {
-    metodo = rota.metodo;
-    caminho = String(renderizarRequisicao(rota.caminho, e) ?? "");
+    metodo = rota.metodo ?? metodo;
+    caminho = String(renderizarRequisicao(rota.caminho ?? caminho, e) ?? "");
     acrescentar(renderizarRequisicao(rota.query ?? {}, e));
     if (rota.corpo !== undefined) {
       const corpo = renderizarRequisicao(rota.corpo, e);
@@ -369,6 +409,7 @@ export function validarConector(bruto: unknown): { ok: true; conector: ConectorC
   if (!c.rotas || typeof c.rotas !== "object") erros.push("rotas precisa ser um objeto");
   else for (const [chave, r] of Object.entries(c.rotas)) {
     if (!(ROTAS_ESPECIFICACAO as readonly string[]).includes(chave)) { erros.push(`rota desconhecida: ${chave}`); continue; }
+    if (r && r.fixo !== undefined) continue;
     if (!r || !METODOS.includes(String(r.metodo))) erros.push(`${chave}: metodo inválido`);
     if (typeof r?.caminho !== "string" || !r.caminho.startsWith("/")) erros.push(`${chave}: caminho precisa começar com /`);
     if (r?.formato_corpo && !["json", "form", "query"].includes(r.formato_corpo)) erros.push(`${chave}: formato_corpo inválido`);

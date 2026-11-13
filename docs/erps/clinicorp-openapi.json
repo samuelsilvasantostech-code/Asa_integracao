@@ -1,0 +1,5088 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "version": "1.0.0",
+    "title": "API Clinicorp",
+    "description": "Documentação API Clinicorp",
+    "contact": {
+      "name": "Clinicorp Team"
+    },
+    "servers": [
+      "https://api.clinicorp.com"
+    ]
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "**Username:** Informe o ID de acesso ao Sistema.<br><br>**Password:** Informe o Token API.<br><br>Como encontrar essas informações?<br>**1. Fazer login no Sistema.**<br>**2. Clicar em Gerenciar Assinatura.**<br>**3. Clicar em Acesso Externo e Integrações.**<br>**4. Integrações - Usuário API** (Username) | **Token API** (Password)."
+      }
+    },
+    "responses": {
+      "NotFound": {
+        "description": "Parâmetro obrigatório não informado",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "Error": {
+            "type": "integer"
+          },
+          "Message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://api.clinicorp.com/rest/v1"
+    },
+    {
+      "url": "{url}/rest/v1",
+      "variables": {
+        "url": {
+          "default": "https://api.clinicorp.com"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/professional/list_all_professionals": {
+      "get": {
+        "description": "Lista todos os profissionais do sistema",
+        "tags": [
+          "professional"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "fromOnlineScheduling",
+            "description": "Um booleano para quando for necessário buscar profissionais do agendamento online.",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna todos os profissionais do sistema para o id de assinante enviado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number",
+                        "format": "integer",
+                        "description": "Um valor do tipo inteiro que representa o id do usuário"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Nome do profissional"
+                      },
+                      "cpf": {
+                        "type": "string",
+                        "description": "Cpf do profissional"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/business/list_available_times": {
+      "get": {
+        "description": "Lists every available time slot for the given ids and dates. A holiday comes back with no slots while the \"Disponibilizar dias de feriado\" option of the Online Scheduling settings is unchecked.",
+        "tags": [
+          "business"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "professionalId",
+            "description": "Um valor do tipo inteiro que representa o id do PROFISSIONAL.",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "clinicId",
+            "description": "Um valor do tipo inteiro que representa o id da CLÍNICA",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "fromDate",
+            "description": "Data inicial da pesquisa (YYYYMMDD).",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "toDate",
+            "description": "Data final da pesquisa (YYYYMMDD).",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna os slot's de tempo disponíves da clínica / profissional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "date": {
+                        "type": "number",
+                        "format": "integer",
+                        "description": "Dia em questão",
+                        "example": "YYYYMMDD"
+                      },
+                      "slots": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slotTime": {
+                              "type": "number",
+                              "format": "integer",
+                              "description": "Dia em questão",
+                              "example": "YYYYMMDD"
+                            },
+                            "toTime": {
+                              "type": "string",
+                              "format": "string",
+                              "description": "Dia em questão",
+                              "example": "10:00"
+                            },
+                            "fromTime": {
+                              "type": "string",
+                              "format": "string",
+                              "description": "Dia em questão",
+                              "example": "10:30"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/security/list_users": {
+      "get": {
+        "description": "Lista todos os usuários do sistema",
+        "tags": [
+          "users"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna todos os usuários do sistema para o id de assinante enviado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number",
+                        "format": "integer",
+                        "description": "um valor do tipo inteiro que representa o id do usuário"
+                      },
+                      "UserName": {
+                        "type": "string",
+                        "description": "UserName do Usuário para entrar no sistema"
+                      },
+                      "FullName": {
+                        "type": "string",
+                        "description": "Nome Completo do Usuário Cadastrado"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/group/list_subscribers_clinics": {
+      "get": {
+        "description": "Lista informações das clinicas do assinante como nome da clinica, tipo, horarios de trabalho",
+        "tags": [
+          "group"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna os dados das clinicas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "Name": {
+                        "type": "string",
+                        "description": "Nome da clínica"
+                      },
+                      "Email": {
+                        "type": "string",
+                        "description": "Email da clínica"
+                      },
+                      "NoLimitAptSameTime": {
+                        "type": "string",
+                        "description": "Verifica se é para limitar os agendamentos no mesmo horário"
+                      },
+                      "Address": {
+                        "type": "string",
+                        "description": "Endereço da clínica"
+                      },
+                      "Active": {
+                        "type": "string",
+                        "description": "Verifica se a clínica está ativa"
+                      },
+                      "OtherLandline": {
+                        "type": "integer",
+                        "description": "Telefone adicional da clínica"
+                      },
+                      "WorkingDaysHours": {
+                        "type": "object",
+                        "description": "Informações sobre os dias de trabalho das clínicas"
+                      },
+                      "Landline": {
+                        "type": "integer",
+                        "description": "Telefone da clínica"
+                      },
+                      "SubscriberBussinessUID": {
+                        "type": "string",
+                        "description": "id da clínica"
+                      },
+                      "SlotTime": {
+                        "type": "number",
+                        "format": "integer",
+                        "description": "o valor dos slots da clinica. Se o slot for 30 por exemplo este é o tempo de consulta da clinica"
+                      },
+                      "CompanyId": {
+                        "type": "integer",
+                        "description": "CNPJ/CPF da clínica"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/group/list_subscribers": {
+      "get": {
+        "description": "Lista as unidades da franquia",
+        "tags": [
+          "group"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna as informações da unidade",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "SubscriberBussinessUID": {
+                      "type": "string",
+                      "description": "id da clínica"
+                    },
+                    "Namespace": {
+                      "type": "string",
+                      "description": "id completo da clínica"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/business/list_chairs": {
+      "get": {
+        "description": "Lista as Cadeiras da Clínica.",
+        "tags": [
+          "business"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Clinic_BusinessId",
+            "description": "id da Clínica.",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna todas as Cadeiras ativas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "description": "id da Cadeira."
+                      },
+                      "BusinessId": {
+                        "type": "integer",
+                        "description": "id da Clínica."
+                      },
+                      "Name": {
+                        "type": "string",
+                        "description": "Nome da Cadeira."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/business/list": {
+      "get": {
+        "description": "Lista as clinicas do Assinante",
+        "tags": [
+          "business"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna todas as clinicas relacionadas ao id do assinante",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "description": "Nome da clínica"
+                      },
+                      "CompanyId": {
+                        "type": "integer",
+                        "description": "Email da clínica"
+                      },
+                      "BusinessName": {
+                        "type": "string",
+                        "description": "Verifica se é para limitar os agendamentos no mesmo horário"
+                      },
+                      "Name": {
+                        "type": "string",
+                        "description": "Endereço da clínica"
+                      },
+                      "Address": {
+                        "type": "string",
+                        "description": "Verifica se a clínica está ativa"
+                      },
+                      "Email": {
+                        "type": "string",
+                        "description": "Telefone adicional da clínica"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/analytics/list_results": {
+      "get": {
+        "description": "Lista dados analiticos de todas as clinicas do assinante como total de orçamentos no periodo, total de vendas, total de despesas, total de agendamentos",
+        "tags": [
+          "analytics"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna os dados analiticos de todas as clinicas do assinante, inclusive clinicas inativas de acordo com o periodo passado como parâmetro.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "TotalRevenueAmount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor total de faturamento"
+                      },
+                      "EstimatesTotalAmount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor total de orçamentos"
+                      },
+                      "EstimatesTotalQuantity": {
+                        "type": "integer",
+                        "description": "Quantidade total de orçamentos"
+                      },
+                      "EstimatesApprovedAmount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor total de orçamentos aprovados"
+                      },
+                      "EstimatesApprovedQuantity": {
+                        "type": "integer",
+                        "description": "Quantidade total de orçamentos aprovados"
+                      },
+                      "EstimatesOpenAmount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor total de orçamentos em aberto"
+                      },
+                      "EstimatesOpenQuantity": {
+                        "type": "integer",
+                        "description": "Quantidade total de orçamentos em aberto"
+                      },
+                      "EstimatesFollowUpAmount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor total de orçamentos em followUp"
+                      },
+                      "EstimatesFollowUpQuantity": {
+                        "type": "integer",
+                        "description": "Quantidade total de orçamentos em followUp"
+                      },
+                      "EstimatesRejectedAmount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor total de orçamentos reprovados"
+                      },
+                      "EstimatesRejectedQuantity": {
+                        "type": "integer",
+                        "description": "Quantidade total de orçamentos reprovados"
+                      },
+                      "ApprovedTicketAverage": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor de ticket médio das clínicas"
+                      },
+                      "BusinessId": {
+                        "type": "integer",
+                        "description": "id da clínica"
+                      },
+                      "ConversionRate": {
+                        "type": "integer",
+                        "description": "Porcentagem de conversão"
+                      },
+                      "TotalReceivedAmount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor total recebido"
+                      },
+                      "TotalExpenses": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor total de custos"
+                      },
+                      "AppointmentsTotal": {
+                        "type": "integer",
+                        "description": "Quantidade total de agendamentos"
+                      },
+                      "AppoinmentsFinished": {
+                        "type": "integer",
+                        "description": "Quantidade total de agendamentos finalizados"
+                      },
+                      "AppointmentsMissed": {
+                        "type": "integer",
+                        "description": "Quantidade total de agendamentos com falta"
+                      },
+                      "AppointmentsNewPatients": {
+                        "type": "integer",
+                        "description": "Quantidade total de agendamentos com novos pacientes"
+                      },
+                      "AppointmentsExistingPatients": {
+                        "type": "integer",
+                        "description": "Quantidade total de agendamentos com pacientes existentes"
+                      },
+                      "WithoutCategory": {
+                        "type": "integer",
+                        "description": "Quantidade total de agendamentos sem categoria"
+                      },
+                      "UnityName": {
+                        "type": "string",
+                        "description": "Nome da unidade"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/estimates/get": {
+      "get": {
+        "description": "Retorna o orçamento de acordo com id do paciente e id do tratamento",
+        "tags": [
+          "estimates"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "treatment_id",
+            "description": "id do orçamento.",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna todos os dados de determinado orçamento do paciente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "Patient_PersonId": {
+                      "type": "integer",
+                      "description": "id do paciente"
+                    },
+                    "CreateDate": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Data de criação"
+                    },
+                    "PaymentTypePlan": {
+                      "type": "string",
+                      "description": "Tipo de pagamento"
+                    },
+                    "BusinessId": {
+                      "type": "integer",
+                      "description": "id da clínica"
+                    },
+                    "Dentist_PersonId": {
+                      "type": "integer",
+                      "description": "id do dentista responsável pelo orçamento"
+                    },
+                    "CurrentChargePaymentPlanId": {
+                      "type": "integer",
+                      "description": "id do plano de pagamento do orçamento"
+                    },
+                    "Status": {
+                      "type": "string",
+                      "description": "Status do orçamento"
+                    },
+                    "id": {
+                      "type": "integer",
+                      "description": "id do orçamento"
+                    },
+                    "ProcedureList": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Lista de procedimentos do orçamento"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/estimates/list": {
+      "get": {
+        "tags": [
+          "estimates"
+        ],
+        "summary": "Lista os orçamentos do período, com status, profissional, valor e procedimentos",
+        "description": "Retorna os orçamentos do assinante no período informado, com a lista de procedimentos de cada um.\n\n### Como o período é aplicado\n\nO período `from`/`to` **não** filtra pela data de emissão do orçamento: cada status é\nfiltrado pela sua própria data de desfecho.\n\n| `Status` | O que é | Data usada no filtro |\n|---|---|---|\n| `OPEN` | Orçamento em aberto | `CreateDate` — criação do orçamento |\n| `APPROVED` | Orçamento aprovado | `ApprovedDate` — aprovação |\n| `REJECTED` | Orçamento reprovado | `RejectedDate` — reprovação |\n| `REJECTED_OPPORTUNITY` | Alternativa descartada quando outro orçamento da mesma oportunidade foi aprovado | `RejectedDate` |\n| `FOLLOWUP` | Orçamento em follow-up | `FollowUpDate` — data **agendada** do contato |\n\nUm orçamento em follow-up é filtrado pela data agendada do retorno, que é uma data futura.\nPara saber **quando** ele entrou em follow-up, use `FollowUpUpdateDate`.\n\n### Datas do retorno\n\n| Campo | O que é |\n|---|---|\n| `CreateDate` | Criação do orçamento |\n| `Date` | Emissão do orçamento nos status `OPEN` e `APPROVED`; data do desfecho nos demais status |\n| `ApprovedDate` | Aprovação — presente apenas nos aprovados |\n| `RejectedDate` | Reprovação — presente nos reprovados |\n| `FollowUpDate` | Data agendada do follow-up |\n| `FollowUpUpdateDate` | Momento em que o orçamento entrou em follow-up |\n| `LastChange_Date` | Última alteração do registro, útil para sincronização incremental |\n\nPara montar um funil de conversão com janela de tempo, use `ApprovedDate`, `RejectedDate` e\n`FollowUpUpdateDate` como data de desfecho, e `CreateDate` como data de emissão. O retorno\ntraz apenas o desfecho atual do orçamento — não há histórico de mudanças de status.\n\n### Observações\n\n- O intervalo entre `from` e `to` não pode passar de 31 dias.\n- Um orçamento aprovado é identificado pelo `id` do plano de pagamento; nos demais status,\n  pelo `id` do tratamento. O `TreatmentId` é estável em todos os status.\n- O retorno é cacheado por alguns minutos. Respostas servidas do cache trazem `Cached: true`.\n\n### Exemplo\n\n`/estimates/list?subscriber_id=clinicorp&from=2026-06-01&to=2026-06-30&status=APPROVED`\n",
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "in": "query",
+            "required": true,
+            "description": "Identificador do assinante.",
+            "schema": {
+              "type": "string",
+              "example": "clinicorp"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "description": "Data inicial do período (inclusive).",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-06-01"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "description": "Data final do período (inclusive). No máximo 31 dias após from.",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-06-30"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filtra por um status específico. Quando omitido, retorna os orçamentos de todos os status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ALL",
+                "OPEN",
+                "APPROVED",
+                "REJECTED",
+                "REJECTED_OPPORTUNITY",
+                "FOLLOWUP"
+              ],
+              "default": "ALL"
+            }
+          },
+          {
+            "name": "clinic_id",
+            "in": "query",
+            "required": false,
+            "description": "Filtra por uma clínica específica. Quando omitido, retorna os orçamentos de todas as clínicas do assinante.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de orçamentos do período. Os campos de data presentes variam conforme o `Status`\ndo orçamento — veja a tabela de datas na descrição do endpoint.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "description": "Identificador do orçamento — plano de pagamento nos aprovados, tratamento nos demais status."
+                      },
+                      "TreatmentId": {
+                        "type": "integer",
+                        "description": "Identificador do tratamento, estável em todos os status."
+                      },
+                      "Status": {
+                        "type": "string",
+                        "enum": [
+                          "OPEN",
+                          "APPROVED",
+                          "REJECTED",
+                          "REJECTED_OPPORTUNITY",
+                          "FOLLOWUP"
+                        ],
+                        "description": "Status atual do orçamento."
+                      },
+                      "CreateDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Data de criação do orçamento."
+                      },
+                      "Date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Data de emissão do orçamento nos status OPEN e APPROVED; data do desfecho nos status REJECTED, REJECTED_OPPORTUNITY e FOLLOWUP."
+                      },
+                      "ApprovedDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Data de aprovação do orçamento. Presente apenas no status APPROVED."
+                      },
+                      "RejectedDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Data de reprovação do orçamento. Presente nos status REJECTED e REJECTED_OPPORTUNITY."
+                      },
+                      "FollowUpDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Data agendada do follow-up, uma data futura de retomada do contato. Presente no status FOLLOWUP."
+                      },
+                      "FollowUpUpdateDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Data em que o orçamento entrou em follow-up. Presente no status FOLLOWUP."
+                      },
+                      "LastChange_Date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Data da última alteração do registro, útil para sincronização incremental."
+                      },
+                      "Amount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor do orçamento já com o desconto aplicado."
+                      },
+                      "DiscountPercentage": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Percentual de desconto do orçamento."
+                      },
+                      "DiscountAmount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor de desconto do orçamento."
+                      },
+                      "BusinessId": {
+                        "type": "integer",
+                        "description": "Clínica do orçamento."
+                      },
+                      "ProfessionalId": {
+                        "type": "integer",
+                        "description": "Profissional responsável pelo orçamento."
+                      },
+                      "ProfessionalName": {
+                        "type": "string",
+                        "description": "Nome do profissional responsável."
+                      },
+                      "PatientId": {
+                        "type": "integer",
+                        "description": "Identificador do paciente."
+                      },
+                      "PatientName": {
+                        "type": "string",
+                        "description": "Nome do paciente."
+                      },
+                      "PatientMobilePhone": {
+                        "type": "string",
+                        "description": "Telefone do paciente."
+                      },
+                      "Cached": {
+                        "type": "boolean",
+                        "description": "Preenchido apenas quando a resposta foi servida do cache."
+                      },
+                      "ProcedureList": {
+                        "type": "array",
+                        "description": "Procedimentos do orçamento.",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer",
+                              "description": "Identificador do procedimento."
+                            },
+                            "TreatmentId": {
+                              "type": "integer",
+                              "description": "Tratamento ao qual o procedimento pertence."
+                            },
+                            "OperationDescription": {
+                              "type": "string",
+                              "description": "Descrição do procedimento."
+                            },
+                            "Procedure_CharacteristicId": {
+                              "type": "integer",
+                              "description": "Identificador do procedimento no cadastro da clínica."
+                            },
+                            "SpecialtyId": {
+                              "type": "integer",
+                              "description": "Especialidade do procedimento."
+                            },
+                            "BillType": {
+                              "type": "string",
+                              "enum": [
+                                "CHARGE",
+                                "CLAIM"
+                              ],
+                              "description": "Forma de cobrança — particular (CHARGE) ou convênio (CLAIM)."
+                            },
+                            "Amount": {
+                              "type": "number",
+                              "format": "float",
+                              "description": "Valor de tabela do procedimento."
+                            },
+                            "FinalAmount": {
+                              "type": "number",
+                              "format": "float",
+                              "description": "Valor final do procedimento, já com desconto."
+                            },
+                            "StatusId": {
+                              "type": "integer",
+                              "description": "Status do procedimento."
+                            },
+                            "StatusDescription": {
+                              "type": "string",
+                              "description": "Descrição do status do procedimento."
+                            },
+                            "Dentist_PersonId": {
+                              "type": "integer",
+                              "description": "Profissional responsável pelo procedimento."
+                            },
+                            "DentistName": {
+                              "type": "string",
+                              "description": "Nome do profissional responsável pelo procedimento."
+                            },
+                            "Executed": {
+                              "type": "string",
+                              "description": "Preenchido com X quando o procedimento já foi executado."
+                            },
+                            "ExecutedDate": {
+                              "type": "string",
+                              "format": "date-time",
+                              "description": "Data de execução do procedimento."
+                            },
+                            "NotApproved": {
+                              "type": "string",
+                              "description": "Preenchido com X quando o procedimento ficou de fora da aprovação."
+                            },
+                            "Deleted": {
+                              "type": "string",
+                              "description": "Preenchido com X quando o procedimento foi excluído."
+                            },
+                            "StepsList": {
+                              "type": "array",
+                              "description": "Etapas do procedimento, quando ele é dividido em sessões.",
+                              "items": {
+                                "type": "object"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "description": "Erro ao listar os orçamentos."
+          }
+        }
+      }
+    },
+    "/appointment/list_categories": {
+      "get": {
+        "description": "Retorna as Categorias de Agendamento.",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna uma lista com as categorias de Agendamento.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "description": "Id da Cateogoria"
+                      },
+                      "Description": {
+                        "type": "string",
+                        "description": "Descrição da Categoria"
+                      },
+                      "Color": {
+                        "type": "string",
+                        "description": "Cor da Categoria"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/appointment/list_info": {
+      "get": {
+        "description": "Info sobre Agendamentos como total de agendamentos, total de primeiros agendamentos, faltas e categorias de agendamento",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica em caso de multiclínicas em uma unidade.",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "group_by",
+            "description": "Envie \"month\" para poder agrupar por mês",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna todos os dados referentes a agendamentos, total de primeiras consultas, total de faltas, total de faltas no primeiro agendamento, total de agendamentos e categorias",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "From": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Data inicial"
+                    },
+                    "To": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Data final"
+                    },
+                    "ClinicId": {
+                      "type": "number",
+                      "format": "integer",
+                      "description": "id da clínica"
+                    },
+                    "ScheduledTotal": {
+                      "type": "number",
+                      "format": "integer",
+                      "description": "Total de agendamentos"
+                    },
+                    "FirsAppointmentTotal": {
+                      "type": "number",
+                      "format": "integer",
+                      "description": "Total de primeiras consultas"
+                    },
+                    "MissedAppointmentTotal": {
+                      "type": "number",
+                      "format": "integer",
+                      "description": "Total de faltas"
+                    },
+                    "Category": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "categoria_do_cliente": {
+                            "type": "string",
+                            "description": "A categoria é um array com um objeto para cada categoria. O objeto contem o total de agendamentos daquela categoria, a cor, o mes de referencia e o nome da categoria"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/appointment/schedule_occupation": {
+      "get": {
+        "description": "Ocupação da Agenda de acordo com o priodo de referencia, total de tempo que a clinica teve disponivel no periodo de referencia(em minutos), tempo total de agendamento no periodo(em minutos), ocupação da agenda(em porcentagem), tempo total de eventos na agenda(em minutos) e total de tempo em que os profissionais nao estao disponiveis na clinica",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica em caso de multiclínicas em uma unidade.",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "group_by",
+            "description": "passar a string month para agrupar por mes",
+            "required": true,
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna os dados de ocupação da agenda",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "TotalValidScheduleTime": {
+                        "type": "integer",
+                        "description": "Total de tempo em minutos validos na agenda dos profissionais(somando todos que atuam na clinica)"
+                      },
+                      "TotalAppointmentTime": {
+                        "type": "integer",
+                        "description": "Total de tempo em minutos em que a agenda do profissional esteve ocupada(somando todos os profissionais que atuam na clinica)"
+                      },
+                      "TotalEvent": {
+                        "type": "string",
+                        "description": "Total de tempo em minutos de eventos que o profissional tinha na agenda no mes de referencia"
+                      },
+                      "TotalBusy": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "total de tempo em minutos que o profissional nao estava na clinica(somando todos os profissionais)"
+                      },
+                      "month": {
+                        "type": "string",
+                        "description": "Mês de referencia"
+                      },
+                      "Ocupaccion": {
+                        "type": "string",
+                        "description": "Porcentagem de tempo em que a agenda da clinica esteve ocupada(somando a agenda de todos os profissionais que atuam na clinica)"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/procedures/list": {
+      "get": {
+        "description": "Retorna os Procedimentos das Tabelas de Preço.",
+        "tags": [
+          "procedures"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna uma lista com os procedimentos válidos da Clínica.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "description": "Id do Procedimento"
+                      },
+                      "PriceListId": {
+                        "type": "integer",
+                        "description": "Id da Tabela de Preço"
+                      },
+                      "ProcedureExpertiseName": {
+                        "type": "string",
+                        "description": "Nome da Especialidade"
+                      },
+                      "ProcedureName": {
+                        "type": "string",
+                        "description": "Nome do Procedimento"
+                      },
+                      "Type": {
+                        "type": "string",
+                        "description": "Tipo da Tabela de Preço"
+                      },
+                      "PriceListName": {
+                        "type": "string",
+                        "description": "Nome da Tabela de Preço"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/procedures/list_specialties": {
+      "get": {
+        "description": "Retorna a lista de especialidades da franquia",
+        "tags": [
+          "procedures"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna uma lista com todas as especialidades da franquia",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "description": "id da especialidade"
+                      },
+                      "Active": {
+                        "type": "string",
+                        "description": "Especialidade ativa"
+                      },
+                      "Description": {
+                        "type": "string",
+                        "description": "Nome da especialidade"
+                      },
+                      "Language": {
+                        "type": "string",
+                        "description": "Língua nativa da informação da especialidade"
+                      },
+                      "Type": {
+                        "type": "string",
+                        "description": "Tipo da informação"
+                      },
+                      "z_LastChange_Date": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Última data de alteração"
+                      },
+                      "z_LastChange_UserId": {
+                        "type": "integer",
+                        "description": "id do último usuário que alterou"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/financial/list_invoices": {
+      "get": {
+        "description": "Pagamentos com notas fiscais como valor da nota, nome do paciente, status, tipo da nota fiscal",
+        "tags": [
+          "financial"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica em caso de multiclínicas em uma unidade.",
+            "in": "query",
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna todos os dados de pagamentos com notas fiscais no periodo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "ReferenceId": {
+                        "type": "integer",
+                        "description": "Id da parcela para a NFSe e id do PaymentHedar para nota fiscal externa"
+                      },
+                      "Amount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor da  nota fiscal externa/NFSe"
+                      },
+                      "Description": {
+                        "type": "string",
+                        "description": "Descrição informada ao criar a  nota fiscal externa/NFSe"
+                      },
+                      "PatientName": {
+                        "type": "string",
+                        "description": "Nome do Paciente para qual foi criado a nota fiscal externa/NFSe"
+                      },
+                      "PatientId": {
+                        "type": "integer",
+                        "description": "Id do Paciente para qual foi criado a nota fiscal externa/NFSe"
+                      },
+                      "Date": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Data de criação da nota fiscal externa/NFSe"
+                      },
+                      "InvoiceId": {
+                        "type": "integer",
+                        "description": "id da NFSe (Apenas NFSe)"
+                      },
+                      "Status": {
+                        "type": "string",
+                        "description": "Status que se encontra a nota fiscal externa/NFSe (Processing_Authorization | Autorized | Canceled | ErrorAutorized | CancellationError)"
+                      },
+                      "PaymentReceived": {
+                        "type": "string",
+                        "description": "Mostra se o pagamento ja foi recebido"
+                      },
+                      "PaymentConfirmed": {
+                        "type": "string",
+                        "description": "Mostra se o pagamento ja foi confirmado"
+                      },
+                      "InstallmentNumber": {
+                        "type": "integer",
+                        "description": "Número da parcela para qual a NFSe foi criada (Apenas NFSe)"
+                      },
+                      "ReceiverBusinessId": {
+                        "type": "integer",
+                        "description": "Id da clinica que recebeu o pagamento"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/sales/estimates_and_conversion": {
+      "get": {
+        "description": "Retorna todos os dados referentes a orçamentos, Status, quantidade total de orçamentos, valor total de orçamentos, ticket medio e conversão",
+        "tags": [
+          "sales"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica para pegar o tempo de agenda",
+            "required": true,
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "group_by",
+            "description": "agrupa os dados (utilizar month para agrupar por mes)",
+            "required": true,
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna todos os dados referentes a orçamentos, Status, quantidade total de orçamentos, valor total de orçamentos, ticket medio e conversão",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "month": {
+                        "type": "string",
+                        "description": "mes de referencia"
+                      },
+                      "Status": {
+                        "type": "object",
+                        "properties": {
+                          "TotalEstimates": {
+                            "type": "number",
+                            "format": "integer",
+                            "description": "quantidade total de orçamentos"
+                          },
+                          "TotalEstimatesAmount": {
+                            "type": "number",
+                            "format": "float",
+                            "description": "valor total dos orçamentos"
+                          },
+                          "AverageTicket": {
+                            "type": "number",
+                            "format": "float",
+                            "description": "valor do ticket medio dos orçamentos"
+                          }
+                        },
+                        "description": "O status do orçamento. Pode ser APPROVED, REJECTED, OPEN, FOLLOWUP, ou TOTAL"
+                      },
+                      "Conversion": {
+                        "type": "string",
+                        "description": "Uma string que representa total de orcamentos/quantidade de orcamentos convertidos"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/crm/add_leads": {
+      "post": {
+        "description": "Envia dados de um lead externo para ser adicionado em alguma campanha no CRM",
+        "tags": [
+          "crm"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON para criar um lead em alguma campanha",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "subscriber_id": {
+                    "type": "string",
+                    "example": "id do assinante",
+                    "required": true
+                  },
+                  "Name": {
+                    "type": "string",
+                    "example": "Nome do lead",
+                    "required": true
+                  },
+                  "Email": {
+                    "type": "string",
+                    "example": "paciente_teste@gmail.com",
+                    "required": true
+                  },
+                  "Phone": {
+                    "type": "string",
+                    "example": "(47) 90000-0000",
+                    "required": true
+                  },
+                  "BoardName": {
+                    "type": "string",
+                    "example": "Nome da campanha"
+                  },
+                  "Notes": {
+                    "type": "string",
+                    "example": "Observações do lead",
+                    "required": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retorna a mensagem de sucesso ou erro da adição do lead na campanha.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "Message": {
+                      "type": "string",
+                      "description": "mensagem de sucesso ou erro"
+                    },
+                    "Error": {
+                      "type": "string",
+                      "description": "descrição do erro"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/crm/list_active_campaigns": {
+      "get": {
+        "description": "Lista todos os usuários do sistema",
+        "tags": [
+          "crm"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "mudar descrição",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "Name": {
+                        "type": "string",
+                        "description": "Nome"
+                      },
+                      "Status": {
+                        "type": "string",
+                        "description": "UserName do Usuário para entrar no sistema"
+                      },
+                      "Description": {
+                        "type": "string",
+                        "description": "Descrição"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/financial/average_installments": {
+      "get": {
+        "description": "Retorna dados referentes a parcelamento medio como total de pagamentos, total de parcelas e parcelamento medio",
+        "tags": [
+          "financial"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica para pegar o tempo de agenda",
+            "required": true,
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "group_by",
+            "description": "Agrupar os dados. Passar a string month como parametro retorna os valores separados por mes de acordo com o periodo passado atraves de From e To",
+            "required": true,
+            "in": "query",
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna todos os valores referentes a parcelamento medio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "month": {
+                        "type": "string",
+                        "description": "Mês de referencia"
+                      },
+                      "TotalPayments": {
+                        "type": "integer",
+                        "description": "Total de pagamentos feito checkout"
+                      },
+                      "TotalInstallments": {
+                        "type": "integer",
+                        "description": "Total de parcelas para todos os pagamentos"
+                      },
+                      "AverageInstallments": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Média de parcelas para todos os pagamentos"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/financial/list_receipt": {
+      "get": {
+        "description": "Retorna dados referentes a recibos como valor, descrição, nome do paciente",
+        "tags": [
+          "financial"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica em caso de multiclínicas em uma unidade.",
+            "in": "query",
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna todos os recibos da clinica no periodo de referencia",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "description": "id do receibo"
+                      },
+                      "ReferenceId": {
+                        "type": "integer",
+                        "description": "Id da parcela para recibos feito por parcela ou id do PaymentHeader para recibos normal."
+                      },
+                      "Amount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor do Recibo"
+                      },
+                      "Description": {
+                        "type": "string",
+                        "description": "Descrição informada ao criar o recibo"
+                      },
+                      "PatientName": {
+                        "type": "string",
+                        "description": "Nome do Paciente para qual foi criado o recibo"
+                      },
+                      "PatientId": {
+                        "type": "integer",
+                        "description": "Id do Paciente para qual foi criado o recibo"
+                      },
+                      "ReceiptDate": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Data de criação da o recibo"
+                      },
+                      "ReceiverBusinessId": {
+                        "type": "integer",
+                        "description": "Id da clinica"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/financial/list_cash_flow": {
+      "get": {
+        "description": "Retorna dados referentes ao fluxo de caixa, entradas, saidas, debitos e valores a receber",
+        "tags": [
+          "financial"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica em caso de multiclínicas em uma unidade.",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna os Dados referentes a fluxo de caixa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "in": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de entradas"
+                    },
+                    "out": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de saidas"
+                    },
+                    "in_forecast": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "previsão de entrada"
+                    },
+                    "out_forecast": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "previsão de saida"
+                    },
+                    "month": {
+                      "type": "string",
+                      "description": "Mês de refererencia"
+                    },
+                    "cash": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de entradas em dinheiro"
+                    },
+                    "bank_slip": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de entradas em boleto bancario"
+                    },
+                    "credit_card": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de entradas em cartão de crédito"
+                    },
+                    "debit_card": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de entradas em cartão de débito"
+                    },
+                    "check": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de entradas em cheque"
+                    },
+                    "transfer": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de entradas em transferência"
+                    },
+                    "debit": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de inadimplencia dos pacientes no mes de referencia"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/financial/list_payments": {
+      "get": {
+        "description": "Retorna dados referentes a pagamentos, pagamentos inadimplentes, pagamentos em aberto e pagamentos efetuados",
+        "tags": [
+          "financial"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica em caso de multiclínicas em uma unidade.",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna os Dados referentes a pagamentos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalInForecastAmount": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de pagamentos em aberto"
+                    },
+                    "totalPaymentsAmount": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de pagamentos efetuados no periodo de referência"
+                    },
+                    "totalDebitAmount": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de pagamentos inadimplentes"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/financial/list_summary": {
+      "get": {
+        "description": "Retorna informações financeiras do periodo como total de vendas, total de despesas, lista detalhada de pagamentos",
+        "tags": [
+          "financial"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica em caso de multiclínicas em uma unidade.",
+            "in": "query",
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna dados financeiros referentes ao periodo, como dados de despesas das clinicas, recebimentos, formas de pagamentos de despesas e recebimentos, total de vendas e despesas ,valores e descrição.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "From": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Data inicial"
+                    },
+                    "To": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Data final"
+                    },
+                    "BusinessId": {
+                      "type": "integer",
+                      "description": "id da clínica"
+                    },
+                    "TotalSales": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de vendas"
+                    },
+                    "TotalIncome": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de entrada"
+                    },
+                    "TotalExpenses": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total de despesas"
+                    },
+                    "Type": {
+                      "type": "string",
+                      "description": "Tipo da informação (faturamento, entrada, saída, etc)"
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Lista dos lançamentos"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/patient/get": {
+      "get": {
+        "description": "Busca 1 paciente em específico.",
+        "tags": [
+          "patient"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "PatientId",
+            "description": "id do Paciente.",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "Name",
+            "description": "Nome do Paciente.",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "OtherDocumentId",
+            "description": "CPF do Paciente.",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "Phone",
+            "description": "Telefone ou Celular do Paciente. Aceita qualquer formato - com ou sem DDI e com ou sem pontuacao (ex. \"47999999999\", \"+5547999999999\", \"(47) 99999-9999\").",
+            "type": "string",
+            "in": "query"
+          },
+          {
+            "name": "Email",
+            "description": "E-mail do Paciente.",
+            "type": "string",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna um objeto com o Id, Nome, E-mail, Telefone, CPF, Status e Plano de Saúde do Paciente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "PatientId": {
+                      "type": "integer",
+                      "description": "id do Paciente."
+                    },
+                    "Name": {
+                      "type": "string",
+                      "description": "Nome do Paciente."
+                    },
+                    "Email": {
+                      "type": "string",
+                      "description": "E-mail do Paciente."
+                    },
+                    "Phone": {
+                      "type": "string",
+                      "description": "Telefone ou Celular do Paciente."
+                    },
+                    "OtherDocumentId": {
+                      "type": "string",
+                      "description": "CPF do Paciente."
+                    },
+                    "Status": {
+                      "type": "string",
+                      "description": "Status do Paciente (ACTIVE, INACTIVE or DELETED)."
+                    },
+                    "BirthDate": {
+                      "type": "string",
+                      "description": "Data de nascimento do paciente."
+                    },
+                    "InsurancePlanName": {
+                      "type": "string",
+                      "description": "Nome do plano de saúde informado no cadastro do paciente. Ausente quando não preenchido."
+                    },
+                    "InsurancePlanNumber": {
+                      "type": "string",
+                      "description": "Número do plano de saúde (carteirinha) informado no cadastro do paciente. Ausente quando não preenchido."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "description": "Erro ao buscar o paciente."
+          }
+        }
+      }
+    },
+    "/patient/birthdays": {
+      "get": {
+        "description": "Lista os pacientes aniversariantes do dia",
+        "tags": [
+          "patient"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "date",
+            "description": "Data para buscar aniversariantes (YYYY-MM-DD). Se não informado, usa a data atual.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna lista de pacientes aniversariantes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "PatientId": {
+                        "type": "integer",
+                        "description": "id do paciente"
+                      },
+                      "Name": {
+                        "type": "string",
+                        "description": "Nome do paciente"
+                      },
+                      "BirthDate": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Data de nascimento do paciente"
+                      },
+                      "Age": {
+                        "type": "integer",
+                        "description": "Idade do paciente"
+                      },
+                      "Email": {
+                        "type": "string",
+                        "description": "Email do paciente"
+                      },
+                      "MobilePhone": {
+                        "type": "string",
+                        "description": "Telefone do paciente"
+                      },
+                      "OtherDocumentId": {
+                        "type": "string",
+                        "description": "CPF do paciente"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/patient/create": {
+      "post": {
+        "description": "Cria um novo paciente",
+        "tags": [
+          "patient"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON para criar o paciente",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subscriber_id": {
+                    "required": true,
+                    "type": "string"
+                  },
+                  "Name": {
+                    "required": true,
+                    "type": "string",
+                    "example": "Nome do paciente"
+                  },
+                  "BirthDate": {
+                    "example": "YYYY-MM-DD",
+                    "type": "string"
+                  },
+                  "Sex": {
+                    "example": "M",
+                    "type": "string"
+                  },
+                  "Email": {
+                    "example": "paciente@email.com",
+                    "type": "string"
+                  },
+                  "MobilePhone": {
+                    "example": 999999999,
+                    "type": "integer"
+                  },
+                  "DocumentId": {
+                    "description": "RG do paciente.",
+                    "type": "integer"
+                  },
+                  "OtherDocumentId": {
+                    "description": "CPF do paciente.",
+                    "type": "integer"
+                  },
+                  "Notes": {
+                    "description": "Observações sobre o paciente.",
+                    "type": "string"
+                  },
+                  "IgnoreSameName": {
+                    "example": "Se enviar como 'X' vai criar o paciente mesmo que encontre um paciente com o mesmo nome.",
+                    "type": "string"
+                  },
+                  "IgnoreSameDoc": {
+                    "example": "Se enviar como 'X' vai criar o paciente mesmo que encontre um paciente com o mesmo CPF.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cria um novo paciente no banco de dados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "Name": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Nome do paciente"
+                    },
+                    "BirthDate": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Data de nascimento do paciente"
+                    },
+                    "Sex": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Sexo do paciente"
+                    },
+                    "Email": {
+                      "type": "string",
+                      "description": "Email do paciente"
+                    },
+                    "MobilePhone": {
+                      "type": "string",
+                      "description": "Celular do paciente"
+                    },
+                    "DocumentId": {
+                      "type": "string",
+                      "description": "RG do paciente"
+                    },
+                    "OtherDocumentId": {
+                      "type": "string",
+                      "description": "CPF do paciente"
+                    },
+                    "Notes": {
+                      "type": "string",
+                      "description": "Observações do paciente"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/patient/list_appointments": {
+      "get": {
+        "description": "Lista todos os Agendamentos do Paciente",
+        "tags": [
+          "patient"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "PatientId",
+            "description": "Informe o id do Paciente",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna o(s) Agendamento(s) do Paciente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "example": 4791226171916288
+                      },
+                      "AtomicDate": {
+                        "type": "integer",
+                        "example": 20250501
+                      },
+                      "date": {
+                        "type": "Date",
+                        "example": "2025-05-01T18:02:36.132Z"
+                      },
+                      "PatientName": {
+                        "type": "string",
+                        "example": "Nome do Paciente"
+                      },
+                      "fromTime": {
+                        "type": "string",
+                        "example": "10:00"
+                      },
+                      "toTime": {
+                        "type": "string",
+                        "example": "10:30"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patient/list_estimates": {
+      "get": {
+        "description": "Retorna a soma dos orçamentos no periodo de referência",
+        "tags": [
+          "patient"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica em caso de multiclínicas em uma unidade.",
+            "in": "query",
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna o total de orçamentos e soma dos valores referentes ao periodo selecionado separados por Status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "From": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Data inicial"
+                    },
+                    "To": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Data final"
+                    },
+                    "BusinessId": {
+                      "type": "integer",
+                      "description": "id da clínica"
+                    },
+                    "ApprovedQuantity": {
+                      "type": "integer",
+                      "description": "Quantidade aprovada"
+                    },
+                    "ApprovedTotalAmount": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total aprovado"
+                    },
+                    "FollowUpQuantity": {
+                      "type": "integer",
+                      "description": "Quantidade em followup"
+                    },
+                    "FollowUpTotalAmount": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total em followup"
+                    },
+                    "OpenQuantity": {
+                      "type": "integer",
+                      "description": "Quantidade em aberto"
+                    },
+                    "OpenTotalAmount": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total em aberto"
+                    },
+                    "RejectedQuantity": {
+                      "type": "integer",
+                      "description": "Quantidade reprovada"
+                    },
+                    "RejectedTotalAmount": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Valor total reprovado"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/payment/list": {
+      "get": {
+        "description": "Retorna a lista de todos os pagamentos do periodo",
+        "tags": [
+          "payment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "include_total_amount",
+            "description": "X se for para trazer o valor total.",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "get_amount_with_discounts",
+            "description": "X se for para trazer o valor com os descontos de taxas de pagamentos.",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "date_type",
+            "description": "Se o campo for deixado em branco: filtra pela Data de Recebimento (como já funciona por padrão), se informado **postDate**: filtra pela Data de Criação, se informado **checkoutDate**: filtra pela Data de Pagamento.",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna a lista com todos os dados referentes aos pagamentos de acordo com o periodo selecionado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "description": "id da especialidade"
+                      },
+                      "PaymentReceived": {
+                        "type": "string",
+                        "description": "X se o pagamnto já foi recebido"
+                      },
+                      "DueDateAtomic": {
+                        "type": "integer",
+                        "description": "Data de vencimento em formato atômico"
+                      },
+                      "CheckOutDate": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Data do checkout"
+                      },
+                      "Amount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor do pagamento"
+                      },
+                      "DueDate": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Data de vencimento"
+                      },
+                      "ReceiverBusinessId": {
+                        "type": "integer",
+                        "description": "id da clínica que vai receber o pagamento"
+                      },
+                      "CheckOutAtomicTime": {
+                        "type": "integer",
+                        "description": "Data do checkout em atomic time"
+                      },
+                      "PaymentDate": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Data de pagamento"
+                      },
+                      "PaymentConfirmed": {
+                        "type": "string",
+                        "description": "X se o pagamento foi confirmado"
+                      },
+                      "ConfirmedDate": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Data de confirmação do pagamento"
+                      },
+                      "ConfirmedDateAtomic": {
+                        "type": "integer",
+                        "description": "Data de confirmação do pagamento em formato atômico"
+                      },
+                      "InstallmentsCount": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Quantidade de parcelas"
+                      },
+                      "z_LastChange_UserId": {
+                        "type": "integer",
+                        "description": "id do último usuário que alterou"
+                      },
+                      "CheckOutUserId": {
+                        "type": "integer",
+                        "description": "id do usuário que realizou o checkout"
+                      },
+                      "InstallmentNumber": {
+                        "type": "string",
+                        "description": "Número da parcela"
+                      },
+                      "PostDate": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Data do lançamento"
+                      },
+                      "CheckOutDateAtomic": {
+                        "type": "string",
+                        "description": "Data de checkout do pagamento em formato atômico"
+                      },
+                      "PatientId": {
+                        "type": "integer",
+                        "description": "id do paciente"
+                      },
+                      "PaymentHeaderId": {
+                        "type": "integer",
+                        "description": "id do checkout"
+                      },
+                      "ReceivedDateAtomic": {
+                        "type": "integer",
+                        "description": "Data de recebimento do pagamento em formato atômico"
+                      },
+                      "ReceivedDate": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Data de recebimento do pagamento"
+                      },
+                      "PostDateAtomic": {
+                        "type": "string",
+                        "description": "Data de lançamento em formato atômico"
+                      },
+                      "z_LastChange_Date": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Última data de alteração"
+                      },
+                      "PaymentForm": {
+                        "type": "string",
+                        "description": "Forma de pagamento"
+                      },
+                      "PatientName": {
+                        "type": "string",
+                        "description": "Nome do paciente"
+                      },
+                      "TreatmentId": {
+                        "type": "integer",
+                        "description": "id do tratamento"
+                      },
+                      "TotalPostAmount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor total do lançamento"
+                      },
+                      "AmountWithDiscounts": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Valor da parcela com os descontos de taxas de pagamento"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/appointment/list": {
+      "get": {
+        "tags": [
+          "appointment"
+        ],
+        "summary": "Lista a agenda do período (agendamentos, eventos e compromissos)",
+        "description": "Retorna os itens da agenda do assinante no período informado.\n\nPor padrão são retornados **apenas agendamentos de pacientes**. Para obter a agenda\ncompleta — necessária para cálculos de ocupação e capacidade instalada — envie também\n`includeAssigns=X`.\n\n### Tipos de item\n\nTodo item do retorno traz o campo `ItemType`:\n\n| `ItemType` | O que é | Como incluir |\n|---|---|---|\n| `APPOINTMENT` | Agendamento de paciente | sempre retornado |\n| `ASSIGN` | Compromisso na agenda | `includeAssigns=X` |\n| `EVENT` | Evento ou bloqueio da agenda | `includeAssigns=X` |\n\nCompromissos e eventos ocupam a agenda da mesma forma e são incluídos pelo mesmo\nparâmetro. A distinção existe por histórico: a agenda atual cria apenas compromissos,\nenquanto os itens do tipo `EVENT` vêm da agenda antiga.\n\n### Datas e horários\n\n- **Agendamentos** trazem a data e hora em UTC no campo `date`, e os horários nos campos\n  `fromTime` e `toTime`.\n- **Eventos e compromissos** trazem a data no campo `AtomicDate`, um inteiro no formato\n  YYYYMMDD, e os horários em `fromTime` e `toTime`, no fuso da clínica. Quando ocupam o dia\n  inteiro, o campo `AllDay` vem preenchido.\n\n### Observações\n\n- Os parâmetros de inclusão são ativados **somente** pelo valor `X`, maiúsculo ou minúsculo.\n  Qualquer outro valor mantém a opção desligada.\n- Agendamentos excluídos não são retornados, a menos que `includeDeleted` seja enviado.\n- Eventos e compromissos não têm vínculo com paciente, portanto o filtro `patientId` não se\n  aplica a eles.\n\n### Exemplo\n\n`/appointment/list?from=2026-08-01&to=2026-08-31&includeAssigns=X`\n",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "description": "Data inicial do período (inclusive).",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-08-01"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "description": "Data final do período (inclusive).",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-08-31"
+            }
+          },
+          {
+            "name": "subscriber_id",
+            "in": "query",
+            "required": false,
+            "description": "Identificador do assinante.\n\n- **Assinante com conta única**: pode ser omitido, pois o assinante é identificado pelo token de acesso.\n- **Conta de grupo**: obrigatório, pois seleciona qual unidade será consultada. Sem ele a requisição retorna 401.\n",
+            "schema": {
+              "type": "string",
+              "example": "clinicorp"
+            }
+          },
+          {
+            "name": "businessId",
+            "in": "query",
+            "required": false,
+            "description": "Filtra por uma clínica específica. Quando omitido, retorna a agenda de todas as clínicas do assinante.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "patientId",
+            "in": "query",
+            "required": false,
+            "description": "Filtra os agendamentos de um paciente específico.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "includeAssigns",
+            "in": "query",
+            "required": false,
+            "description": "Inclui no retorno os compromissos e os eventos da agenda, identificados pelos ItemType ASSIGN e EVENT.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "X"
+              ]
+            }
+          },
+          {
+            "name": "includeCanceled",
+            "in": "query",
+            "required": false,
+            "description": "Inclui no retorno os agendamentos desmarcados.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "X"
+              ]
+            }
+          },
+          {
+            "name": "includeDeleted",
+            "in": "query",
+            "required": false,
+            "description": "Inclui no retorno os agendamentos excluídos.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "X"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de itens da agenda no período. Os campos variam conforme o `ItemType`:\nagendamentos trazem os dados do paciente, enquanto eventos e compromissos trazem\ntítulo (`Name`) e, quando aplicável, o profissional (`Dentist_PersonId`).\nEvento sem `Dentist_PersonId` é um evento da clínica.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "ItemType": {
+                        "type": "string",
+                        "enum": [
+                          "APPOINTMENT",
+                          "EVENT",
+                          "ASSIGN"
+                        ],
+                        "description": "Tipo do item — agendamento de paciente, evento/bloqueio ou compromisso de profissional."
+                      },
+                      "id": {
+                        "type": "integer",
+                        "description": "Identificador do item."
+                      },
+                      "date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Data e hora do agendamento, em UTC. Presente apenas nos itens do tipo APPOINTMENT."
+                      },
+                      "AtomicDate": {
+                        "type": "integer",
+                        "description": "Data no formato inteiro `YYYYMMDD`.",
+                        "example": 20260801
+                      },
+                      "fromTime": {
+                        "type": "string",
+                        "description": "Horário de início (`HH:mm`).",
+                        "example": "09:00"
+                      },
+                      "toTime": {
+                        "type": "string",
+                        "description": "Horário de término (`HH:mm`).",
+                        "example": "09:30"
+                      },
+                      "AllDay": {
+                        "type": "string",
+                        "description": "Preenchido com X quando o evento ou compromisso ocupa o dia inteiro. Presente nos tipos EVENT e ASSIGN."
+                      },
+                      "Name": {
+                        "type": "string",
+                        "description": "Título do evento ou compromisso. Presente nos tipos EVENT e ASSIGN."
+                      },
+                      "Clinic_BusinessId": {
+                        "type": "integer",
+                        "description": "Clínica do item."
+                      },
+                      "Dentist_PersonId": {
+                        "type": "integer",
+                        "description": "Profissional do item. Nos eventos, a ausência deste campo indica um evento da unidade."
+                      },
+                      "PatientName": {
+                        "type": "string",
+                        "description": "Nome do paciente. Presente apenas nos itens do tipo APPOINTMENT."
+                      },
+                      "MobilePhone": {
+                        "type": "string",
+                        "description": "Telefone do paciente."
+                      },
+                      "Email": {
+                        "type": "string",
+                        "description": "E-mail do paciente."
+                      },
+                      "StatusId": {
+                        "type": "integer",
+                        "description": "Status do agendamento. Consulte o endpoint /appointment/status_list para a lista de status e use a propriedade Type como chave estável entre clínicas."
+                      },
+                      "Canceled": {
+                        "type": "string",
+                        "description": "Preenchido com X quando o agendamento está desmarcado."
+                      },
+                      "Deleted": {
+                        "type": "string",
+                        "description": "Preenchido com X quando o agendamento está excluído."
+                      },
+                      "Notes": {
+                        "type": "string",
+                        "description": "Observações."
+                      },
+                      "Session": {
+                        "type": "integer",
+                        "description": "Número de sessões do agendamento."
+                      },
+                      "Sequence": {
+                        "type": "integer",
+                        "description": "Número de sequência."
+                      },
+                      "CreateUserId": {
+                        "type": "integer",
+                        "description": "Identificador do usuário que criou o registro."
+                      },
+                      "CreateUserName": {
+                        "type": "string",
+                        "description": "Nome do usuário que criou o registro."
+                      },
+                      "z_LastChange_Date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Data da última alteração do registro, útil para sincronização incremental."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/sales/expertise_revenue": {
+      "get": {
+        "description": "Retorna os dados referentes a vendas por especialidade(mes de referencia e valor total de vendas para cada especialidade)",
+        "tags": [
+          "sales"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "businessId",
+            "description": "Id da clínica.",
+            "in": "query",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "name": "patientId",
+            "description": "Id do Paciente.",
+            "in": "query",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna os dados referentes a vendas por especialidade",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "month": {
+                        "type": "string",
+                        "description": "mes de referencia"
+                      },
+                      "Expertise": {
+                        "type": "string",
+                        "description": "O nome de cada especialidade gravada no orçamento aparece como chave e o valor é o total em vendas daquela especialidade no periodo de referencia"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/operational/list_misses_goals": {
+      "get": {
+        "description": "Retorna as metas de faltas referentes ao periodo e o total de faltas",
+        "tags": [
+          "operational"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica em caso de multiclínicas em uma unidade.",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "isAPI",
+            "required": true,
+            "in": "query",
+            "type": "string",
+            "description": "Parâmetro para trazer os dados formatados de acordo com a API (Valor = X)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna valores referentes a metas de faltas da clinica",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "From": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Data inicial no formato americano"
+                    },
+                    "To": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "Data final no formato americano"
+                    },
+                    "month": {
+                      "type": "string",
+                      "description": "Mes de referencia"
+                    },
+                    "Goal": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Meta de faltas do mes de referencia representado como um numero do tipo float"
+                    },
+                    "Misses": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Relação entre total de faltas no mes de referencia e total de agendamentos"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/operational/list_sales_goals": {
+      "get": {
+        "description": "Retorna as metas de vendas referentes ao periodo, total em vendas e projeção",
+        "tags": [
+          "operational"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "business_id",
+            "description": "id de uma clínica específica para pegar o tempo de agenda",
+            "required": true,
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "isAPI",
+            "required": true,
+            "in": "query",
+            "type": "string",
+            "description": "Parâmetro para trazer os dados formatados de acordo com a API (Valor = X)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna dados referentes a metas de vendas da clinica configuradas para cada mês",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "month": {
+                        "type": "string",
+                        "description": "mes de referencia"
+                      },
+                      "From": {
+                        "type": "string",
+                        "description": "data de inicio no formato americano"
+                      },
+                      "To": {
+                        "type": "string",
+                        "description": "Data final no formato americano"
+                      },
+                      "Goal": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "valor da meta do mes de referencia"
+                      },
+                      "TotalRevenueAmount": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "Total de vendas baseado nos orcamentos aprovados"
+                      },
+                      "Projection": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "projecao de vendas para o mes baseado no que foi vendido ate o dia atual"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/appointment/create_online_scheduling": {
+      "post": {
+        "description": "Cria uma solicitação de agendamento",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON para criar a solicitação de agendamento",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "CodeLink": {
+                    "type": "integer",
+                    "example": 27478,
+                    "required": true
+                  },
+                  "PatientName": {
+                    "type": "string",
+                    "example": "Nome do paciente",
+                    "required": true
+                  },
+                  "SchedulingReason": {
+                    "type": "string",
+                    "example": "Razao da consulta"
+                  },
+                  "MobilePhone": {
+                    "type": "string",
+                    "example": "(47) 90000-0000",
+                    "required": true
+                  },
+                  "OtherPhones": {
+                    "type": "string",
+                    "example": "(47) 90000-0000"
+                  },
+                  "OtherDocumentId": {
+                    "type": "string",
+                    "example": "567 (apenas 3 primeiros dígitos)",
+                    "required": true
+                  },
+                  "Email": {
+                    "type": "string",
+                    "example": "joaosilva@yahoo.com"
+                  },
+                  "NotesPatient": {
+                    "type": "string",
+                    "example": "preciso dessa consulta urgente"
+                  },
+                  "fromTime": {
+                    "type": "string",
+                    "example": "14:30",
+                    "required": true
+                  },
+                  "toTime": {
+                    "type": "string",
+                    "example": "15:30",
+                    "required": true
+                  },
+                  "IsOnlineScheduling": {
+                    "type": "boolean",
+                    "example": true,
+                    "required": true
+                  },
+                  "date": {
+                    "type": "date",
+                    "required": true,
+                    "example": "2021-07-15T03:00:00.000Z"
+                  },
+                  "Type": {
+                    "type": "string",
+                    "example": "CLOUDIA"
+                  },
+                  "Dentist_PersonId": {
+                    "type": "integer",
+                    "required": true
+                  },
+                  "Clinic_BusinessId": {
+                    "type": "integer",
+                    "required": true
+                  },
+                  "AlreadyPatient": {
+                    "type": "boolean",
+                    "example": true,
+                    "required": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retorna informaçoes do agendamento criado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "Status": {
+                        "type": "string",
+                        "example": "CREATED"
+                      },
+                      "id": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/appointment/get_avaliable_times_calendar": {
+      "get": {
+        "description": "Pega horários disponíveis",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "date",
+            "description": "Data selecionada no formato JSON (YYYY-MM-DD).",
+            "in": "query",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "name": "code_link",
+            "description": "Código de acesso.",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna informações dos horários disponíveis para agendamento",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "From": {
+                        "type": "string",
+                        "example": "9:00"
+                      },
+                      "To": {
+                        "type": "string",
+                        "example": "10:00"
+                      },
+                      "DayWeek": {
+                        "type": "integer",
+                        "example": 1
+                      },
+                      "BusinessId": {
+                        "type": "integer",
+                        "example": 123456789
+                      },
+                      "ProfessionalId": {
+                        "type": "integer",
+                        "example": 2345512
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/appointment/get_avaliable_days": {
+      "get": {
+        "description": "Pega dias da semana com horários disponíveis",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "code_link",
+            "description": "Código de acesso.",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "from",
+            "description": "Data inicial no formato YYYY-MM-DD.",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "to",
+            "description": "Data final no formato YYYY-MM-DD.",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "includeHolidays",
+            "description": "Deprecated and ignored. Holidays follow the \"Disponibilizar dias de feriado\" option of the Online Scheduling settings.",
+            "deprecated": true,
+            "in": "query",
+            "type": "string",
+            "example": "X"
+          },
+          {
+            "name": "showAvailableTimes",
+            "description": "Mostrar lista de horários disponíveis.",
+            "in": "query",
+            "type": "string",
+            "example": "X"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dias disponíveis para agendamento",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "Date": {
+                        "type": "String",
+                        "example": "YYYY-MM-DD"
+                      },
+                      "Week": {
+                        "type": "String",
+                        "example": "Quarta-Feira"
+                      },
+                      "DayWeek": {
+                        "type": "Number",
+                        "example": "3 (Quarta-Feira)"
+                      },
+                      "day": {
+                        "type": "Number",
+                        "example": 31
+                      },
+                      "month": {
+                        "type": "Number",
+                        "example": 12
+                      },
+                      "year": {
+                        "type": "Number",
+                        "example": 2024
+                      },
+                      "jsonDate": {
+                        "type": "String",
+                        "example": "2024-12-31"
+                      },
+                      "AvailableTimes": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "from": {
+                              "type": "string",
+                              "example": "08:00"
+                            },
+                            "to": {
+                              "type": "string",
+                              "example": "08:30"
+                            },
+                            "isSelectable": {
+                              "type": "boolean",
+                              "example": true
+                            },
+                            "isAvailable": {
+                              "type": "boolean",
+                              "example": true
+                            },
+                            "isFirstActivate": {
+                              "type": "string",
+                              "example": "X"
+                            },
+                            "isSelected": {
+                              "type": "boolean",
+                              "example": true
+                            },
+                            "professionalId": {
+                              "type": "number",
+                              "example": 1234567890
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/appointment/get_appointment": {
+      "get": {
+        "description": "Pega informações da solicitação\\agendamento pelo id",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "code_link",
+            "description": "Código de acesso.",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "id",
+            "description": "id do agendamento",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna informações sobre o agendamento \\ solicitação de agendamento",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "OtherPhones": {
+                        "type": "String",
+                        "example": "(47) 99999-9999"
+                      },
+                      "ShedulingReason": {
+                        "type": "String",
+                        "example": "Dor de dente"
+                      },
+                      "AtomicDate": {
+                        "type": "Number",
+                        "example": 20210713
+                      },
+                      "CreateUserId": {
+                        "type": "Number",
+                        "example": -1
+                      },
+                      "Date": {
+                        "type": "Date",
+                        "example": "2021-07-15T18:02:36.132Z"
+                      },
+                      "Id": {
+                        "type": "Number",
+                        "example": 4791226171916288
+                      },
+                      "Type": {
+                        "type": "String",
+                        "example": "CLOUDIA"
+                      },
+                      "MobilePhone": {
+                        "type": "String",
+                        "example": "(47) 98870-0805"
+                      },
+                      "SK_DateFirstTime": {
+                        "type": "Number",
+                        "example": 920210713
+                      },
+                      "Deleted": {
+                        "type": "String",
+                        "example": "Se tiver com 'X', é porque o agendamento foi deletado ou a solicitação de agendamento recusada"
+                      },
+                      "OtherDocumentId": {
+                        "type": "String",
+                        "example": "12345678900"
+                      },
+                      "ToTime": {
+                        "type": "String",
+                        "example": "13:00"
+                      },
+                      "FromTime": {
+                        "type": "String",
+                        "example": "14:00"
+                      },
+                      "Email": {
+                        "type": "String",
+                        "example": "joaosilva@gmail.com"
+                      },
+                      "Clinic_BusinessId": {
+                        "type": "Number",
+                        "example": 5759793708400640
+                      },
+                      "Dentist_PersonId": {
+                        "type": "Number",
+                        "example": 5670262998564864
+                      },
+                      "NotesPatient": {
+                        "type": "String",
+                        "example": "Obs do paciente"
+                      },
+                      "PatientName": {
+                        "type": "String",
+                        "example": "Gustavo Blasius"
+                      },
+                      "IsOnlineScheduling": {
+                        "type": "Boolean",
+                        "example": true
+                      },
+                      "ShedulingAccepted": {
+                        "type": "Boolean",
+                        "example": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/appointment/confirm_appointment": {
+      "post": {
+        "description": "Confirma o Agendamento.",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON para confirmar o agendamento.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subscriber_id": {
+                    "type": "String",
+                    "example": "clinicorp",
+                    "required": true
+                  },
+                  "id": {
+                    "type": "Number",
+                    "example": 5778927598043136,
+                    "required": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retorna informações sobre a confirmação do Agendamento.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "Date": {
+                        "type": "Date",
+                        "example": "2025-01-30T18:02:36.132Z"
+                      },
+                      "AtomicDate": {
+                        "type": "Number",
+                        "example": 20250130
+                      },
+                      "PatientName": {
+                        "type": "String",
+                        "example": "Lucas Gonçalves"
+                      },
+                      "FromTime": {
+                        "type": "String",
+                        "example": "14:00"
+                      },
+                      "ToTime": {
+                        "type": "String",
+                        "example": "13:00"
+                      },
+                      "MobilePhone": {
+                        "type": "String",
+                        "example": "(47) 98870-0805"
+                      },
+                      "OtherDocumentId": {
+                        "type": "String",
+                        "example": "01234567890"
+                      },
+                      "PatientConfirm": {
+                        "type": "String",
+                        "example": "X"
+                      },
+                      "PatientMessage": {
+                        "type": "String",
+                        "example": "CONFIRMAR"
+                      },
+                      "Email": {
+                        "type": "String",
+                        "example": "lucas.goncalves@gmail.com"
+                      },
+                      "CreateUserId": {
+                        "type": "Number",
+                        "example": -1
+                      },
+                      "Type": {
+                        "type": "String",
+                        "example": "CLOUDIA"
+                      },
+                      "Clinic_BusinessId": {
+                        "type": "Number",
+                        "example": 5759793708400640
+                      },
+                      "Dentist_PersonId": {
+                        "type": "Number",
+                        "example": 5670262998564864
+                      },
+                      "IsOnlineScheduling": {
+                        "type": "Boolean",
+                        "example": true
+                      },
+                      "OtherPhones": {
+                        "type": "String",
+                        "example": "(47) 99999-9999"
+                      },
+                      "ShedulingReason": {
+                        "type": "String",
+                        "example": "Dor de dente"
+                      },
+                      "StatusId": {
+                        "type": "Number",
+                        "example": 5609543400816640
+                      },
+                      "StatusDescription": {
+                        "type": "String",
+                        "example": "1-Confirmado"
+                      },
+                      "id": {
+                        "type": "Number",
+                        "example": 4791226171916288
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/appointment/cancel_appointment": {
+      "post": {
+        "description": "Cancela agendamento",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON para cancelar o agendamento",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subscriber_id": {
+                    "type": "String",
+                    "example": "clinicorp",
+                    "required": true
+                  },
+                  "id": {
+                    "type": "String",
+                    "example": "5778927598043136"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retorna informações sobre o agendamento \\ solicitação de agendamento",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "OtherPhones": {
+                        "type": "String",
+                        "example": "(47) 99999-9999"
+                      },
+                      "ShedulingReason": {
+                        "type": "String",
+                        "example": "Dor de dente"
+                      },
+                      "AtomicDate": {
+                        "type": "Number",
+                        "example": 20210713
+                      },
+                      "CreateUserId": {
+                        "type": "Number",
+                        "example": -1
+                      },
+                      "Date": {
+                        "type": "Date",
+                        "example": "2021-07-15T18:02:36.132Z"
+                      },
+                      "Id": {
+                        "type": "Number",
+                        "example": 4791226171916288
+                      },
+                      "Type": {
+                        "type": "String",
+                        "example": "CLOUDIA"
+                      },
+                      "MobilePhone": {
+                        "type": "String",
+                        "example": "(47) 98870-0805"
+                      },
+                      "SK_DateFirstTime": {
+                        "type": "Number",
+                        "example": 920210713
+                      },
+                      "Deleted": {
+                        "type": "String",
+                        "example": "Se tiver com 'X', é porque o agendamento foi deletado ou a solicitação de agendamento recusada"
+                      },
+                      "OtherDocumentId": {
+                        "type": "String",
+                        "example": "12345678900"
+                      },
+                      "ToTime": {
+                        "type": "String",
+                        "example": "13:00"
+                      },
+                      "FromTime": {
+                        "type": "String",
+                        "example": "14:00"
+                      },
+                      "Email": {
+                        "type": "String",
+                        "example": "joaosilva@gmail.com"
+                      },
+                      "Clinic_BusinessId": {
+                        "type": "Number",
+                        "example": 5759793708400640
+                      },
+                      "Dentist_PersonId": {
+                        "type": "Number",
+                        "example": 5670262998564864
+                      },
+                      "NotesPatient": {
+                        "type": "String",
+                        "example": "Obs do paciente"
+                      },
+                      "PatientName": {
+                        "type": "String",
+                        "example": "Gustavo Blasius"
+                      },
+                      "IsOnlineScheduling": {
+                        "type": "Boolean",
+                        "example": true
+                      },
+                      "ShedulingAccepted": {
+                        "type": "Boolean",
+                        "example": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/appointment/create_appointment_by_api": {
+      "post": {
+        "description": "Cria um agendamento na Agenda do Sistema.",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON para criar o agendamento",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "Patient_PersonId": {
+                    "type": "integer",
+                    "example": 333333333333,
+                    "description": "ID do paciente."
+                  },
+                  "PatientName": {
+                    "type": "string",
+                    "example": "João da Silva",
+                    "description": "Nome completo do paciente."
+                  },
+                  "MobilePhone": {
+                    "type": "string",
+                    "example": "(11) 91234-5678",
+                    "description": "Telefone de contato do paciente."
+                  },
+                  "Email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "email@dominio.com",
+                    "description": "Email de contato do paciente."
+                  },
+                  "fromTime": {
+                    "type": "string",
+                    "example": "10:00",
+                    "description": "Hora de início do agendamento (HH:mm)."
+                  },
+                  "toTime": {
+                    "type": "string",
+                    "example": "11:00",
+                    "description": "Hora de término do agendamento (HH:mm)."
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2025-04-12T03:00:00.000Z",
+                    "description": "Data do agendamento (formato ISO 8601)."
+                  },
+                  "Clinic_BusinessId": {
+                    "type": "integer",
+                    "example": 111111111111,
+                    "description": "ID da clínica."
+                  },
+                  "Dentist_PersonId": {
+                    "type": "integer",
+                    "example": 222222222222,
+                    "description": "ID do profissional. Enviar apenas se o agendamento for por profissional."
+                  },
+                  "ScheduleToId": {
+                    "type": "integer",
+                    "example": 1234567890124,
+                    "description": "ID da cadeira. Enviar apenas se o agendamento for por cadeira."
+                  },
+                  "ScheduleToType": {
+                    "type": "string",
+                    "enum": [
+                      "CHAIR"
+                    ],
+                    "example": "CHAIR",
+                    "description": "Enviar apenas se o agendamento for por cadeira."
+                  },
+                  "Procedures": {
+                    "type": "string",
+                    "example": "Limpeza, Obturação",
+                    "description": "Procedimentos envolvidos no agendamento."
+                  },
+                  "CategoryId": {
+                    "type": "integer",
+                    "example": 1234567890125,
+                    "description": "ID da categoria previamente cadastrada. Tem prioridade sobre CategoryDescription. Use GET /appointment/list_categories para obter os ids das categorias cadastradas."
+                  },
+                  "CategoryDescription": {
+                    "type": "string",
+                    "example": "Consulta odontológica de rotina",
+                    "description": "Descrição da categoria previamente cadastrada, usada para localizar a categoria quando CategoryId não é enviado. Se houver mais de uma categoria com essa descrição, o resultado é ambíguo — prefira CategoryId."
+                  },
+                  "CategoryColor": {
+                    "type": "string",
+                    "example": "#FF5733",
+                    "description": "Ignorado ao criar o agendamento — a cor é sempre lida da categoria cadastrada (via CategoryId ou CategoryDescription)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Informações do agendamento criado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "Status": {
+                        "type": "string",
+                        "example": "CREATED"
+                      },
+                      "id": {
+                        "type": "integer",
+                        "example": 987654321
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requisição inválida ou recurso não encontrado"
+          }
+        }
+      }
+    },
+    "/appointment/change_status": {
+      "get": {
+        "description": "Atualizar Status do Agendamento",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "description": "Informe o id do Agendamento. Caso queira atualizar vários Agendamentos, enviar no seguinte formato: id1, id2, id3,...",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "status_id",
+            "description": "Informe o id do Status.",
+            "in": "query",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna o(s) Agendamento(s) com o Status atualizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "example": 4791226171916288
+                      },
+                      "Date": {
+                        "type": "Date",
+                        "example": "2025-01-30T18:02:36.132Z"
+                      },
+                      "PatientName": {
+                        "type": "string",
+                        "example": "Nome do Paciente"
+                      },
+                      "StatusId": {
+                        "type": "integer",
+                        "example": 5609543400816640
+                      },
+                      "StatusDescrition": {
+                        "type": "string",
+                        "example": "1-Confirmado"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointment/status_list": {
+      "get": {
+        "description": "Lista os status do agendamento",
+        "tags": [
+          "appointment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna informações os status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "Description": {
+                        "type": "string",
+                        "example": "1-Confirmado"
+                      },
+                      "Color": {
+                        "type": "string",
+                        "example": "#009688"
+                      },
+                      "z_LastChange_UserId": {
+                        "example": 0
+                      },
+                      "Type": {
+                        "type": "string",
+                        "example": "CONFIRMED"
+                      },
+                      "Reference": {
+                        "type": "string",
+                        "example": "Appointment"
+                      },
+                      "Active": {
+                        "type": "string",
+                        "example": "X"
+                      },
+                      "ReferenceType": {
+                        "example": ""
+                      },
+                      "z_LastChange_Date": {
+                        "example": "2020-12-01T20:00:00.000Z"
+                      },
+                      "id": {
+                        "type": "number",
+                        "example": 8888888888888888
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payment/list_reconcile_claim": {
+      "get": {
+        "description": "Lista os faturamentos por plano de saúde",
+        "tags": [
+          "payment"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "subscriber_id",
+            "description": "id do Assinante.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "Data inicio",
+            "in": "query",
+            "type": "date",
+            "required": true
+          },
+          {
+            "name": "to",
+            "description": "Data fim",
+            "in": "query",
+            "type": "date",
+            "required": true
+          },
+          {
+            "name": "type",
+            "description": "Status",
+            "in": "query",
+            "type": "string",
+            "required": true,
+            "schema": {
+              "enum": [
+                "ALL = Todos",
+                "OPEN = Em Aberto",
+                "DISPUTE = Recurso",
+                "REJECT = Glosa",
+                "PARTIAL_PAID = Pagsmento Parcial",
+                "PAID = Pago"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retorna faturamentos por plano de saude",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number",
+                        "example": 6666666666666666
+                      },
+                      "AtomicDate": {
+                        "type": "date",
+                        "example": 20220101
+                      },
+                      "Amount": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 99.99
+                      },
+                      "ClaimNumber": {
+                        "type": "number",
+                        "example": 222
+                      },
+                      "PersonId": {
+                        "type": "number",
+                        "example": 8888888888888888
+                      },
+                      "PatientName": {
+                        "type": "string",
+                        "example": "João da Silva"
+                      },
+                      "TreatmentId": {
+                        "type": "number",
+                        "example": 7777777777777777
+                      },
+                      "ProcedureName": {
+                        "type": "string",
+                        "example": "Restauração coroa"
+                      },
+                      "PriceListName": {
+                        "type": "number",
+                        "example": "Tabela de preço 1"
+                      },
+                      "ReconcileDate": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/migration/file/upload": {
+      "post": {
+        "description": "Retorna URL para carregar banco de dados da migração de dados.",
+        "tags": [
+          "migration"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON para fazer upload de banco de dados.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "SubscriptionId": {
+                      "type": "string",
+                      "example": "clinicorp"
+                    },
+                    "DataAccess": {
+                      "type": "object",
+                      "properties": {
+                        "FileName": {
+                          "type": "string",
+                          "example": "database.fdb"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retorna URL para carregar banco de dados da migração de dados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "SubscriptionId": {
+                        "type": "string",
+                        "example": "clinicorp"
+                      },
+                      "UploadSignedUrl": {
+                        "type": "string",
+                        "example": "https://google.com/clinicorp"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/migration/file": {
+      "post": {
+        "description": "Cria multiplas migrações de dados.",
+        "tags": [
+          "migration"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON para criar migração utilizando arquivo.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "SubscriptionId": {
+                      "type": "string",
+                      "example": "clinicorp"
+                    },
+                    "DataAccess": {
+                      "type": "object",
+                      "properties": {
+                        "FileName": {
+                          "type": "string",
+                          "example": "database.fdb"
+                        },
+                        "DatabaseType": {
+                          "type": "string",
+                          "example": "firebird"
+                        },
+                        "MigrationType": {
+                          "type": "string",
+                          "example": "migration A"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retorna array com status de criação de cada migração.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "SubscriptionId": {
+                        "type": "string",
+                        "example": "clinicorp"
+                      },
+                      "Status": {
+                        "type": "string",
+                        "example": "SUCCESS"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/migration/connection": {
+      "post": {
+        "description": "Cria multiplas migrações de dados.",
+        "tags": [
+          "migration"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON para criar migração utilizando conexão com banco dedados.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "SubscriptionId": {
+                      "type": "string",
+                      "example": "clinicorp"
+                    },
+                    "DataAccess": {
+                      "type": "object",
+                      "properties": {
+                        "DatabaseType": {
+                          "type": "string",
+                          "example": "mariaDB"
+                        },
+                        "MigrationType": {
+                          "type": "string",
+                          "example": "migration B"
+                        },
+                        "Host": {
+                          "type": "string",
+                          "example": "183.254..."
+                        },
+                        "Password": {
+                          "type": "string",
+                          "example": "myPassword"
+                        },
+                        "Database": {
+                          "type": "string",
+                          "example": "My Database"
+                        },
+                        "User": {
+                          "type": "string",
+                          "example": "admin"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retorna array com status de criação de cada migração.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "SubscriptionId": {
+                        "type": "string",
+                        "example": "clinicorp"
+                      },
+                      "Status": {
+                        "type": "string",
+                        "example": "SUCCESS"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/file/upload": {
+      "post": {
+        "description": "Carrega arquivos, imagens e documentos para o sistema.",
+        "tags": [
+          "upload"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON para upload de arquivos.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ResponseWebhookUrl": {
+                      "type": "string",
+                      "example": "https://webhook..."
+                    },
+                    "Url": {
+                      "type": "string",
+                      "example": "https://image...",
+                      "required": true
+                    },
+                    "LocalFile": {
+                      "type": "string",
+                      "example": "Person.Profile || Person.Photo || Person.Document || Person.File",
+                      "required": true
+                    },
+                    "PatientName": {
+                      "type": "string",
+                      "example": "Patient Name",
+                      "required": true
+                    },
+                    "PatinetId": {
+                      "type": "number",
+                      "example": 92302392323,
+                      "required": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retorna array com status de criação de cada upload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "PatientName": {
+                        "type": "string",
+                        "example": "Patient Name"
+                      },
+                      "Url": {
+                        "type": "string",
+                        "example": "https://image..."
+                      },
+                      "LocalFile": {
+                        "type": "string",
+                        "example": "Person.Profile"
+                      },
+                      "Status": {
+                        "type": "string",
+                        "example": "SUCCESS"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/products/orders": {
+      "post": {
+        "summary": "Criação de uma nova ordem de compra",
+        "description": "Cria uma nova ordem de compra para uma clínica especificada.",
+        "tags": [
+          "products"
+        ],
+        "requestBody": {
+          "description": "Objeto JSON contendo os dados da nova ordem de compra.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "clinic",
+                  "orderCode",
+                  "orderDate",
+                  "products"
+                ],
+                "properties": {
+                  "clinic": {
+                    "type": "string",
+                    "description": "CNPJ da clínica para a qual a ordem de compra será realizada.",
+                    "example": "12345678901234"
+                  },
+                  "orderCode": {
+                    "type": "string",
+                    "description": "Código único da ordem de compra.",
+                    "example": "ORDER123"
+                  },
+                  "orderDate": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Data da ordem de compra no formato ISO 8601.",
+                    "example": "2024-10-24"
+                  },
+                  "products": {
+                    "type": "array",
+                    "description": "Lista de produtos incluídos na ordem.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "name",
+                        "quantity",
+                        "unitPrice",
+                        "unitOfMeasurement"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Código do produto.",
+                          "example": "PROD001"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Nome do produto.",
+                          "example": "Seringa 10ml"
+                        },
+                        "description": {
+                          "type": "string",
+                          "description": "Descrição detalhada do produto (opcional).",
+                          "example": "Seringa descartável de 10ml"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "description": "Quantidade solicitada.",
+                          "example": 100
+                        },
+                        "unitPrice": {
+                          "type": "number",
+                          "description": "Preço unitário do produto.",
+                          "example": 3.5
+                        },
+                        "unitOfMeasurement": {
+                          "type": "string",
+                          "description": "Unidade de medida do produto. Valores permitidos:\n- UN: Unidade\n- CT: Cartela\n- CX: Caixa\n- PT: Pacote\n- RL: Rolo\n- ML: Milílitros\n- SR: Seringa\n- DS: Disparo\n- UI: Unidade-internacional\n- FA: Frasco\n- G: Grama\n- AP: Ampola\n- US: Unidade Speywood(s)\n- F: Fios\n",
+                          "enum": [
+                            "UN",
+                            "CT",
+                            "CX",
+                            "PT",
+                            "RL",
+                            "ML",
+                            "SR",
+                            "DS",
+                            "UI",
+                            "FA",
+                            "G",
+                            "AP",
+                            "US",
+                            "F"
+                          ],
+                          "example": "UN"
+                        },
+                        "expirationDate": {
+                          "type": "string",
+                          "format": "date",
+                          "description": "Data de validade do produto (opcional).",
+                          "example": "2025-12-31"
+                        },
+                        "lot": {
+                          "type": "string",
+                          "description": "Lote do produto (opcional).",
+                          "example": "LOT2023A"
+                        },
+                        "brand": {
+                          "type": "string",
+                          "description": "Marca do produto (opcional).",
+                          "example": "Becton Dickinson"
+                        },
+                        "supplier": {
+                          "type": "string",
+                          "description": "Fornecedor do produto (opcional).",
+                          "example": "Fornecedor A"
+                        },
+                        "storageLocation": {
+                          "type": "string",
+                          "description": "Local de armazenamento do produto (opcional).",
+                          "example": "Depósito 1"
+                        },
+                        "notes": {
+                          "type": "string",
+                          "description": "Notas adicionais sobre o produto (opcional).",
+                          "example": "Manter em temperatura ambiente"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ordem de compra criada com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "Indica se a operação foi bem-sucedida.",
+                      "example": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erro de validação dos dados ou clínica inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "description": "Erro de validação dos dados.",
+                      "properties": {
+                        "Error": {
+                          "type": "number",
+                          "example": 400
+                        },
+                        "Message": {
+                          "type": "array",
+                          "description": "Lista de erros de validação.",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "code": {
+                                "type": "string",
+                                "description": "Código do erro de validação.",
+                                "example": "invalid_type"
+                              },
+                              "expected": {
+                                "type": "string",
+                                "description": "Tipo de dado esperado.",
+                                "example": "string"
+                              },
+                              "received": {
+                                "type": "string",
+                                "description": "Tipo de dado recebido.",
+                                "example": "undefined"
+                              },
+                              "path": {
+                                "type": "array",
+                                "description": "Caminho do campo com erro.",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "example": [
+                                  "products",
+                                  0,
+                                  "code"
+                                ]
+                              },
+                              "message": {
+                                "type": "string",
+                                "description": "Mensagem do erro.",
+                                "example": "Required"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "description": "Erro de clínica inválida.",
+                      "properties": {
+                        "Error": {
+                          "type": "number",
+                          "example": 400
+                        },
+                        "Message": {
+                          "type": "string",
+                          "description": "Somente clínicas de estética.",
+                          "example": "Clínica inválida"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Clínica não encontrada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "Error": {
+                      "type": "number",
+                      "example": 404
+                    },
+                    "Message": {
+                      "type": "string",
+                      "example": "Clínica não encontrada."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno no servidor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "Error": {
+                      "type": "number",
+                      "example": 500
+                    },
+                    "Message": {
+                      "type": "string",
+                      "example": "Erro interno do servidor."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Login": {
+      "required": [
+        "username",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "users",
+      "description": "Retorna a lista de Usuários do assinante."
+    },
+    {
+      "name": "group",
+      "description": "Retorna informações sobre assinantes e Clínicas."
+    },
+    {
+      "name": "business",
+      "description": "Retorna informações das Clínicas."
+    },
+    {
+      "name": "analytics",
+      "description": "Retorna dados de análise das Clínicas do assinante."
+    },
+    {
+      "name": "estimates",
+      "description": "Retorna dados dos Orçamentos."
+    },
+    {
+      "name": "appointment",
+      "description": "Retorna dados de Agendamento."
+    },
+    {
+      "name": "procedures",
+      "description": "Retorna dados de Procedimentos."
+    },
+    {
+      "name": "financial",
+      "description": "Retorna dados Financeiros."
+    },
+    {
+      "name": "patient",
+      "description": "Retorna dados de Pacientes."
+    },
+    {
+      "name": "payment",
+      "description": "Retorna dados de pagamentos."
+    }
+  ]
+}

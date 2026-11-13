@@ -7,7 +7,7 @@ import type { BuscaPaciente, ErpAdapter, FalhaErp, PedidoConta, PedidoMarcacao, 
 import type { LogErp } from "../asa/adaptador.js";
 import type { Agendado, Consulta, ConsultaD1, Exame, Horario, Paciente } from "../modelo.js";
 import {
-  classificarErro, CONECTOR_PADRAO, mapearResposta, mensagemDeErro, montarRequisicao, rotaDaEspecificacao,
+  classificarErro, condicaoDaRequisicao, CONECTOR_PADRAO, mapearResposta, mensagemDeErro, montarRequisicao, rotaDaEspecificacao,
   type ConectorConfig, type TipoErro,
 } from "../conector/motor.js";
 
@@ -85,6 +85,11 @@ export class PadraoAdapter implements ErpAdapter {
       return falha("ERP_NAO_ENCONTRADO", 404, { naoEncontrado: true, msg: `o conector não tem ${achada?.chave ?? metodo + " " + caminho}` });
     }
     const entrada = { path: achada?.path ?? {}, query: opcoes.params ?? {}, corpo: opcoes.corpo, cred: this.credencial };
+    if (rota?.se !== undefined && !condicaoDaRequisicao(rota.se, entrada)) {
+      return falha("ERP_NAO_ENCONTRADO", 404, { naoEncontrado: true, msg: `o conector não tem ${achada?.chave} para este pedido` });
+    }
+    // Resposta fixa: nada a perguntar ao ERP.
+    if (rota?.fixo !== undefined) return { ok: true, dados: rota.fixo as T };
     let req;
     try {
       req = montarRequisicao(c, rota, { metodo, caminho }, entrada, opcoes.idempotencia);
@@ -138,7 +143,7 @@ export class PadraoAdapter implements ErpAdapter {
       if (resp.status !== 204 && corpo === null) return falha("ERP_RESPOSTA_INVALIDA", resp.status);
       if (rota?.resposta === undefined) return { ok: true, dados: corpo as T };
       try {
-        return { ok: true, dados: mapearResposta(rota.resposta, corpo) as T };
+        return { ok: true, dados: mapearResposta(rota.resposta, corpo, entrada) as T };
       } catch (err: any) {
         return falha("ERP_RESPOSTA_INVALIDA", resp.status, { msg: String(err?.message ?? err) });
       }
@@ -372,16 +377,20 @@ export class PadraoAdapter implements ErpAdapter {
         timeoutMs,
       });
       if (r.ok) pacienteId = String(r.dados?.id ?? "");
-      else if (r.status === 409) {
+      else if (r.recusa) pacienteId = ""; // CPF já cadastrado (409 ou outra recusa): o cadastro existente vale
+      else return r;
+      // Sem id na resposta (ERPs que não devolvem) ou recusa: o paciente é procurado pelo CPF.
+      if (!pacienteId) {
         const existente = await this.pacienteDa({ cpf: novo.cpf });
         if (!existente.ok) return existente;
-        if (!existente.dados?.id) return r;
+        if (!existente.dados?.id) return r.ok ? falha("ERP_RESPOSTA_INVALIDA", 201, { msg: "cadastro de paciente sem id" }) : r;
         pacienteId = existente.dados.id;
-      } else return r;
-      if (!pacienteId) return falha("ERP_RESPOSTA_INVALIDA", 201, { msg: "cadastro de paciente sem id" });
+      }
     }
 
-    const r = p.remarcar
+    // ERP sem rota de remarcar: marca a nova e desmarca a antiga.
+    const semRemarcar = !!p.remarcar && !this.conector.especificacao && !this.conector.rotas["POST /agendamentos/{id}/remarcar"];
+    const r = p.remarcar && !semRemarcar
       ? await this.chamar<any>("POST", `/agendamentos/${encodeURIComponent(p.remarcar)}/remarcar`, {
           corpo: { data: p.vaga.data, horario: p.vaga.horario, slot_id: slot, profissional_id: p.vaga.prestador_id, motivo: p.obs ?? null, usuario: p.usuario ?? null },
           idempotencia: p.idempotencia,
@@ -397,6 +406,10 @@ export class PadraoAdapter implements ErpAdapter {
         });
     if (!r.ok) return r;
     const a = r.dados ?? {};
+    if (semRemarcar && texto(a.id)) {
+      const c = await this.chamar("POST", `/agendamentos/${encodeURIComponent(p.remarcar!)}/cancelar`, { corpo: { motivo: `remarcado para ${texto(a.id)}`, por: "paciente" } });
+      if (!c.ok) this.log.warn({ original: p.remarcar, novo: texto(a.id), erro: c.erro }, "padrão: remarcação marcou a nova, mas não desmarcou a antiga");
+    }
     return {
       ok: true as const,
       dados: {

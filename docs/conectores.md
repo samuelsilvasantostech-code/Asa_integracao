@@ -42,6 +42,24 @@ adaptador Padrão Kentro ── GET /pacientes?cpf=… ──► conector ──
 - Rota que o conector não descreve = o ERP não tem. As capacidades e o "não encontrado" saem disso.
 - O próprio Padrão Kentro é o conector que não traduz nada.
 - A Asa continua com adaptador em código, por causa de particularidades que configuração não exprime (recusa com HTTP 200, cadastro relido antes de marcar). Ela aparece no catálogo como os outros.
+- A Feegow também é código (`src/erp/feegow`): os horários vêm por especialidade, aninhados, e a marcação pede local, especialidade e valor.
+- A Clinicorp é configuração (`src/erp/conectores/clinicorp.json`, migração 016).
+
+### Recursos do motor (desde 13/11)
+
+- **Na resposta:**
+    - `"$se"` e `"$exceto"` junto de `"$lista"` filtram os itens. A condição pode ser:
+        - um modelo, que vale se não vier vazio, `false` ou `"0"`;
+        - um par `["{{$.a}}", "valor"]`, que vale se os dois forem iguais;
+        - uma lista de condições: no `$se`, todas precisam valer; no `$exceto`, basta uma.
+    - `{{$req.path.id}}`, `{{$req.query.x}}` e `{{$req.corpo.x}}` leem o pedido. Exemplo: separar a agenda de um profissional quando o ERP devolve a de todos.
+- **Em qualquer modelo:** `{{hoje}}` é a data de hoje em São Paulo, e o filtro `mais_dias:N` soma dias a uma data.
+- **Na rota:**
+    - `"fixo"` dá uma resposta fixa, sem chamar o ERP. Exemplo: só "Particular" nos convênios.
+    - `"se"` é uma condição sobre o pedido: se for falsa, a rota não existe. Exemplo: o ERP só confirma, sem registrar ausência.
+- **No adaptador padrão:**
+    - o cadastro de paciente sem id na resposta, ou recusado por CPF repetido, faz o adaptador buscar o paciente pelo CPF;
+    - sem a rota de remarcar, ele marca a nova consulta e desmarca a antiga.
 
 ## Partes
 

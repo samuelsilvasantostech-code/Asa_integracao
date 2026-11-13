@@ -11,6 +11,18 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
+## 13/11: conector da Clinicorp (sem commit e sem deploy; falta testar com credencial real)
+
+- A documentação está em `docs/erps/clinicorp.md`, com o OpenAPI copiado.
+- O conector é **por configuração** (`src/erp/conectores/clinicorp.json`), e a migração 016 o cadastra em homologação.
+- O motor ganhou `$se`, `$exceto`, `$req`, `hoje`, `mais_dias`, rota `fixo` e rota `se` (ver `docs/conectores.md`).
+- O adaptador padrão agora:
+    - busca o paciente pelo CPF quando o cadastro não devolve o id;
+    - remarca em duas etapas (marca a nova, desmarca a antiga) quando o ERP não tem rota de remarcar.
+- Testes: `test/clinicorp.test.ts`. Ao todo, 119 passando.
+- A Feegow segue em homologação, à espera de um token.
+- O usuário vai mandar a documentação de um sistema interno.
+
 ## 13/11: conector da Feegow (sem commit e sem deploy; falta testar com credencial real)
 
 - **Adaptador em código** (`src/erp/feegow/adaptador.ts`), e não por configuração, por três motivos:
