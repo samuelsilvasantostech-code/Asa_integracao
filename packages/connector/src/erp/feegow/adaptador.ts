@@ -6,7 +6,7 @@
 // erros 401/403 (chave), 409 (conflito: "não encontrado", "horário ocupado"), 422 (validação).
 import { config } from "../../config.js";
 import { telefoneKentro } from "../../confirmacao.js";
-import type { BuscaPaciente, ErpAdapter, FalhaErp, PedidoConta, PedidoMarcacao, Resultado, StatusConsulta, Vaga } from "../adaptador.js";
+import type { BuscaPaciente, ErpAdapter, FalhaErp, NovoPaciente, PacienteCadastrado, PedidoConta, PedidoMarcacao, Resultado, StatusConsulta, Vaga } from "../adaptador.js";
 import type { LogErp } from "../asa/adaptador.js";
 import type { Capacidades } from "../capacidades.js";
 import type { Agendado, Consulta, ConsultaD1, Convenio, ConvenioValor, Exame, Horario, Paciente, Prestador, PrestadorDoExame, Procedimento } from "../modelo.js";
@@ -235,6 +235,21 @@ export class FeegowAdapter implements ErpAdapter {
     const achados = lista(r.dados);
     if (achados.length > 1) this.log.info({ achados: achados.length }, "feegow: busca por telefone com mais de um paciente; usado o primeiro");
     return { ok: true, dados: achados.length ? this.pacienteDo(achados[0]) : null };
+  }
+
+  // Cadastro avulso. Antes de criar, procura o CPF: a Feegow não diz com clareza quando ele já existe.
+  async cadastrarPaciente(novo: NovoPaciente, opcoes: { timeoutMs: number }): Promise<Resultado<PacienteCadastrado>> {
+    const antes = await this.buscarPaciente({ cpf: novo.cpf });
+    if (!antes.ok) return antes;
+    if (antes.dados?.id) return { ok: true, dados: { paciente: antes.dados, jaExistia: true } };
+    const r = await this.chamar("POST", "/patient/create", {
+      corpo: { nome_completo: novo.nome, cpf: digitos(novo.cpf), data_nascimento: novo.nascimento, celular: novo.telefone, celular1: novo.telefone },
+      timeoutMs: opcoes.timeoutMs,
+    });
+    if (!r.ok) return r;
+    const id = String((r.dados as any)?.paciente_id ?? "");
+    if (!id) return falha("ERP_RESPOSTA_INVALIDA", 200, { msg: "cadastro de paciente sem id" });
+    return { ok: true, dados: { paciente: { id, nome: novo.nome, nascimento: novo.nascimento, telefone: novo.telefone, cpf: novo.cpf }, jaExistia: false } };
   }
 
   async consultasFuturas(busca: BuscaPaciente): Promise<Resultado<{ consultas: Consulta[]; cpf: string | null }>> {

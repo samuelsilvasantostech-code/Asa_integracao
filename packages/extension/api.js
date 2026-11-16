@@ -41,6 +41,8 @@
       connectors: function () { return request('GET', '/v1/conectores'); },
       connect: function (erp, credencial) { return request('POST', '/v1/conectores/ligar', { erp: erp, credencial: credencial }, 45000); },
       requestSystem: function (payload) { return request('POST', '/v1/conectores/pedido', payload); },
+      // Grava no ERP. payload = {chave, paciente: {nome, cpf, nascimento, telefone}, usuario}
+      createPatient: function (payload) { return request('POST', '/v1/pacientes', payload, 40000); },
       patient: function (by) { return request('GET', '/v1/paciente' + query({ telefone: by.telefone, cpf: by.cpf })); },
       schedule: function () { return request('GET', '/v1/agenda'); },
       days: function (providerId) { return request('GET', '/v1/agenda/dias' + query({ prestador_id: providerId })); },
@@ -85,7 +87,7 @@
   // já abrem falando "na Asa" ou "no Feegow". Sem resposta, segue com "o sistema da clínica" e nada extra.
   function load(omni, cfg) {
     var api = create(cfg, usable(cfg.apiKey) ? cfg.apiKey : null);
-    api.capacidades = { financeiro: false, confirmacao: false, grupos_exames: false };
+    api.capacidades = { financeiro: false, confirmacao: false, grupos_exames: false, cadastro_paciente: false };
     api.erp = null;
     if (!usable(cfg.apiKey)) return Promise.resolve(api);
     return api.capabilities().then(function (r) {

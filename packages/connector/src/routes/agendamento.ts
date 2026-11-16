@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { pool } from "../db.js";
-import type { PedidoMarcacao, Vaga as VagaErp } from "../erp/adaptador.js";
+import type { NovoPaciente, PedidoMarcacao, Vaga as VagaErp } from "../erp/adaptador.js";
+import { Limite } from "../limite.js";
 import type { BuscaPaciente, ErpAdapter, FalhaErp } from "../erp/index.js";
 import { consultaNoHorario, telefoneNacional, type Consulta } from "../erp/modelo.js";
 import { erpDaRequisicao, tenantComErp } from "../tenant-auth.js";
@@ -38,6 +39,19 @@ export function buscaDe(b: Busca | undefined): BuscaPaciente | null {
   const telefone = b?.telefone ? telefoneNacional(String(b.telefone)) : null;
   return telefone ? { telefone } : null;
 }
+
+// Dados mínimos de um paciente novo, normalizados. null = faltou algo ou veio inválido.
+export function novoPacienteDe(p: { nome?: string; cpf?: string; nascimento?: string; telefone?: string } | undefined): NovoPaciente | null {
+  const nome = String(p?.nome ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
+  const cpf = String(p?.cpf ?? "").replace(/\D/g, "");
+  const nascimento = String(p?.nascimento ?? "");
+  const telefone = telefoneNacional(String(p?.telefone ?? ""));
+  if (nome.length < 3 || cpf.length !== 11 || !dataValida(nascimento) || !telefone) return null;
+  return { nome, cpf, nascimento, telefone };
+}
+
+// Cadastro avulso de paciente: cada um grava no ERP, então o teto por clínica é baixo.
+const cadastrosPorClinica = new Limite(30, 60 * 1000);
 
 interface PedidoAgendamento extends Vaga {
   chave?: string; // idempotência: gerada pelo painel a cada confirmação
@@ -210,6 +224,27 @@ export async function agendamentoRoutes(app: FastifyInstance) {
   });
 
   // Marcar consulta; com `remarcar`, remarca a consulta indicada.
+  // Cadastro de paciente pelo painel, quando a busca por CPF ou telefone não achou. CPF que já tem cadastro
+  // devolve o cadastro existente, sem alterá-lo (ja_existia: true).
+  app.post<{ Body: { chave?: string; paciente?: { nome?: string; cpf?: string; nascimento?: string; telefone?: string }; usuario?: string } }>("/v1/pacientes", async (req, reply) => {
+    const b = req.body ?? {};
+    if (!chaveValida(b.chave)) return reply.code(400).send({ erro: "CHAVE_IDEMPOTENCIA_INVALIDA" });
+    const novo = novoPacienteDe(b.paciente);
+    if (!novo) return reply.code(400).send({ erro: "PACIENTE_INVALIDO" });
+
+    const ctx = await tenantComErp(req, reply);
+    if (!ctx) return;
+    const { tenant, erp } = ctx;
+    if (!erp.cadastrarPaciente) return reply.code(501).send({ erro: "CADASTRO_NAO_SUPORTADO" });
+    if (!cadastrosPorClinica.registrar(tenant.id)) return reply.code(429).send({ erro: "MUITOS_CADASTROS" });
+
+    const r = await erp.cadastrarPaciente(novo, { idempotencia: b.chave, timeoutMs: TEMPO_GRAVAR_MS });
+    // Sem dados pessoais na trilha: quem pediu e o resultado.
+    req.log.info({ tenant: tenant.id, usuario: b.usuario ? String(b.usuario).slice(0, 120) : null, ok: r.ok, ja_existia: r.ok ? r.dados.jaExistia : undefined, erro: r.ok ? undefined : r.erro }, "cadastro de paciente pelo painel");
+    if (!r.ok) return falha(reply, r);
+    return { paciente: r.dados.paciente, ja_existia: r.dados.jaExistia };
+  });
+
   app.post<{ Body: PedidoAgendamento }>("/v1/agendamentos", async (req, reply) => {
     const b = req.body ?? {};
     const chave = b.chave;
@@ -226,15 +261,8 @@ export async function agendamentoRoutes(app: FastifyInstance) {
     // Paciente: o já cadastrado (id) ou os dados mínimos para cadastrar junto com a marcação.
     let paciente: PedidoMarcacao["paciente"] | null = null;
     if (!idValido(b.paciente_id)) {
-      const p = b.paciente ?? {};
-      const nome = String(p.nome ?? "").trim();
-      const cpf = String(p.cpf ?? "").replace(/\D/g, "");
-      const nascimento = String(p.nascimento ?? "");
-      const telefone = telefoneNacional(String(p.telefone ?? ""));
-      if (nome.length < 3 || cpf.length !== 11 || !dataValida(nascimento) || !telefone) {
-        return reply.code(400).send({ erro: "PACIENTE_INVALIDO" });
-      }
-      paciente = { nome, cpf, nascimento, telefone };
+      paciente = novoPacienteDe(b.paciente);
+      if (!paciente) return reply.code(400).send({ erro: "PACIENTE_INVALIDO" });
     }
     const obs = String(b.obs ?? "").trim().slice(0, 500);
 

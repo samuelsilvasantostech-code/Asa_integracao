@@ -3,7 +3,7 @@
 // especificação conecta com URL e token, sem código novo no Conector.
 import { config } from "../../config.js";
 import { telefoneKentro } from "../../confirmacao.js";
-import type { BuscaPaciente, ErpAdapter, FalhaErp, PedidoConta, PedidoMarcacao, Resultado, StatusConsulta, Vaga } from "../adaptador.js";
+import type { BuscaPaciente, ErpAdapter, FalhaErp, NovoPaciente, PacienteCadastrado, PedidoConta, PedidoMarcacao, Resultado, StatusConsulta, Vaga } from "../adaptador.js";
 import type { LogErp } from "../asa/adaptador.js";
 import type { Agendado, Consulta, ConsultaD1, Exame, Horario, Paciente } from "../modelo.js";
 import {
@@ -363,6 +363,26 @@ export class PadraoAdapter implements ErpAdapter {
     };
   }
 
+  // Cadastro de paciente. CPF já cadastrado (409 ou outra recusa) usa o cadastro que está lá, sem alterá-lo;
+  // resposta sem id (ERPs que não devolvem) também faz procurar pelo CPF.
+  async cadastrarPaciente(novo: NovoPaciente, opcoes: { idempotencia?: string; timeoutMs: number }): Promise<Resultado<PacienteCadastrado>> {
+    const r = await this.chamar<any>("POST", "/pacientes", {
+      corpo: { nome: novo.nome, cpf: novo.cpf, nascimento: novo.nascimento, telefones: [{ numero: "55" + novo.telefone, tipo: "celular", whatsapp: true, principal: true }] },
+      idempotencia: opcoes.idempotencia,
+      timeoutMs: opcoes.timeoutMs,
+    });
+    if (!r.ok && !r.recusa) return r;
+    const id = r.ok ? texto(r.dados?.id) : null;
+    if (id) {
+      const p = (r.ok ? paciente(r.dados) : null) ?? { id, nome: novo.nome, nascimento: novo.nascimento, telefone: "55" + novo.telefone, cpf: novo.cpf };
+      return { ok: true, dados: { paciente: { ...p, id }, jaExistia: false } };
+    }
+    const existente = await this.pacienteDa({ cpf: novo.cpf });
+    if (!existente.ok) return existente;
+    if (!existente.dados?.id) return r.ok ? falha("ERP_RESPOSTA_INVALIDA", 201, { msg: "cadastro de paciente sem id" }) : r;
+    return { ok: true, dados: { paciente: existente.dados, jaExistia: !r.ok } };
+  }
+
   // Marcar: paciente novo é cadastrado antes (CPF já existente usa o cadastro que está lá, sem alterá-lo).
   async marcar(p: PedidoMarcacao, timeoutMs: number) {
     const slot = p.vaga.agenda_id.startsWith(SEM_SLOT) ? undefined : p.vaga.agenda_id;
@@ -370,22 +390,9 @@ export class PadraoAdapter implements ErpAdapter {
     if ("paciente_id" in p.paciente) {
       pacienteId = p.paciente.paciente_id;
     } else {
-      const novo = p.paciente;
-      const r = await this.chamar<any>("POST", "/pacientes", {
-        corpo: { nome: novo.nome, cpf: novo.cpf, nascimento: novo.nascimento, telefones: [{ numero: "55" + novo.telefone, tipo: "celular", whatsapp: true, principal: true }] },
-        idempotencia: p.idempotencia ? p.idempotencia + "-paciente" : undefined,
-        timeoutMs,
-      });
-      if (r.ok) pacienteId = String(r.dados?.id ?? "");
-      else if (r.recusa) pacienteId = ""; // CPF já cadastrado (409 ou outra recusa): o cadastro existente vale
-      else return r;
-      // Sem id na resposta (ERPs que não devolvem) ou recusa: o paciente é procurado pelo CPF.
-      if (!pacienteId) {
-        const existente = await this.pacienteDa({ cpf: novo.cpf });
-        if (!existente.ok) return existente;
-        if (!existente.dados?.id) return r.ok ? falha("ERP_RESPOSTA_INVALIDA", 201, { msg: "cadastro de paciente sem id" }) : r;
-        pacienteId = existente.dados.id;
-      }
+      const r = await this.cadastrarPaciente(p.paciente, { idempotencia: p.idempotencia ? p.idempotencia + "-paciente" : undefined, timeoutMs });
+      if (!r.ok) return r;
+      pacienteId = r.dados.paciente.id!;
     }
 
     // ERP sem rota de remarcar: marca a nova e desmarca a antiga.

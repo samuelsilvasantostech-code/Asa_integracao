@@ -45,6 +45,20 @@ export interface PedidoMarcacao {
   usuario?: string; // quem pediu na Kentro, para a auditoria do ERP
 }
 
+// Paciente novo, com os dados mínimos que todo ERP aceita. Telefone = DDD + número, sem o 55.
+export interface NovoPaciente {
+  nome: string;
+  cpf: string;
+  nascimento: string; // YYYY-MM-DD
+  telefone: string;
+}
+
+// `jaExistia`: o CPF já tinha cadastro no ERP, que foi usado como está (sem alterar).
+export interface PacienteCadastrado {
+  paciente: Paciente;
+  jaExistia: boolean;
+}
+
 export interface Marcacao {
   feito: AgendamentoFeito;
   // Só nomes de campos e mensagem, para o log quando a resposta não traz o número da consulta.
@@ -88,6 +102,10 @@ export interface ErpAdapter {
   examesDoGrupo(grupoId: string): Promise<Resultado<Exame[]>>;
   conveniosDoExame(exameId: string): Promise<Resultado<ConvenioValor[]>>;
   prestadoresDoExame(exameId: string, convenioId?: string): Promise<Resultado<PrestadorDoExame[]>>;
+
+  // Cadastro avulso de paciente (painel, quando a busca não acha). Opcional: sem o método, o ERP não
+  // oferece (a Asa só cadastra junto com a marcação, e a rota dela sobrescreve um cadastro existente).
+  cadastrarPaciente?(novo: NovoPaciente, opcoes: { idempotencia?: string; timeoutMs: number }): Promise<Resultado<PacienteCadastrado>>;
 
   // Gravações. Marcar (ou remarcar) espera mais que as leituras.
   marcar(pedido: PedidoMarcacao, timeoutMs: number): Promise<Resultado<Marcacao>>;

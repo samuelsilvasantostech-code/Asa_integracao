@@ -148,3 +148,33 @@ test("limite de requisições (429) é tratado como indisponibilidade, não como
   const r: any = await adaptador().testarConexao();
   assert.equal(r.erro, "ERP_FORA_DO_AR");
 });
+
+test("cadastro avulso: paciente novo volta com o id do Luna; CPF já cadastrado volta o existente, sem alterar", async () => {
+  const novo = { nome: "Maria da Silva", cpf: "52998224725", nascimento: "1985-04-12", telefone: "38999998888" };
+  let ch = luna({ "POST /pacientes": () => [201, { id: "paciente-8812", nome: "Maria da Silva" }] });
+  let r: any = await adaptador().cadastrarPaciente(novo, { idempotencia: "chave-p", timeoutMs: 30000 });
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.deepEqual([r.dados.paciente.id, r.dados.jaExistia], ["paciente-8812", false]);
+  assert.equal(ch[0].headers["Idempotency-Key"], "chave-p");
+  assert.equal(ch[0].corpo.telefones[0].numero, "5538999998888");
+
+  ch = luna({
+    "POST /pacientes": () => [409, { erro: { codigo: "PACIENTE_JA_EXISTE", mensagem: "CPF já cadastrado.", paciente_id: "titular-45" } }],
+    "GET /pacientes": () => [200, { dados: [{ id: "titular-45", nome: "João Souza", cpf: "52998224725" }] }],
+  });
+  r = await adaptador().cadastrarPaciente(novo, { timeoutMs: 30000 });
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.deepEqual([r.dados.paciente.id, r.dados.jaExistia], ["titular-45", true]);
+  assert.equal(ch.filter((c) => c.metodo === "POST").length, 1);
+});
+
+test("cadastro avulso: recusa de validação sem cadastro pelo CPF chega como recusa", async () => {
+  luna({
+    "POST /pacientes": () => [422, { erro: { codigo: "VALIDACAO", mensagem: "Dados inválidos.", campos: { nascimento: "data futura" } } }],
+    "GET /pacientes": () => [200, { dados: [] }],
+  });
+  const r: any = await adaptador().cadastrarPaciente({ nome: "Maria da Silva", cpf: "52998224725", nascimento: "2030-01-01", telefone: "38999998888" }, { timeoutMs: 30000 });
+  assert.equal(r.ok, false);
+  assert.equal(r.erro, "ERP_RECUSOU");
+  assert.match(r.msg, /nascimento: data futura/);
+});
