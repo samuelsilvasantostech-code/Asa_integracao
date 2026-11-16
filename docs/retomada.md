@@ -11,7 +11,19 @@ Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto
 | Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
 | Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
 
-## 13/11: conector da Clinicorp (sem commit e sem deploy; falta testar com credencial real)
+## 16/11: conector da Avelar, o sistema Luna (sem commit e sem deploy; falta testar com credencial real)
+
+- A Avelar mandou a documentação da API do Luna (PDF com tokens, **fora do repositório**). A análise está em `docs/erps/avelar.md`.
+- O Luna segue a especificação Kentro. Por isso o conector é **por configuração, sem rotas descritas** (`src/erp/conectores/avelar.json`). A migração 017 o cadastra em homologação.
+- Campos da clínica: o endereço (produção ou homologação) e o token do mesmo ambiente.
+- Diferenças que importam:
+    - remarcar mantém o id;
+    - não há confirmações, por isso a capacidade sai desligada e não há lembrete em dobro;
+    - não há contas.
+- Testes: `test/avelar.test.ts`. Ao todo, 129 passando.
+- Próximo passo: "Testar com credencial" na Central, com o token de homologação colado pelo usuário.
+
+## 13/11: conector da Clinicorp (commit 194ed42, no Doca desde 13/11; falta testar com credencial real)
 
 - A documentação está em `docs/erps/clinicorp.md`, com o OpenAPI copiado.
 - O conector é **por configuração** (`src/erp/conectores/clinicorp.json`), e a migração 016 o cadastra em homologação.

@@ -44,6 +44,7 @@ adaptador Padrão Kentro ── GET /pacientes?cpf=… ──► conector ──
 - A Asa continua com adaptador em código, por causa de particularidades que configuração não exprime (recusa com HTTP 200, cadastro relido antes de marcar). Ela aparece no catálogo como os outros.
 - A Feegow também é código (`src/erp/feegow`): os horários vêm por especialidade, aninhados, e a marcação pede local, especialidade e valor.
 - A Clinicorp é configuração (`src/erp/conectores/clinicorp.json`, migração 016).
+- A Avelar (sistema Luna) é configuração sem rotas descritas (`src/erp/conectores/avelar.json`, migração 017): o Luna segue a spec, e a clínica só informa o endereço do ambiente e o token. Ver [`erps/avelar.md`](erps/avelar.md).
 
 ### Recursos do motor (desde 13/11)
 

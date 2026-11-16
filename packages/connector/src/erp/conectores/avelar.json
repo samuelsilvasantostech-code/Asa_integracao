@@ -1,0 +1,11 @@
+{
+  "versao": 1,
+  "base_url": "{{cred.base_url}}",
+  "autenticacao": { "tipo": "bearer", "campo": "token" },
+  "campos": [
+    { "chave": "base_url", "rotulo": "Endereço da API do Luna", "tipo": "url", "obrigatorio": true, "ajuda": "Produção: https://www.sistemaluna.com/api/v1/kentro. Homologação: https://homolog.sistemaluna.com/api/v1/kentro." },
+    { "chave": "token", "rotulo": "Token da API do Luna", "tipo": "segredo", "obrigatorio": true, "ajuda": "Um token por clínica e por ambiente, entregue pela Avelar. Use o token do mesmo ambiente do endereço acima." }
+  ],
+  "especificacao": true,
+  "rotas": {}
+}
