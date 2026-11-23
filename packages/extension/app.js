@@ -268,8 +268,6 @@
     status('a-status', '');
   }
 
-  function formatCpf(d) { return String(d).replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4'); }
-
   /* ---------- cadastro de paciente (busca sem resultado) ---------- */
   var notFound = null; // a busca que não achou: preenche o formulário
   var newPatientKey = null; // idempotência: a mesma tentativa não cadastra duas vezes
@@ -277,7 +275,7 @@
   function openNewPatient() {
     $('p-new-open').hidden = true;
     var typed = C.cpfDigits($('p-cpf-input').value);
-    $('pn-cpf').value = notFound && notFound.cpf ? formatCpf(notFound.cpf) : typed ? formatCpf(typed) : '';
+    $('pn-cpf').value = notFound && notFound.cpf ? C.formatCpf(notFound.cpf) : typed ? C.formatCpf(typed) : '';
     $('pn-tel').value = $('c-phone').textContent.indexOf('(') === 0 ? $('c-phone').textContent : '';
     if (!$('pn-nome').value && $('c-name').textContent !== 'Contato sem nome') $('pn-nome').value = $('c-name').textContent;
     status('pn-status', '');
@@ -292,15 +290,6 @@
     ['pn-nome', 'pn-cpf', 'pn-nasc', 'pn-tel'].forEach(function (id) { $(id).value = ''; });
     $('pn-go').disabled = false;
     newPatientKey = null;
-  }
-
-  function newPatientError(st, body) {
-    var erro = body && body.erro;
-    if (erro === 'PACIENTE_INVALIDO') return 'Confira os dados: nome completo, CPF com 11 dígitos, nascimento e telefone com DDD.';
-    if (erro === 'CADASTRO_NAO_SUPORTADO') return 'O cadastro pelo painel não está disponível para ' + C.sis('a') + '. Cadastre junto com o agendamento.';
-    if (erro === 'MUITOS_CADASTROS') return 'Muitos cadastros seguidos. Aguarde um minuto e tente de novo.';
-    if (st === 0 || erro === 'ERP_FORA_DO_AR') return 'Sem resposta ' + C.sis('da') + '. Antes de tentar de novo, busque pelo CPF: o cadastro pode ter sido gravado.';
-    return C.readError(st, body);
   }
 
   function submitNewPatient(ev) {
@@ -319,7 +308,7 @@
         findPatient({ cpf: np.value.cpf }, s, null, aviso);
         return;
       }
-      status('pn-status', newPatientError(r.status, r.body), 'err');
+      status('pn-status', C.newPatientError(r.status, r.body), 'err');
       B.fitHeight();
     });
   }
@@ -343,7 +332,7 @@
       } else if (r.status === 200 && r.body) {
         var podeCadastrar = !!api.capacidades.cadastro_paciente;
         status('p-status', by.cpf
-          ? ('Paciente não encontrado: não há cadastro com o CPF ' + formatCpf(by.cpf) + ' ' + C.sis('na') + '. Confira o número digitado' + (podeCadastrar ? ' ou cadastre o paciente.' : '.'))
+          ? ('Paciente não encontrado: não há cadastro com o CPF ' + C.formatCpf(by.cpf) + ' ' + C.sis('na') + '. Confira o número digitado' + (podeCadastrar ? ' ou cadastre o paciente.' : '.'))
           : ('Não há paciente com o telefone deste contato ' + C.sis('na') + '. Busque pelo CPF' + (podeCadastrar ? ' ou cadastre o paciente.' : '.')), by.cpf ? 'err' : undefined);
         $('p-search').hidden = false;
         $('p-new-open').hidden = !podeCadastrar;

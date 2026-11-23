@@ -13,6 +13,8 @@
   var cols = [], viewSeq = 0;
   var MAX_LADO = 8, PARALELO = 3;           // colunas no lado a lado; pedidos simultâneos ao Conector
   var pac = null;                           // paciente buscado: {paciente, consultas, busca}
+  var pacSeq = 0, notFound = null;          // busca em andamento; a busca que não achou (preenche o cadastro)
+  var newPatientKey = null;                 // idempotência do cadastro sem consulta
   var rescheduling = null;                  // {consulta, paciente, busca}
   var booking = null;
 
@@ -579,7 +581,12 @@
 
   function searchPatient(ev) {
     ev.preventDefault();
-    var tries = C.lookupsFrom($('q-input').value);
+    findPatient(C.lookupsFrom($('q-input').value));
+  }
+
+  // notice: aviso mostrado quando o paciente aparece (ex.: "Paciente cadastrado no Luna.").
+  function findPatient(tries, notice) {
+    var s = ++pacSeq;
     side('s-pac');
     $('sp-name').textContent = '';
     $('sp-facts').hidden = true;
@@ -588,19 +595,72 @@
     $('sp-list').textContent = '';
     $('sp-charge').hidden = true;
     $('sp-fin-label').hidden = $('sp-fin').hidden = true;
+    closeNewPatient();
+    notFound = null;
     if (!tries.length) { status('sp-status', 'Digite um CPF (11 dígitos) ou um telefone com DDD.', 'err'); return; }
     status('sp-status', ('Buscando ' + C.sis('na') + '…'));
     lookup(tries).then(function (x) {
+      if (s !== pacSeq) return; // outra busca começou depois desta
       var r = x.r;
       if (r.status === 200 && r.body && r.body.encontrado) {
         pac = { paciente: r.body.paciente, consultas: r.body.consultas, busca: x.busca };
-        renderPatient();
+        renderPatient(notice);
       } else if (r.status === 200) {
         pac = null;
-        status('sp-status', ('Nenhum paciente com esse CPF ou telefone ' + C.sis('na') + '. Para cadastrar, escolha um horário livre e marque a consulta como paciente novo.'));
+        notFound = tries;
+        var pode = !!api.capacidades.cadastro_paciente;
+        status('sp-status', 'Nenhum paciente com esse CPF ou telefone ' + C.sis('na') + '. ' + (pode
+          ? 'Confira o número digitado ou cadastre o paciente agora, sem marcar consulta.'
+          : 'Para cadastrar, escolha um horário livre e marque a consulta como paciente novo.'));
+        $('sp-new-open').hidden = !pode;
       } else {
         status('sp-status', C.readError(r.status, r.body), 'err');
       }
+    });
+  }
+
+  /* ---------- cadastro de paciente sem consulta (busca sem resultado) ---------- */
+  function openNewPatient() {
+    // Preenche com o que foi buscado: CPF se a busca era CPF; telefone se era telefone (ou ambíguo).
+    var t = notFound || [];
+    var cpf = t.length === 1 && t[0].cpf, tel = t.length && t[0].telefone;
+    $('spn-cpf').value = cpf ? C.formatCpf(cpf) : '';
+    $('spn-tel').value = tel ? C.formatPhone(tel) : '';
+    status('spn-status', '');
+    newPatientKey = null;
+    $('sp-new-open').hidden = true;
+    $('spn').hidden = false;
+    $('spn-nome').focus();
+  }
+
+  function closeNewPatient() {
+    $('spn').hidden = true;
+    $('sp-new-open').hidden = true;
+    ['spn-nome', 'spn-cpf', 'spn-nasc', 'spn-tel'].forEach(function (id) { $(id).value = ''; });
+    $('spn-go').disabled = false;
+    newPatientKey = null;
+  }
+
+  function submitNewPatient(ev) {
+    ev.preventDefault();
+    var np = C.newPatient({ nome: $('spn-nome').value, cpf: $('spn-cpf').value, nascimento: $('spn-nasc').value, telefone: $('spn-tel').value });
+    if (!np.ok) { status('spn-status', np.error, 'err'); return; }
+    var s = pacSeq;
+    newPatientKey = newPatientKey || C.newKey(); // a mesma tentativa não cadastra duas vezes
+    $('spn-go').disabled = true;
+    status('spn-status', 'Cadastrando ' + C.sis('na') + '…');
+    api.createPatient({ chave: newPatientKey, paciente: np.value, usuario: userLabel || undefined }).then(function (r) {
+      if (s !== pacSeq) return;
+      $('spn-go').disabled = false;
+      if (r.status === 200 && r.body && r.body.paciente) {
+        var aviso = r.body.ja_existia
+          ? 'Este CPF já tinha cadastro ' + C.sis('na') + '; o cadastro existente foi mantido.'
+          : 'Paciente cadastrado ' + C.sis('na') + '. Para marcar a consulta, escolha um horário livre.';
+        $('q-input').value = C.formatCpf(np.value.cpf);
+        findPatient([{ cpf: np.value.cpf }], aviso);
+        return;
+      }
+      status('spn-status', C.newPatientError(r.status, r.body), 'err');
     });
   }
 
@@ -913,6 +973,10 @@
     $('d-today').addEventListener('click', function () { setDay(C.todayIso()); });
     $('d-pick').addEventListener('change', function () { setDay($('d-pick').value); });
     $('q-form').addEventListener('submit', searchPatient);
+    $('sp-new-open').addEventListener('click', openNewPatient);
+    $('spn').addEventListener('submit', submitNewPatient);
+    $('spn-cancel').addEventListener('click', function () { closeNewPatient(); $('sp-new-open').hidden = !notFound; });
+    ['spn-nome', 'spn-cpf', 'spn-nasc', 'spn-tel'].forEach(function (id) { $(id).addEventListener('input', function () { newPatientKey = null; }); });
     $('sp-close').addEventListener('click', closeSide);
     $('rs-stop').addEventListener('click', stopReschedule);
     $('s-book').addEventListener('submit', review);

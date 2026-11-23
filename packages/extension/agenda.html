@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClinFy: agenda da clínica</title>
-<link rel="stylesheet" href="styles.css?v=0.26.0">
+<link rel="stylesheet" href="styles.css?v=0.27.0">
 </head>
 <body class="page-agenda">
 <div class="app">
@@ -104,7 +104,23 @@
           <ul class="list" id="sp-list"></ul>
           <div class="card__label" id="sp-fin-label" hidden>Cobranças lançadas pela Kentro</div>
           <ul class="list" id="sp-fin" hidden></ul>
-          <div class="booking__actions">
+          <form id="spn" autocomplete="off" hidden>
+            <fieldset class="booking__new">
+            <legend>Cadastrar paciente <span data-sis="na">no sistema da clínica</span></legend>
+            <p class="hint">Só o cadastro: a consulta pode ser marcada depois, num horário livre.</p>
+            <label class="field"><span>Nome completo</span><input id="spn-nome" maxlength="120" autocomplete="off"></label>
+            <label class="field"><span>CPF</span><input id="spn-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></label>
+            <label class="field"><span>Nascimento</span><input id="spn-nasc" type="date"></label>
+            <label class="field"><span>Telefone (com DDD)</span><input id="spn-tel" inputmode="tel" maxlength="20"></label>
+            <div class="booking__actions">
+              <button class="btn btn--primary" id="spn-go" type="submit">Cadastrar</button>
+              <button class="btn" id="spn-cancel" type="button">Cancelar</button>
+            </div>
+            <p class="muted" id="spn-status" role="status"></p>
+            </fieldset>
+          </form>
+          <div class="booking__actions" id="sp-actions">
+            <button class="btn btn--primary" id="sp-new-open" type="button" hidden>Cadastrar paciente</button>
             <button class="btn btn--primary" id="sp-charge" type="button" hidden>Lançar cobrança</button>
             <button class="btn" id="sp-close" type="button">Fechar</button>
           </div>
@@ -175,10 +191,10 @@
     </div>
   </div>
 </div>
-<script src="core.js?v=0.26.0"></script>
-<script src="api.js?v=0.26.0"></script>
-<script src="bridge.js?v=0.26.0"></script>
-<script src="cobranca.js?v=0.26.0"></script>
-<script src="agenda.js?v=0.26.0"></script>
+<script src="core.js?v=0.27.0"></script>
+<script src="api.js?v=0.27.0"></script>
+<script src="bridge.js?v=0.27.0"></script>
+<script src="cobranca.js?v=0.27.0"></script>
+<script src="agenda.js?v=0.27.0"></script>
 </body>
 </html>
