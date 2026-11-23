@@ -10,9 +10,9 @@
   --brand: #0b6b5e;     /* pinho */
   --brand-ink: #ffffff;
   --brand-soft: #e3f0ec;
-  --remind: #a8641a;    /* lembrete: só no canhoto da próxima consulta */
+  --remind: #8f5210;    /* lembrete: só no canhoto da próxima consulta */
   --remind-soft: #f8efe3;
-  --ok: #1e7f48; --warn: #a8641a; --err: #b8352a; --idle: #8a979b;
+  --ok: #1e7f48; --warn: #8f5210; --err: #b8352a; --idle: #8a979b;
   --ok-soft: color-mix(in srgb, var(--ok) 13%, var(--bg));
   --perf: color-mix(in srgb, var(--muted) 45%, var(--bg)); /* picote do cartão */
   --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
@@ -148,20 +148,21 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .appt__mon { margin-top: 3px; font-size: 11.5px; font-weight: 600; }
 .appt__wd { font-size: 11px; color: var(--muted); }
 .appt--next .appt__stub { background: var(--remind-soft); color: var(--remind); border-right-color: color-mix(in srgb, var(--remind) 35%, transparent); }
-.appt--next .appt__wd { color: var(--remind); opacity: .8; }
+.appt--next .appt__wd { color: var(--remind); }
 .appt__body { min-width: 0; padding: 9px 12px 10px; }
 .charge { padding: 9px 12px 10px; }
 #f-box:empty { display: none; }
 .item__when { font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .item__who { margin-top: 1px; font-weight: 550; }
 .item__proc { margin-top: 1px; color: var(--muted); font-size: 12px; }
-.item__actions { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
-.item__actions .btn { margin-top: 0; padding: 4px 10px; font-size: 12px; }
+.item__actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+.item__actions .btn { margin-top: 0; min-height: 32px; padding: 5px 11px; font-size: 12px; }
+.btn--apart { margin-left: auto; }
 .item__ask { flex-basis: 100%; font-size: 12px; color: var(--err); }
 
 /* ---------- agenda: dias e horários ---------- */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { padding: 5px 9px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.chip { min-height: 32px; padding: 5px 9px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer; }
 .chip:hover { border-color: var(--brand); }
 .chip[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); font-weight: 600; }
 .chip--day { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 5px 6px; line-height: 1.2; }
@@ -274,7 +275,8 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .tally__row[data-tone="err"] dd { background: none; color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
 .tally__row[data-tone="free"] { border-style: dashed; border-color: var(--perf); background: none; }
 .tally__row[data-tone="free"] dd { background: none; color: var(--brand); border-right-color: transparent; }
-.tally__row--zero { opacity: .5; }
+.tally__row--zero { border-style: dashed; background: none; }
+.tally__row.tally__row--zero dd, .tally__row.tally__row--zero dt { color: var(--muted); background: none; }
 
 /* ---------- a folha ---------- */
 .sheet { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-width: 880px; }
@@ -305,8 +307,9 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .slot--free .slot__btn:hover .slot__cta, .slot--free.slot--sel .slot__cta, .slot--free .slot__btn:focus-visible .slot__cta { opacity: 1; }
 
 /* O que já passou fica apagado; a linha do agora (cor de lembrete) marca onde o dia está. */
-.slot--past .slot__btn { opacity: .55; }
-.slot--past .slot__btn:hover, .slot--past.slot--sel .slot__btn { opacity: 1; }
+.slot--past .slot__btn { background: var(--surface); box-shadow: none; }
+.slot--past .slot__who, .slot--past .slot__time, .slot--past .slot__body { color: var(--muted); }
+.slot--past .slot__btn:hover, .slot--past.slot--sel .slot__btn { background: var(--bg); }
 .now { position: relative; height: 0; margin: 3px 0; border-top: 2px solid var(--remind); }
 .now::before { content: ""; position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: var(--remind); }
 .now__time { position: absolute; right: 0; top: -10px; padding: 0 6px; border-radius: 999px; background: var(--remind); color: var(--bg); font-size: 11px; font-weight: 650; line-height: 18px; font-variant-numeric: tabular-nums; }
@@ -567,7 +570,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .table th, .table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
 .table thead th { color: var(--muted); font-size: 12px; font-weight: 600; }
 .table .num { text-align: right; font-variant-numeric: tabular-nums; }
-.table .zero { color: var(--muted); opacity: .6; }
+.table .zero { color: var(--muted); }
 .table tbody tr:hover { background: var(--surface); }
 .who { display: flex; align-items: center; gap: 10px; font-weight: 600; }
 .who .avatar { background: var(--brand-soft); color: var(--brand); }

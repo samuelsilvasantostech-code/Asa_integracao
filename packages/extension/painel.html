@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClinFy: painel da clínica</title>
-<link rel="stylesheet" href="styles.css?v=0.28.0">
+<link rel="stylesheet" href="styles.css?v=0.29.0">
 </head>
 <body class="page-dash">
 <div class="app">
@@ -25,8 +25,8 @@
     <span class="pill" id="pill" data-tone="idle"><i class="dot"></i><span id="pill-text">Carregando</span></span>
   </header>
 
-  <main class="dash" aria-live="polite">
-    <p class="muted" id="d-status">Carregando os números…</p>
+  <main class="dash">
+    <p class="muted" id="d-status" role="status">Carregando os números…</p>
 
     <section class="kpis kpis--hero" id="d-kpis" hidden></section>
 
@@ -91,7 +91,7 @@
             <button class="btn btn--primary" id="oc-go" type="button">Ver ocupação</button>
           </div>
         </header>
-        <p class="muted" id="oc-status">Escolha o dia e toque em "Ver ocupação". Cada profissional é uma consulta <span data-sis="ao">ao sistema da clínica</span>, por isso a lista chega aos poucos.</p>
+        <p class="muted" id="oc-status" role="status">Escolha o dia e toque em "Ver ocupação". Cada profissional é uma consulta <span data-sis="ao">ao sistema da clínica</span>, por isso a lista chega aos poucos.</p>
         <div class="hbars hbars--occ" id="oc-list"></div>
         <div class="legend" id="oc-legend" hidden></div>
       </section>
@@ -99,9 +99,9 @@
   </main>
   <div class="tip" id="tip" role="tooltip" hidden></div>
 </div>
-<script src="core.js?v=0.28.0"></script>
-<script src="api.js?v=0.28.0"></script>
-<script src="bridge.js?v=0.28.0"></script>
-<script src="painel.js?v=0.28.0"></script>
+<script src="core.js?v=0.29.0"></script>
+<script src="api.js?v=0.29.0"></script>
+<script src="bridge.js?v=0.29.0"></script>
+<script src="painel.js?v=0.29.0"></script>
 </body>
 </html>

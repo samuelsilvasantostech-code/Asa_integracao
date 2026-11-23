@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClinFy: agenda da clínica</title>
-<link rel="stylesheet" href="styles.css?v=0.28.0">
+<link rel="stylesheet" href="styles.css?v=0.29.0">
 </head>
 <body class="page-agenda">
 <div class="app">
@@ -67,12 +67,12 @@
         <h2 class="sr" id="day-title">Consultas</h2>
         <p class="day__sum" id="day-sum"></p>
         <div class="kpis" id="day-kpis" hidden></div>
-        <p class="muted" id="day-status">Escolha a especialidade e o profissional.</p>
+        <p class="muted" id="day-status" role="status">Escolha a especialidade e o profissional.</p>
         <ol class="sheet" id="sheet"></ol>
         <div class="grid" id="grid" hidden></div>
       </section>
 
-      <aside class="side" id="side" aria-live="polite">
+      <aside class="side" id="side" aria-label="Detalhes">
         <div class="side__empty" id="s-empty">
           <div class="tally" id="s-tally" hidden>
             <p class="tally__title" id="st-title"></p>
@@ -97,7 +97,7 @@
         <!-- paciente buscado -->
         <div class="sv" id="s-pac" hidden>
           <div class="sv__name" id="sp-name"></div>
-          <p class="muted" id="sp-status"></p>
+          <p class="muted" id="sp-status" role="status"></p>
           <dl class="facts" id="sp-facts" hidden></dl>
           <p class="hint" id="sp-hint" hidden>Para marcar uma consulta para este paciente, escolha um horário livre na agenda.</p>
           <div class="card__label" id="sp-list-label" hidden>Próximas consultas</div>
@@ -144,7 +144,7 @@
               <button class="btn" id="sb-q-go" type="button">Buscar</button>
             </div>
           </div>
-          <p class="muted" id="sb-pac-status"></p>
+          <p class="muted" id="sb-pac-status" role="status"></p>
           <fieldset class="booking__new" id="sb-new" hidden>
             <legend>Paciente novo <span data-sis="na">no sistema da clínica</span></legend>
             <label class="field"><span>Nome completo</span><input id="sb-nome" maxlength="120"></label>
@@ -168,7 +168,7 @@
             <button class="btn btn--primary" type="submit">Revisar</button>
             <button class="btn" id="sb-cancel" type="button">Fechar</button>
           </div>
-          <p class="muted" id="sb-status"></p>
+          <p class="muted" id="sb-status" role="status"></p>
         </form>
 
         <div class="sv booking--review" id="s-review" hidden>
@@ -191,10 +191,10 @@
     </div>
   </div>
 </div>
-<script src="core.js?v=0.28.0"></script>
-<script src="api.js?v=0.28.0"></script>
-<script src="bridge.js?v=0.28.0"></script>
-<script src="cobranca.js?v=0.28.0"></script>
-<script src="agenda.js?v=0.28.0"></script>
+<script src="core.js?v=0.29.0"></script>
+<script src="api.js?v=0.29.0"></script>
+<script src="bridge.js?v=0.29.0"></script>
+<script src="cobranca.js?v=0.29.0"></script>
+<script src="agenda.js?v=0.29.0"></script>
 </body>
 </html>

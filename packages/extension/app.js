@@ -38,7 +38,9 @@
   /* ---------- abas ---------- */
   function selectTab(name) {
     Array.prototype.forEach.call(document.querySelectorAll('.tab[data-tab]'), function (t) {
-      t.setAttribute('aria-selected', String(t.getAttribute('data-tab') === name));
+      var on = t.getAttribute('data-tab') === name;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
     });
     ['paciente', 'consultas', 'agendar', 'financeiro'].forEach(function (p) { $('pane-' + p).hidden = p !== name; });
     if (name === 'agendar') { loadSchedule(); fetchExams(); }
@@ -155,20 +157,24 @@
   // Remarcar / Cancelar. Cancelar pede uma segunda confirmação ali mesmo.
   function consultaActions(c) {
     var box = el('div', 'item__actions');
-    function normal() {
+    function normal(refocus) {
       box.textContent = '';
       var cf = C.confirmationState(c.confirmacao);
       // Só quando o ERP da clínica tem as rotas de confirmação (capacidade detectada na implantação).
       if (api.capacidades.confirmacao && !(cf && cf.answered)) box.appendChild(button(cf ? 'Reenviar confirmação' : 'Enviar confirmação', null, function (ev) { sendConfirmation(c, box, ev.currentTarget); }));
       box.appendChild(button('Remarcar', null, function () { startReschedule(c); }));
       if (C.canCharge(fin, userType)) box.appendChild(button('Cobrar', null, function () { openCharge(c.id); }));
-      box.appendChild(button('Cancelar', 'btn--danger', ask));
+      var cancel = button('Cancelar', 'btn--danger btn--apart', ask);
+      box.appendChild(cancel);
+      if (refocus) cancel.focus();
     }
     function ask() {
       box.textContent = '';
-      box.appendChild(el('span', 'item__ask', ('Cancelar esta consulta ' + C.sis('na') + '?')));
+      box.appendChild(el('span', 'item__ask', 'Cancelar a consulta de ' + whenText(c) + ' ' + C.sis('na') + '?'));
       box.appendChild(button('Sim, cancelar', 'btn--danger', function (ev) { doCancel(c, box, ev.currentTarget); }));
-      box.appendChild(button('Não', null, normal));
+      var nao = button('Não', null, function () { normal(true); });
+      box.appendChild(nao);
+      nao.focus();
     }
     normal();
     return box;
@@ -187,7 +193,7 @@
       }
       box.textContent = '';
       box.appendChild(el('span', 'item__ask', C.confirmationError(r.status, r.body)));
-      box.appendChild(button('Voltar', null, function () { box.parentNode.replaceChild(consultaActions(c), box); }));
+      box.appendChild(button('Voltar', null, function () { var nova = consultaActions(c); box.parentNode.replaceChild(nova, box); if (nova.firstChild) nova.firstChild.focus(); }));
       B.fitHeight();
     });
   }
@@ -231,7 +237,7 @@
       box.appendChild(el('span', 'item__ask', erro === 'CONSULTA_NAO_ENCONTRADA'
         ? ('Essa consulta não está mais na lista do paciente ' + C.sis('na') + '. Atualize.')
         : C.bookingError(r.status, r.body)));
-      box.appendChild(button('Voltar', null, function () { box.parentNode.replaceChild(consultaActions(c), box); }));
+      box.appendChild(button('Voltar', null, function () { var nova = consultaActions(c); box.parentNode.replaceChild(nova, box); if (nova.firstChild) nova.firstChild.focus(); }));
       B.fitHeight();
     });
   }
@@ -988,6 +994,13 @@
 
     Array.prototype.forEach.call(document.querySelectorAll('.tab[data-tab]'), function (t) {
       t.addEventListener('click', function () { selectTab(t.getAttribute('data-tab')); });
+      t.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'ArrowRight' && ev.key !== 'ArrowLeft') return;
+        var tabs = Array.prototype.filter.call(document.querySelectorAll('.tab[data-tab]'), function (x) { return !x.hidden; });
+        var i = tabs.indexOf(t), prox = tabs[(i + (ev.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+        selectTab(prox.getAttribute('data-tab'));
+        prox.focus();
+      });
     });
     $('a-esp').addEventListener('change', onSpecialty);
     $('a-prest').addEventListener('change', onProvider);

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClinFy</title>
-<link rel="stylesheet" href="styles.css?v=0.28.0">
+<link rel="stylesheet" href="styles.css?v=0.29.0">
 </head>
 <body>
 <div class="app">
@@ -19,8 +19,9 @@
     <span class="pill" id="pill" data-tone="idle"><i class="dot"></i><span id="pill-text">Carregando</span></span>
   </header>
 
-  <main class="body" aria-live="polite">
-    <section id="v-loading" class="view">
+  <main class="body">
+    <section id="v-loading" class="view" aria-busy="true">
+      <span class="sr" role="status">Carregando…</span>
       <div class="sk sk--block"></div><div class="sk sk--line"></div><div class="sk sk--line w60"></div>
     </section>
 
@@ -58,15 +59,15 @@
       </div>
 
       <div id="modules" hidden>
-        <nav class="tabs" role="tablist" aria-label="Módulos">
-          <button class="tab" type="button" role="tab" data-tab="paciente" aria-selected="true">Paciente</button>
-          <button class="tab" type="button" role="tab" data-tab="consultas" aria-selected="false">Consultas <span class="count" id="count-consultas" hidden></span></button>
-          <button class="tab" type="button" role="tab" data-tab="agendar" aria-selected="false">Agenda</button>
-          <button class="tab" type="button" role="tab" data-tab="financeiro" aria-selected="false" id="tab-fin" hidden>Financeiro</button>
-        </nav>
+        <div class="tabs" role="tablist" aria-label="Módulos">
+          <button class="tab" type="button" role="tab" data-tab="paciente" id="tab-paciente" aria-controls="pane-paciente" aria-selected="true">Paciente</button>
+          <button class="tab" type="button" role="tab" data-tab="consultas" id="tab-consultas" aria-controls="pane-consultas" aria-selected="false" tabindex="-1">Consultas <span class="count" id="count-consultas" hidden></span></button>
+          <button class="tab" type="button" role="tab" data-tab="agendar" id="tab-agendar" aria-controls="pane-agendar" aria-selected="false" tabindex="-1">Agendar</button>
+          <button class="tab" type="button" role="tab" data-tab="financeiro" aria-selected="false" id="tab-fin" aria-controls="pane-financeiro" tabindex="-1" hidden>Financeiro</button>
+        </div>
 
-        <section class="pane" id="pane-paciente" role="tabpanel">
-          <p class="muted" id="p-status">Buscando o paciente <span data-sis="na">no sistema da clínica</span>…</p>
+        <section class="pane" id="pane-paciente" role="tabpanel" aria-labelledby="tab-paciente">
+          <p class="muted" id="p-status" role="status">Buscando o paciente <span data-sis="na">no sistema da clínica</span>…</p>
           <dl class="facts" id="p-facts" hidden>
             <div><dt>Nome</dt><dd id="p-nome"></dd></div>
             <div><dt>Nascimento</dt><dd id="p-nasc"></dd></div>
@@ -97,12 +98,12 @@
           </form>
         </section>
 
-        <section class="pane" id="pane-consultas" role="tabpanel" hidden>
-          <p class="muted" id="c-status">Identifique o paciente primeiro.</p>
+        <section class="pane" id="pane-consultas" role="tabpanel" aria-labelledby="tab-consultas" hidden>
+          <p class="muted" id="c-status" role="status">Identifique o paciente primeiro.</p>
           <ul class="list" id="c-list"></ul>
         </section>
 
-        <section class="pane" id="pane-agendar" role="tabpanel" hidden>
+        <section class="pane" id="pane-agendar" role="tabpanel" aria-labelledby="tab-agendar" hidden>
           <div class="banner" id="a-remarcar" hidden>
             <span id="a-remarcar-text"></span>
             <button class="btn" id="a-remarcar-sair" type="button">Desistir</button>
@@ -146,14 +147,14 @@
             </label>
           </div>
           <div class="field" id="a-dias-wrap" hidden>
-            <span>Dias com atendimento</span>
-            <div class="chips" id="a-dias"></div>
+            <span id="a-dias-label">Dias com atendimento</span>
+            <div class="chips" id="a-dias" role="group" aria-labelledby="a-dias-label"></div>
           </div>
           <div class="field" id="a-horas-wrap" hidden>
             <span id="a-horas-label">Horários livres</span>
-            <div class="chips" id="a-horas"></div>
+            <div class="chips" id="a-horas" role="group" aria-labelledby="a-horas-label"></div>
           </div>
-          <p class="muted" id="a-status"></p>
+          <p class="muted" id="a-status" role="status"></p>
 
           <form class="booking" id="b-form" autocomplete="off" hidden>
             <div class="card__label">Marcar consulta</div>
@@ -184,7 +185,7 @@
               <textarea id="b-obs" rows="2" maxlength="500"></textarea>
             </label>
             <button class="btn btn--primary" id="b-review" type="submit">Revisar</button>
-            <p class="muted" id="b-status"></p>
+            <p class="muted" id="b-status" role="status"></p>
           </form>
 
           <div class="booking booking--review" id="b-confirm" hidden>
@@ -205,8 +206,8 @@
           </div>
         </section>
 
-        <section class="pane" id="pane-financeiro" role="tabpanel" hidden>
-          <p class="muted" id="f-status">Identifique o paciente primeiro.</p>
+        <section class="pane" id="pane-financeiro" role="tabpanel" aria-labelledby="tab-fin" hidden>
+          <p class="muted" id="f-status" role="status">Identifique o paciente primeiro.</p>
           <button class="btn btn--primary" id="f-new" type="button" hidden>Lançar cobrança</button>
           <div id="f-box"></div>
           <div class="card__label" id="f-list-label" hidden>Cobranças lançadas pela Kentro</div>
@@ -217,10 +218,10 @@
     </section>
   </main>
 </div>
-<script src="core.js?v=0.28.0"></script>
-<script src="api.js?v=0.28.0"></script>
-<script src="bridge.js?v=0.28.0"></script>
-<script src="cobranca.js?v=0.28.0"></script>
-<script src="app.js?v=0.28.0"></script>
+<script src="core.js?v=0.29.0"></script>
+<script src="api.js?v=0.29.0"></script>
+<script src="bridge.js?v=0.29.0"></script>
+<script src="cobranca.js?v=0.29.0"></script>
+<script src="app.js?v=0.29.0"></script>
 </body>
 </html>

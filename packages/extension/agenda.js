@@ -445,11 +445,18 @@
     if (c.day >= today && a.paciente.telefone) box.appendChild(button('Remarcar', null, function (ev) { rescheduleFromAppt(a, ev.currentTarget); }));
     if (a.paciente.telefone && C.canCharge(fin, userType)) box.appendChild(button('Lançar cobrança', null, function (ev) { chargeFromAppt(a, ev.currentTarget, c); }));
     if (c.day >= today) {
-      box.appendChild(button('Cancelar', 'btn--danger', function () {
+      box.appendChild(button('Cancelar', 'btn--danger btn--apart', function () {
         box.textContent = '';
-        box.appendChild(el('span', 'item__ask', 'Cancelar a consulta de ' + (a.paciente.nome || 'este paciente') + (' ' + C.sis('na') + '?')));
+        box.appendChild(el('span', 'item__ask', 'Cancelar a consulta de ' + (a.paciente.nome || 'este paciente') + ' (' + C.formatDay(c.day) + ' às ' + (a.hora || '--:--') + ') ' + C.sis('na') + '?'));
         box.appendChild(button('Sim, cancelar', 'btn--danger', function (ev) { setStatus(a, 'cancelado', ev.currentTarget, c); }));
-        box.appendChild(button('Não', null, function () { apptActions(a, info, c); }));
+        // Foco no "Não" (a opção segura); ao desistir, volta para o "Cancelar".
+        var nao = button('Não', null, function () {
+          apptActions(a, info, c);
+          var volta = box.querySelector('.btn--apart');
+          if (volta) volta.focus();
+        });
+        box.appendChild(nao);
+        nao.focus();
       }));
     }
   }
