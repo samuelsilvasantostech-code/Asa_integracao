@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClinFy</title>
-<link rel="stylesheet" href="styles.css?v=0.32.0">
+<link rel="stylesheet" href="styles.css?v=0.33.0">
 </head>
 <body class="page-hub">
 <!-- Gerado por packages/connector/tools/montar-clinfy.ts a partir de agenda, painel, config e confirmacao. Não editar à mão. -->
@@ -277,6 +277,29 @@
         <ul class="alerts" id="alertas"></ul>
       </section>
 
+      <section class="panel panel--full" aria-labelledby="h-esp">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-esp">Tempo de espera</h2>
+          <p class="panel__sub" id="esp-sub"></p>
+        </header>
+        <div id="esp-body">
+          <div class="chips chips--stat" id="esp-stats"></div>
+          <div class="esp__grid">
+            <div>
+              <h3 class="panel__h3">Quanto os pacientes esperaram</h3>
+              <div class="hbars" id="esp-faixas"></div>
+              <h3 class="panel__h3" id="esp-days-h">Espera média por dia (min)</h3>
+              <div class="cols" id="esp-days"></div>
+            </div>
+            <div>
+              <h3 class="panel__h3">Por profissional</h3>
+              <div class="table-wrap"><table class="table" id="esp-prof"></table></div>
+            </div>
+          </div>
+          <p class="muted" id="esp-note"></p>
+        </div>
+      </section>
+
       <section class="panel panel--full" aria-labelledby="h-ocup">
         <header class="panel__hd panel__hd--row">
           <div>
@@ -461,14 +484,14 @@
 </div>
 </div>
 </section>
-<script src="core.js?v=0.32.0"></script>
-<script src="api.js?v=0.32.0"></script>
-<script src="bridge.js?v=0.32.0"></script>
-<script src="cobranca.js?v=0.32.0"></script>
-<script src="hub.js?v=0.32.0"></script>
-<script src="agenda.js?v=0.32.0"></script>
-<script src="painel.js?v=0.32.0"></script>
-<script src="config.js?v=0.32.0"></script>
-<script src="confirmacao.js?v=0.32.0"></script>
+<script src="core.js?v=0.33.0"></script>
+<script src="api.js?v=0.33.0"></script>
+<script src="bridge.js?v=0.33.0"></script>
+<script src="cobranca.js?v=0.33.0"></script>
+<script src="hub.js?v=0.33.0"></script>
+<script src="agenda.js?v=0.33.0"></script>
+<script src="painel.js?v=0.33.0"></script>
+<script src="config.js?v=0.33.0"></script>
+<script src="confirmacao.js?v=0.33.0"></script>
 </body>
 </html>

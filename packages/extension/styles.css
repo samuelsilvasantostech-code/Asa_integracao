@@ -698,3 +698,12 @@ body:has(.toast:not([hidden])) .body { padding-bottom: 72px; }
 .adjust__field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
 .adjust select, .adjust input { padding: 6px 8px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
 .adjust .btn { margin-top: 0; }
+
+/* ---------- Painel: tempo de espera ---------- */
+.esp__grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+#esp-body[hidden], #esp-note[hidden], .esp__grid [hidden] { display: none; }
+.hbar__fill[data-tone="warn"] { background: var(--remind); }
+.stat[data-tone="warn"] { background: var(--remind-soft); }
+.stat[data-tone="warn"] strong { color: var(--remind); }
+.table td[data-tone="warn"] { color: var(--remind); font-weight: 650; }
+@media (max-width: 860px) { .esp__grid { grid-template-columns: minmax(0, 1fr); } }

@@ -77,3 +77,104 @@ export function emJson(t: Tempos) {
     fim: t.fim?.toISOString() ?? null,
   };
 }
+
+/* ---------- relatório (Painel) ---------- */
+// Regras: espera conta só com chamada marcada; consulta só com fim marcado (cronômetro esquecido aberto
+// não entra). Fora do normal é descartado: espera acima de 4 h, consulta abaixo de 1 min ou acima de 4 h.
+const MIN = 60_000;
+export const ESPERA_MAX_MIN = 240, CONSULTA_MIN_MIN = 1, CONSULTA_MAX_MIN = 240;
+export const FAIXAS = [
+  { ate: 15, rotulo: "Até 15 min" },
+  { ate: 30, rotulo: "15 a 30 min" },
+  { ate: 60, rotulo: "30 min a 1 h" },
+  { ate: Infinity, rotulo: "Mais de 1 h" },
+];
+
+export interface LinhaEspera {
+  prestador_id: string;
+  data: string;               // YYYY-MM-DD
+  hora_marcada: string | null;
+  chegada: Date | null;
+  chamada: Date | null;
+  fim: Date | null;
+}
+
+function media(v: number[]) { return v.length ? Math.round(v.reduce((s, x) => s + x, 0) / v.length) : null; }
+function mediana(v: number[]) {
+  if (!v.length) return null;
+  const o = [...v].sort((a, b) => a - b), m = o.length >> 1;
+  return Math.round(o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2);
+}
+
+// Minutos, em números inteiros para a tela. `hoje` separa os cronômetros de hoje ainda abertos (quem está
+// na sala agora) dos esquecidos em dias anteriores.
+export function resumoEspera(linhas: LinhaEspera[], hoje: string) {
+  const esperas: number[] = [], consultas: number[] = [], atrasos: number[] = [], antecedencias: number[] = [];
+  const faixas = FAIXAS.map((f) => ({ rotulo: f.rotulo, n: 0 }));
+  const dias = new Map<string, number[]>();
+  const prof = new Map<string, { esperas: number[]; consultas: number[]; atrasos: number[] }>();
+  let chegadas = 0, descartadas = 0, esquecidos = 0, aguardando = 0, emConsulta = 0, atrasados = 0;
+
+  for (const l of linhas) {
+    if (!l.chegada) continue;
+    chegadas++;
+    const p = prof.get(l.prestador_id) ?? { esperas: [], consultas: [], atrasos: [] };
+    prof.set(l.prestador_id, p);
+    const marcada = l.hora_marcada ? horaNoDia(l.data, l.hora_marcada) : null;
+    // Paciente: chegou antes (positivo) ou depois (negativo) do horário marcado.
+    if (marcada) {
+      const ant = (marcada.getTime() - l.chegada.getTime()) / MIN;
+      if (Math.abs(ant) <= ESPERA_MAX_MIN) { antecedencias.push(ant); if (ant < -5) atrasados++; }
+    }
+    if (!l.chamada) {
+      if (l.data === hoje) aguardando++; else esquecidos++;
+      continue;
+    }
+    const espera = (l.chamada.getTime() - l.chegada.getTime()) / MIN;
+    if (espera > ESPERA_MAX_MIN) descartadas++;
+    else {
+      esperas.push(espera);
+      p.esperas.push(espera);
+      faixas[FAIXAS.findIndex((f) => espera < f.ate)].n++;
+      (dias.get(l.data) ?? dias.set(l.data, []).get(l.data)!).push(espera);
+      // Atraso da clínica: da hora em que o paciente podia ser atendido (marcada, ou a chegada se ele
+      // chegou depois) até ser chamado. Chegar cedo não conta como atraso da clínica.
+      if (marcada) {
+        const a = Math.max(0, (l.chamada.getTime() - Math.max(marcada.getTime(), l.chegada.getTime())) / MIN);
+        atrasos.push(a);
+        p.atrasos.push(a);
+      }
+    }
+    if (!l.fim) {
+      if (l.data === hoje) emConsulta++; else esquecidos++;
+      continue;
+    }
+    const consulta = (l.fim.getTime() - l.chamada.getTime()) / MIN;
+    if (consulta < CONSULTA_MIN_MIN || consulta > CONSULTA_MAX_MIN) descartadas++;
+    else { consultas.push(consulta); p.consultas.push(consulta); }
+  }
+
+  return {
+    chegadas,
+    esperas_medidas: esperas.length,
+    espera_media: media(esperas),
+    espera_mediana: mediana(esperas),
+    acima_30: esperas.filter((e) => e >= 30).length,
+    consultas_medidas: consultas.length,
+    consulta_media: media(consultas),
+    atraso_medio: media(atrasos),
+    antecedencia_media: media(antecedencias),
+    pacientes_atrasados: atrasados,
+    faixas,
+    por_dia: [...dias.keys()].sort().map((dia) => ({ dia, n: dias.get(dia)!.length, media: media(dias.get(dia)!)! })),
+    por_profissional: [...prof.entries()]
+      .map(([prestador_id, v]) => ({
+        prestador_id, pacientes: v.esperas.length, espera_media: media(v.esperas), atraso_medio: media(v.atrasos), consulta_media: media(v.consultas),
+      }))
+      .filter((x) => x.pacientes)
+      .sort((a, b) => (b.espera_media ?? 0) - (a.espera_media ?? 0)),
+    agora: { aguardando, em_consulta: emConsulta },
+    esquecidos,
+    descartadas,
+  };
+}

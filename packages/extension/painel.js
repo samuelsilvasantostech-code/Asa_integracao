@@ -268,6 +268,88 @@
     if (!any) ul.appendChild(el('li', 'alert', 'Nada a conferir no período.')).setAttribute('data-tone', 'ok');
   }
 
+  /* ---------- tempo de espera (chegada → chamada → fim, marcados na Agenda) ---------- */
+  function minutes(m) { return m == null ? '—' : C.duration(m * 60000); }
+  function renderWait(d) {
+    var e = d.espera;
+    if (!e) { $('esp-sub').textContent = 'O Conector ainda não tem o relatório de espera: falta publicar a versão nova.'; $('esp-body').hidden = true; return; }
+    var agora = e.agora.aguardando || e.agora.em_consulta
+      ? ' Agora: ' + plural(e.agora.aguardando, 'aguardando', 'aguardando') + ', ' + plural(e.agora.em_consulta, 'em consulta', 'em consulta') + '.' : '';
+    $('esp-body').hidden = !e.esperas_medidas;
+    if (!e.esperas_medidas) {
+      $('esp-sub').textContent = (e.chegadas
+        ? plural(e.chegadas, 'chegada marcada', 'chegadas marcadas') + ', mas ninguém foi chamado para a consulta ainda.'
+        : 'Nenhuma chegada marcada no período. A recepção marca na Agenda: Confirmar chegada, Chamar para consulta e Finalizar consulta.') + agora;
+      return;
+    }
+    $('esp-sub').textContent = plural(e.esperas_medidas, 'paciente chamado', 'pacientes chamados') + ' depois de marcar a chegada na Agenda.' + agora;
+
+    var stats = $('esp-stats');
+    stats.textContent = '';
+    function stat(v, label, tip, tone) {
+      var c = el('span', 'stat');
+      if (tone) c.setAttribute('data-tone', tone);
+      c.appendChild(el('strong', null, v));
+      c.appendChild(el('span', null, label));
+      if (tip) hint(c, tip);
+      stats.appendChild(c);
+    }
+    stat(minutes(e.espera_media), 'Espera média', 'Da chegada até a chamada para a consulta. Metade dos pacientes esperou até ' + minutes(e.espera_mediana) + '.');
+    stat(pct(e.acima_30, e.esperas_medidas) + '%', 'Esperaram 30 min ou mais', plural(e.acima_30, 'paciente', 'pacientes') + ' de ' + e.esperas_medidas + '.', e.acima_30 ? 'warn' : null);
+    stat(minutes(e.atraso_medio), 'Atraso da clínica', 'Do horário marcado (ou da chegada, se o paciente chegou depois) até a chamada. Chegar cedo não conta.');
+    stat(minutes(e.consulta_media), 'Consulta média', e.consultas_medidas ? 'Da chamada até o fim, em ' + plural(e.consultas_medidas, 'consulta finalizada', 'consultas finalizadas') + '.' : 'Nenhuma consulta finalizada no período.');
+    var ant = e.antecedencia_media;
+    stat(ant == null ? '—' : ant >= 0 ? minutes(ant) + ' antes' : minutes(-ant) + ' depois', 'Chegada do paciente',
+      'Em média, em relação ao horário marcado. ' + plural(e.pacientes_atrasados, 'paciente chegou', 'pacientes chegaram') + ' mais de 5 min atrasado.');
+
+    var fx = $('esp-faixas'), max = Math.max.apply(null, e.faixas.map(function (f) { return f.n; }));
+    fx.textContent = '';
+    e.faixas.forEach(function (f, i) {
+      hbar(fx, f.rotulo, f.n + ' · ' + pct(f.n, e.esperas_medidas) + '%', max ? f.n / max : 0,
+        f.rotulo + ': ' + plural(f.n, 'paciente', 'pacientes'), i >= 2 ? 'warn' : null);
+    });
+
+    var multi = d.periodo.dias > 1;
+    $('esp-days-h').hidden = $('esp-days').hidden = !multi;
+    if (multi) {
+      var byDay = {};
+      e.por_dia.forEach(function (r) { byDay[r.dia] = r; });
+      var days = fillDays(d.periodo, e.por_dia, function (r) { return { total: r.media }; });
+      columns($('esp-days'), days, function (x) {
+        var r = byDay[x.dia];
+        return shortDay(x.dia) + ': ' + (r ? 'espera média de ' + minutes(r.media) + ' (' + plural(r.n, 'paciente', 'pacientes') + ')' : 'sem chegadas marcadas');
+      });
+    }
+
+    var tb = $('esp-prof');
+    tb.textContent = '';
+    var head = el('tr');
+    ['Profissional', 'Pacientes', 'Espera média', 'Atraso', 'Consulta'].forEach(function (h, i) {
+      var th = el('th', i ? 'num' : null, h);
+      th.scope = 'col';
+      head.appendChild(th);
+    });
+    tb.appendChild(el('thead')).appendChild(head);
+    var body = tb.appendChild(el('tbody'));
+    e.por_profissional.forEach(function (p) {
+      var tr = el('tr'), th = el('th', null, providerName(p.prestador_id));
+      th.scope = 'row';
+      tr.appendChild(th);
+      tr.appendChild(el('td', 'num', String(p.pacientes)));
+      var w = tr.appendChild(el('td', 'num', minutes(p.espera_media)));
+      if (p.espera_media >= 30) w.setAttribute('data-tone', 'warn');
+      tr.appendChild(el('td', 'num', minutes(p.atraso_medio)));
+      tr.appendChild(el('td', 'num' + (p.consulta_media == null ? ' zero' : ''), minutes(p.consulta_media)));
+      body.appendChild(tr);
+    });
+
+    var note = [];
+    if (e.esquecidos) note.push(plural(e.esquecidos, 'cronômetro ficou aberto', 'cronômetros ficaram abertos') + ' em dias anteriores (sem chamada ou sem fim), fora das médias.');
+    if (e.descartadas) note.push(plural(e.descartadas, 'tempo fora do normal foi descartado', 'tempos fora do normal foram descartados') + ' (espera acima de 4 h, ou consulta abaixo de 1 min ou acima de 4 h).');
+    $('esp-note').textContent = note.join(' ');
+    $('esp-note').hidden = !note.length;
+  }
+
   /* ---------- ocupação ---------- */
   function providerName(id) {
     var p = sched && id && sched.prestadores.filter(function (x) { return String(x.id) === String(id); })[0];
@@ -361,6 +443,7 @@
       renderTodo(d);
       renderActivity(d);
       renderCharges(d);
+      renderWait(d);
       $('d-body').hidden = false;
     });
   }

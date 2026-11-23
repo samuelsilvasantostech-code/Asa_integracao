@@ -1,10 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import * as C from "../confirmacao.js";
+import { resumoEspera, type LinhaEspera } from "../atendimento.js";
 import { pool } from "../db.js";
 import { tenantDaRequisicao } from "../tenant-auth.js";
 
 // Painel do administrador (tela "Painel Asa"): números do que passou pela Kentro num período.
-// Lê só as trilhas do Conector (agendamentos, confirmacoes, cobrancas); não chama a Asa.
+// Lê só as trilhas do Conector (agendamentos, confirmacoes, cobrancas, atendimentos); não chama a Asa.
 // A ocupação da agenda é montada pela tela, com /v1/agenda/dia de cada profissional.
 
 const FUSO = "America/Sao_Paulo";
@@ -34,7 +35,7 @@ export async function painelRoutes(app: FastifyInstance) {
     const args = [t.id, p.inicio, p.fim];
     const dia = (col: string) => `(${col} AT TIME ZONE '${FUSO}')::date`;
 
-    const [conf, confDia, tratar, ativ, ativDia, ativUsr, incertos, cob, cobUsr] = await Promise.all([
+    const [conf, confDia, tratar, ativ, ativDia, ativUsr, incertos, cob, cobUsr, esp] = await Promise.all([
       // Confirmações que saíram no período e o que o paciente respondeu.
       pool!.query<{ estado: string; resposta: string | null; origem: string; n: number }>(
         `SELECT estado, resposta, origem, count(*)::int AS n FROM confirmacoes
@@ -73,6 +74,10 @@ export async function painelRoutes(app: FastifyInstance) {
       pool!.query<{ usuario: string | null; n: number; total: string }>(
         `SELECT usuario, count(*)::int AS n, sum(valor)::text AS total FROM cobrancas
          WHERE tenant_id = $1 AND situacao = 'ok' AND ${dia("criado_em")} BETWEEN $2 AND $3 GROUP BY 1`, args),
+      // Tempo de espera: chegada, chamada e fim marcados pela recepção na Agenda.
+      pool!.query<LinhaEspera>(
+        `SELECT prestador_id, to_char(data, 'YYYY-MM-DD') AS data, hora_marcada, chegada, chamada, fim
+         FROM atendimentos WHERE tenant_id = $1 AND data BETWEEN $2 AND $3`, args),
     ]);
 
     // Confirmações: um número por desfecho.
@@ -129,6 +134,7 @@ export async function painelRoutes(app: FastifyInstance) {
         incertas: cobIncertas,
       },
       alertas: { agendamentos_incertos: incertos.rows },
+      espera: resumoEspera(esp.rows, hoje),
     };
   });
 }

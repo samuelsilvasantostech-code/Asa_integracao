@@ -50,3 +50,47 @@ test("hora no dia: fuso de Brasília e formato", () => {
   for (const ruim of ["24:00", "9:00", "14:60", ""]) assert.equal(horaNoDia("2026-11-23", ruim), null, ruim);
   assert.equal(horaNoDia("23/11/2026", "14:00"), null);
 });
+
+/* ---------- relatório do Painel ---------- */
+import { resumoEspera, type LinhaEspera } from "../src/atendimento.js";
+
+const linha = (data: string, marcada: string | null, ch: string | null, cm: string | null, fm: string | null, prest = "101"): LinhaEspera => ({
+  prestador_id: prest, data, hora_marcada: marcada,
+  chegada: ch ? horaNoDia(data, ch) : null, chamada: cm ? horaNoDia(data, cm) : null, fim: fm ? horaNoDia(data, fm) : null,
+});
+
+test("relatório: médias, faixas e atraso da clínica", () => {
+  const r = resumoEspera([
+    linha("2026-11-20", "14:00", "13:50", "14:10", "14:40"),          // chegou 10 min antes, esperou 20, atraso 10, consulta 30
+    linha("2026-11-20", "15:00", "15:10", "15:15", "15:35", "102"),   // chegou 10 min atrasado, esperou 5, atraso 5, consulta 20
+    linha("2026-11-21", "09:00", "08:30", "09:35", "10:00"),          // esperou 65 (faixa > 1 h), atraso 35
+  ], "2026-11-23");
+  assert.equal(r.chegadas, 3);
+  assert.equal(r.esperas_medidas, 3);
+  assert.equal(r.espera_media, 30);   // (20 + 5 + 65) / 3
+  assert.equal(r.espera_mediana, 20);
+  assert.equal(r.acima_30, 1);
+  assert.equal(r.atraso_medio, 17);   // (10 + 5 + 35) / 3 = 16,7
+  assert.equal(r.consulta_media, 25); // (30 + 20 + 25) / 3
+  assert.equal(r.pacientes_atrasados, 1);
+  assert.deepEqual(r.faixas.map((f) => f.n), [1, 1, 0, 1]);
+  assert.deepEqual(r.por_dia, [{ dia: "2026-11-20", n: 2, media: 13 }, { dia: "2026-11-21", n: 1, media: 65 }]);
+  assert.equal(r.por_profissional[0].prestador_id, "101");
+  assert.equal(r.por_profissional[0].pacientes, 2);
+});
+
+test("relatório: cronômetro aberto não conta; fora do normal é descartado", () => {
+  const r = resumoEspera([
+    linha("2026-11-23", "14:00", "13:55", null, null),                // aguardando agora
+    linha("2026-11-23", "14:30", "14:20", "14:30", null),             // em consulta agora
+    linha("2026-11-20", "10:00", "09:50", null, null),                // esquecido aberto
+    linha("2026-11-20", "08:00", "07:00", "12:30", "12:40"),          // espera de 5h30: descartada (a consulta vale)
+    linha("2026-11-20", "11:00", "11:00", "11:05", "11:05"),          // consulta de 0 min: descartada
+  ], "2026-11-23");
+  assert.deepEqual(r.agora, { aguardando: 1, em_consulta: 1 });
+  assert.equal(r.esquecidos, 1);
+  assert.equal(r.descartadas, 2);
+  assert.equal(r.esperas_medidas, 2);  // 10 (em consulta agora) e 5
+  assert.equal(r.consultas_medidas, 1); // a espera de 5h30 sai, mas a consulta de 10 min daquela linha vale
+  assert.equal(r.consulta_media, 10);
+});
