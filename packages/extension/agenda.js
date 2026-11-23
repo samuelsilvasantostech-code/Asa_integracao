@@ -175,6 +175,7 @@
     $('sheet').textContent = '';
     $('grid').textContent = '';
     $('day-sum').textContent = '';
+    $('day-upd').hidden = true;
     $('sheet').hidden = multi;
     $('grid').hidden = !multi;
     if (!list.length) {
@@ -212,6 +213,9 @@
 
   // Situação geral, depois que todas as colunas responderam.
   function viewStatus() {
+    var agora = new Date();
+    $('day-upd-text').textContent = 'Atualizado às ' + String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0') + '.';
+    $('day-upd').hidden = false;
     if (sel.view === 'dia') {
       var c = cols[0];
       if (c.erro) { status('day-status', c.erro, 'err'); return; }
@@ -1008,6 +1012,7 @@
     $('sr-back').addEventListener('click', function () { side('s-book'); });
     $('sd-close').addEventListener('click', closeSide);
     $('g-retry').addEventListener('click', connect);
+    $('day-refresh').addEventListener('click', loadView);
 
     setView(recall('view'));
     side('s-empty');

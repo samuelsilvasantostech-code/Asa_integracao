@@ -4,6 +4,11 @@
 
   function applyTheme(t) {
     var mode = t && typeof t === 'object' ? t.mode : t;
+    if (typeof mode !== 'string' || !mode) {
+      // O host não disse o tema (tela aberta fora da Kentro): segue o do sistema operacional.
+      var mq = root.matchMedia && root.matchMedia('(prefers-color-scheme: dark)');
+      mode = mq && mq.matches ? 'dark' : 'light';
+    }
     document.documentElement.setAttribute('data-theme', mode === 'dark' ? 'dark' : 'light');
   }
 

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClinFy</title>
-<link rel="stylesheet" href="styles.css?v=0.29.0">
+<link rel="stylesheet" href="styles.css?v=0.30.0">
 </head>
 <body class="page-hub">
 <!-- Gerado por packages/connector/tools/montar-clinfy.ts a partir de agenda, painel, config e confirmacao. Não editar à mão. -->
@@ -72,13 +72,14 @@
 
     <div class="banner" id="rs-banner" hidden>
       <span id="rs-text"></span>
-      <button class="btn" id="rs-stop" type="button">Desistir de remarcar</button>
+      <button class="btn btn--sm" id="rs-stop" type="button">Desistir de remarcar</button>
     </div>
 
     <div class="split">
       <section class="day" aria-labelledby="day-title">
         <h2 class="sr" id="day-title">Consultas</h2>
         <p class="day__sum" id="day-sum"></p>
+        <p class="day__upd" id="day-upd" hidden><span id="day-upd-text"></span> <button class="link" id="day-refresh" type="button">Atualizar</button></p>
         <div class="kpis" id="day-kpis" hidden></div>
         <p class="muted" id="day-status" role="status">Escolha a especialidade e o profissional.</p>
         <ol class="sheet" id="sheet"></ol>
@@ -456,14 +457,14 @@
 </div>
 </div>
 </section>
-<script src="core.js?v=0.29.0"></script>
-<script src="api.js?v=0.29.0"></script>
-<script src="bridge.js?v=0.29.0"></script>
-<script src="cobranca.js?v=0.29.0"></script>
-<script src="hub.js?v=0.29.0"></script>
-<script src="agenda.js?v=0.29.0"></script>
-<script src="painel.js?v=0.29.0"></script>
-<script src="config.js?v=0.29.0"></script>
-<script src="confirmacao.js?v=0.29.0"></script>
+<script src="core.js?v=0.30.0"></script>
+<script src="api.js?v=0.30.0"></script>
+<script src="bridge.js?v=0.30.0"></script>
+<script src="cobranca.js?v=0.30.0"></script>
+<script src="hub.js?v=0.30.0"></script>
+<script src="agenda.js?v=0.30.0"></script>
+<script src="painel.js?v=0.30.0"></script>
+<script src="config.js?v=0.30.0"></script>
+<script src="confirmacao.js?v=0.30.0"></script>
 </body>
 </html>

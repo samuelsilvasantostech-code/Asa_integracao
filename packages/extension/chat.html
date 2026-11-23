@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClinFy</title>
-<link rel="stylesheet" href="styles.css?v=0.29.0">
+<link rel="stylesheet" href="styles.css?v=0.30.0">
 </head>
 <body>
 <div class="app">
@@ -38,7 +38,7 @@
     <section id="v-chat" class="view" hidden>
       <div class="hero">
         <div class="contact">
-          <span class="avatar avatar--lg" id="avatar" aria-hidden="true"></span>
+          <span class="avatar" id="avatar" aria-hidden="true"></span>
           <div class="contact__info">
             <div class="contact__name" id="c-name">—</div>
             <div class="contact__phone" id="c-phone">—</div>
@@ -46,7 +46,7 @@
         </div>
         <div class="tags" id="c-tags" hidden></div>
         <button class="next" id="c-next" type="button" hidden>
-          <span class="next__label">Próxima consulta</span>
+          <span class="next__label">Próxima</span>
           <span class="next__when" id="c-next-when"></span>
           <span class="next__who" id="c-next-who"></span>
         </button>
@@ -106,7 +106,7 @@
         <section class="pane" id="pane-agendar" role="tabpanel" aria-labelledby="tab-agendar" hidden>
           <div class="banner" id="a-remarcar" hidden>
             <span id="a-remarcar-text"></span>
-            <button class="btn" id="a-remarcar-sair" type="button">Desistir</button>
+            <button class="btn btn--sm" id="a-remarcar-sair" type="button">Desistir</button>
           </div>
           <div class="chips" role="group" aria-label="Como agendar">
             <button class="chip" type="button" id="a-mode-prof" aria-pressed="true">Por profissional</button>
@@ -184,8 +184,10 @@
               <span>Observação (opcional)</span>
               <textarea id="b-obs" rows="2" maxlength="500"></textarea>
             </label>
-            <button class="btn btn--primary" id="b-review" type="submit">Revisar</button>
-            <p class="muted" id="b-status" role="status"></p>
+            <div class="booking__bar">
+              <button class="btn btn--primary" id="b-review" type="submit">Revisar</button>
+              <p class="muted" id="b-status" role="status"></p>
+            </div>
           </form>
 
           <div class="booking booking--review" id="b-confirm" hidden>
@@ -217,11 +219,15 @@
       </div>
     </section>
   </main>
+  <div class="toast" id="toast" hidden>
+    <span class="toast__text" id="toast-text" role="status"></span>
+    <button class="toast__close" id="toast-close" type="button" aria-label="Fechar aviso">×</button>
+  </div>
 </div>
-<script src="core.js?v=0.29.0"></script>
-<script src="api.js?v=0.29.0"></script>
-<script src="bridge.js?v=0.29.0"></script>
-<script src="cobranca.js?v=0.29.0"></script>
-<script src="app.js?v=0.29.0"></script>
+<script src="core.js?v=0.30.0"></script>
+<script src="api.js?v=0.30.0"></script>
+<script src="bridge.js?v=0.30.0"></script>
+<script src="cobranca.js?v=0.30.0"></script>
+<script src="app.js?v=0.30.0"></script>
 </body>
 </html>

@@ -48,6 +48,17 @@
     B.fitHeight();
   }
 
+  /* ---------- aviso fixo no rodapé ---------- */
+  var toastTimer = null;
+  function toast(text, tone) {
+    var t = $('toast');
+    $('toast-text').textContent = text;
+    if (tone) t.setAttribute('data-tone', tone); else t.removeAttribute('data-tone');
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, tone === 'err' ? 15000 : 7000);
+  }
+
   /* ---------- paciente e consultas ---------- */
   function resetPatient() {
     patient = null;
@@ -89,11 +100,17 @@
   // Resumo da próxima consulta no topo do painel, visível em qualquer aba; o toque abre Consultas.
   function renderNext(c) {
     if (!c) { $('c-next').hidden = true; return; }
-    var when = $('c-next-when');
-    when.textContent = whenText(c);
+    var btn = $('c-next');
+    $('c-next-when').textContent = whenText(c);
+    // O selo fica fora da data: numa linha só, a data pode encurtar, o andamento da confirmação não.
+    var antigo = btn.querySelector('.seal');
+    if (antigo) antigo.remove();
     var selo = confirmacaoSelo(c.confirmacao);
-    if (selo) when.appendChild(selo);
-    $('c-next-who').textContent = [c.prestador, c.procedimentos.join(', ')].filter(Boolean).join(' · ');
+    if (selo) btn.insertBefore(selo, $('c-next-who'));
+    var who = [c.prestador, c.procedimentos.join(', ')].filter(Boolean).join(' · ');
+    $('c-next-who').textContent = who;
+    btn.title = who;
+    btn.setAttribute('aria-label', 'Próxima consulta: ' + whenText(c) + (selo ? ', ' + selo.textContent : '') + (who ? ', ' + who : '') + '. Abrir Consultas.');
     $('c-next').hidden = false;
   }
 
@@ -161,18 +178,18 @@
       box.textContent = '';
       var cf = C.confirmationState(c.confirmacao);
       // Só quando o ERP da clínica tem as rotas de confirmação (capacidade detectada na implantação).
-      if (api.capacidades.confirmacao && !(cf && cf.answered)) box.appendChild(button(cf ? 'Reenviar confirmação' : 'Enviar confirmação', null, function (ev) { sendConfirmation(c, box, ev.currentTarget); }));
-      box.appendChild(button('Remarcar', null, function () { startReschedule(c); }));
-      if (C.canCharge(fin, userType)) box.appendChild(button('Cobrar', null, function () { openCharge(c.id); }));
-      var cancel = button('Cancelar', 'btn--danger btn--apart', ask);
+      if (api.capacidades.confirmacao && !(cf && cf.answered)) box.appendChild(button(cf ? 'Reenviar confirmação' : 'Enviar confirmação', 'btn--sm', function (ev) { sendConfirmation(c, box, ev.currentTarget); }));
+      box.appendChild(button('Remarcar', 'btn--sm', function () { startReschedule(c); }));
+      if (C.canCharge(fin, userType)) box.appendChild(button('Cobrar', 'btn--sm', function () { openCharge(c.id); }));
+      var cancel = button('Cancelar', 'btn--sm btn--danger btn--apart', ask);
       box.appendChild(cancel);
       if (refocus) cancel.focus();
     }
     function ask() {
       box.textContent = '';
       box.appendChild(el('span', 'item__ask', 'Cancelar a consulta de ' + whenText(c) + ' ' + C.sis('na') + '?'));
-      box.appendChild(button('Sim, cancelar', 'btn--danger', function (ev) { doCancel(c, box, ev.currentTarget); }));
-      var nao = button('Não', null, function () { normal(true); });
+      box.appendChild(button('Sim, cancelar', 'btn--sm btn--danger', function (ev) { doCancel(c, box, ev.currentTarget); }));
+      var nao = button('Não', 'btn--sm', function () { normal(true); });
       box.appendChild(nao);
       nao.focus();
     }
@@ -188,12 +205,13 @@
       if (s !== seq) return; // outra conversa: o aviso cairia sobre outro paciente
       if (r.status === 200 && r.body && r.body.ok) {
         var notice = C.confirmationSent(r.body);
+        toast(notice);
         if (by) findPatient(by, s, notice); else status('c-status', notice);
         return;
       }
       box.textContent = '';
       box.appendChild(el('span', 'item__ask', C.confirmationError(r.status, r.body)));
-      box.appendChild(button('Voltar', null, function () { var nova = consultaActions(c); box.parentNode.replaceChild(nova, box); if (nova.firstChild) nova.firstChild.focus(); }));
+      box.appendChild(button('Voltar', 'btn--sm', function () { var nova = consultaActions(c); box.parentNode.replaceChild(nova, box); if (nova.firstChild) nova.firstChild.focus(); }));
       B.fitHeight();
     });
   }
@@ -228,6 +246,7 @@
       if (s !== seq) return; // outra conversa: o aviso cairia sobre outro paciente
       if (r.status === 200 && r.body && r.body.ok) {
         var notice = 'Consulta de ' + whenText(c) + (' cancelada ' + C.sis('na') + '.');
+        toast(notice);
         if (by) findPatient(by, s, notice); else status('c-status', notice);
         return;
       }
@@ -237,7 +256,7 @@
       box.appendChild(el('span', 'item__ask', erro === 'CONSULTA_NAO_ENCONTRADA'
         ? ('Essa consulta não está mais na lista do paciente ' + C.sis('na') + '. Atualize.')
         : C.bookingError(r.status, r.body)));
-      box.appendChild(button('Voltar', null, function () { var nova = consultaActions(c); box.parentNode.replaceChild(nova, box); if (nova.firstChild) nova.firstChild.focus(); }));
+      box.appendChild(button('Voltar', 'btn--sm', function () { var nova = consultaActions(c); box.parentNode.replaceChild(nova, box); if (nova.firstChild) nova.firstChild.focus(); }));
       B.fitHeight();
     });
   }
@@ -795,6 +814,8 @@
       b.insurances = r.body.convenios;
       fillSelect($('b-conv'), b.insurances, function (c) { return c.nome; }, 'Nenhum convênio aceito neste horário');
       if (b.prefer && find(b.insurances, b.prefer.convenio_id)) { $('b-conv').value = b.prefer.convenio_id; onInsurance(); }
+      // Cursor no primeiro campo, só se o atendente não foi para outro lugar enquanto carregava.
+      else if (!$('b-conv').disabled && (document.activeElement === document.body || $('a-horas').contains(document.activeElement))) $('b-conv').focus({ preventScroll: true });
       B.fitHeight();
     });
     B.fitHeight();
@@ -899,8 +920,8 @@
         // O formulário fechou (outra conversa, outro horário) antes da resposta: o resultado não pode sumir,
         // senão o atendente marca de novo e a consulta fica duplicada.
         var oque = 'A consulta de ' + b.who + ' em ' + C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario;
-        if (r.status === 200 && r.body && r.body.ok) status('a-status', oque + (b.original ? ' foi remarcada ' : ' foi marcada ') + C.sis('na') + '.');
-        else if (erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || (r.status === 0 && !erro)) status('a-status', 'Não deu para confirmar se ' + oque.charAt(0).toLowerCase() + oque.slice(1) + ' foi gravada. Confira ' + C.sis('na') + ' antes de marcar de novo.', 'err');
+        if (r.status === 200 && r.body && r.body.ok) toast(oque + (b.original ? ' foi remarcada ' : ' foi marcada ') + C.sis('na') + '.');
+        else if (erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || (r.status === 0 && !erro)) toast('Não deu para confirmar se ' + oque.charAt(0).toLowerCase() + oque.slice(1) + ' foi gravada. Confira ' + C.sis('na') + ' antes de marcar de novo.', 'err');
         return;
       }
       if (r.status === 200 && r.body && r.body.ok) { bookingDone(b, r.body); return; }
@@ -1044,6 +1065,7 @@
     $('p-new').addEventListener('submit', submitNewPatient);
     $('pn-cancel').addEventListener('click', function () { closeNewPatient(); $('p-new-open').hidden = !api.capacidades.cadastro_paciente; B.fitHeight(); });
     ['pn-nome', 'pn-cpf', 'pn-nasc', 'pn-tel'].forEach(function (id) { $(id).addEventListener('input', function () { newPatientKey = null; }); });
+    $('toast-close').addEventListener('click', function () { clearTimeout(toastTimer); $('toast').hidden = true; });
     $('conn-retry').addEventListener('click', function () {
       if (!chat) return;
       // A chave pode ter sido cadastrada depois que o painel abriu.

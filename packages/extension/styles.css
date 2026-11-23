@@ -156,7 +156,8 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .item__who { margin-top: 1px; font-weight: 550; }
 .item__proc { margin-top: 1px; color: var(--muted); font-size: 12px; }
 .item__actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
-.item__actions .btn { margin-top: 0; min-height: 32px; padding: 5px 11px; font-size: 12px; }
+.btn--sm { min-height: 32px; padding: 5px 11px; font-size: 12px; }
+.item__actions .btn { margin-top: 0; }
 .btn--apart { margin-left: auto; }
 .item__ask { flex-basis: 100%; font-size: 12px; color: var(--err); }
 
@@ -191,7 +192,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 
 .banner { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--remind-soft); color: var(--remind); font-weight: 600; font-size: 12.5px; }
 .banner[hidden] { display: none; }
-.banner .btn { margin-top: 0; padding: 4px 10px; font-weight: 500; }
+.banner .btn { margin-top: 0; font-weight: 500; }
 
 /* ---------- estados ---------- */
 .state { align-items: center; text-align: center; padding: 32px 12px; }
@@ -411,24 +412,28 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 /* ================= 0.18: faixa do topo, painel do contato e painel da clínica ================= */
 
 /* ---------- painel da conversa: a faixa do topo continua no cartão do contato ---------- */
-.hero { margin: -12px -14px 0; padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 10px; background: var(--deep); color: var(--on-deep); }
+.hero { margin: -12px -14px 0; padding: 2px 14px 10px; display: flex; flex-direction: column; gap: 8px; background: var(--deep); color: var(--on-deep); }
 .hero .avatar { background: var(--on-deep-line); color: var(--on-deep); }
-.hero .contact__name { font-family: var(--display); font-size: 16px; }
+.hero .contact__info { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+.hero .contact__name { font-family: var(--display); font-size: 15px; }
 .hero .contact__phone { color: var(--on-deep-muted); }
 .avatar--lg { width: 42px; height: 42px; font-size: 14px; }
 .avatar--sm { width: 28px; height: 28px; font-size: 11px; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.hero .tags { flex-wrap: nowrap; overflow: hidden; }
+.hero .tag { flex: none; }
 .tags[hidden] { display: none; }
 .tag { padding: 2px 9px; border-radius: 999px; background: var(--on-deep-line); color: var(--on-deep); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .tag[data-tone="ok"]::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--deep-ok); }
-.next { display: grid; gap: 1px; width: 100%; padding: 9px 12px 10px; border: 1px solid var(--on-deep-line); border-left: 3px solid var(--deep-warn); border-radius: var(--r-sm); background: rgba(255, 255, 255, .06); color: var(--on-deep); font: inherit; text-align: left; cursor: pointer; }
+.next { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 6px 10px; border: 1px solid var(--on-deep-line); border-left: 3px solid var(--deep-warn); border-radius: var(--r-sm); background: rgba(255, 255, 255, .06); color: var(--on-deep); font: inherit; text-align: left; cursor: pointer; }
 .next[hidden] { display: none; }
 .next:hover { background: rgba(255, 255, 255, .11); }
 .next:focus-visible { outline-color: var(--deep-mint); }
 .next__label { color: var(--deep-warn); font-size: 11.5px; font-weight: 600; }
-.next__when { font-family: var(--display); font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.next__label { flex: none; }
+.next__when { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--display); font-size: 13.5px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .next__who { color: var(--on-deep-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.next__who:empty { display: none; }
+.next__who { display: none; } /* fica no rótulo do botão e na aba Consultas */
 
 /* Ficha do paciente em blocos. */
 #p-facts { grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -645,3 +650,23 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 @media (max-width: 760px) { .page-hub .page-agenda .app { height: auto; min-height: calc(100vh - var(--hub-bar)); } }
 .hub__cfg { display: flex; flex-direction: column; gap: 14px; padding-bottom: 28px; }
 .hub__cfg .app { margin: 0 auto; width: 100%; }
+
+/* ---------- aviso fixo (resultado de cancelar, confirmar e agendar) ---------- */
+.toast { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 20; display: flex; align-items: flex-start; gap: 8px; padding: 10px 8px 10px 12px; border-radius: var(--r-md); background: var(--deep); color: var(--on-deep); box-shadow: 0 6px 24px rgba(0, 0, 0, .22); font-size: 12.5px; }
+.toast[hidden] { display: none; }
+.toast::before { content: ""; flex: none; width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--deep-ok); }
+.toast[data-tone="err"]::before { background: var(--deep-err); }
+.toast__text { flex: 1; min-width: 0; }
+.toast__close { flex: none; width: 28px; height: 28px; margin: -5px 0; border: 0; border-radius: var(--r-sm); background: none; color: var(--on-deep-muted); font: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+.toast__close:hover { background: var(--on-deep-line); color: var(--on-deep); }
+body:has(.toast:not([hidden])) .body { padding-bottom: 72px; }
+
+/* ---------- agendar: o botão Revisar fica sempre à vista ---------- */
+.booking__bar { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 4px; margin: 4px -12px -12px; padding: 10px 12px 12px; border-top: 1px solid var(--border); border-radius: 0 0 var(--r-md) var(--r-md); background: var(--surface); }
+.booking__bar .btn { margin-top: 0; }
+.booking__bar .muted:empty { display: none; }
+
+/* ---------- agenda: quando foi a última atualização ---------- */
+.day__upd { margin: -8px 0 12px; color: var(--muted); font-size: 12px; }
+.day__upd[hidden] { display: none; }
+.next .seal { flex: none; margin-left: auto; }
