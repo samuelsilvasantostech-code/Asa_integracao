@@ -397,8 +397,14 @@
   }
 
   /* ---------- consulta do dia: confirmar, falta, cancelar, remarcar ---------- */
+  // A consulta aberta na lateral agora. Respostas que chegam depois só redesenham a lateral se ela
+  // ainda mostra a mesma consulta (o atendente pode ter clicado em outra enquanto esperava).
+  var shownAppt = null;
+  function stillShowing(a) { return shownAppt === a && !$('s-appt').hidden; }
+
   function showAppt(a, c) {
     var info = C.statusInfo(a.status);
+    shownAppt = a;
     side('s-appt');
     $('sa-time').textContent = C.formatDay(c.day) + ' · ' + (a.hora || '--:--');
     $('sa-seal').textContent = info.label;
@@ -454,13 +460,14 @@
     Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
     btn.textContent = 'Enviando…';
     api.sendConfirmation({ agendamento_id: a.id, busca: { telefone: a.paciente.telefone }, usuario: userLabel || undefined }).then(function (r) {
+      var here = stillShowing(a);
       if (r.status === 200 && r.body && r.body.ok) {
         a.confirmacao = { estado: 'fila', resposta: null };
-        showAppt(a, c);
-        status('sa-status', C.confirmationSent(r.body));
+        if (here) { showAppt(a, c); status('sa-status', C.confirmationSent(r.body)); }
         if (cols.indexOf(c) >= 0) renderCol(c);
         return;
       }
+      if (!here) return;
       apptActions(a, C.statusInfo(a.status), c);
       status('sa-status', C.confirmationError(r.status, r.body), 'err');
     });
@@ -468,7 +475,9 @@
 
   // Enquanto houver confirmação esperando resposta na tela, a agenda se atualiza sozinha a cada minuto.
   function refreshWaiting() {
-    if (document.hidden || !$('s-book').hidden || !$('s-review').hidden) return;
+    if (document.hidden || !$('ws').offsetParent) return; // aba ou tela escondida (Painel/Configurar na tela única)
+    if (!$('s-book').hidden || !$('s-review').hidden || !$('s-charge').hidden) return;
+    if ($('s-appt').querySelector('.item__ask, button:disabled')) return; // "Sim, cancelar?" ou ação em andamento
     var waiting = cols.some(function (c) {
       return c.data && (c.data.agendados || []).some(function (a) { var cf = C.confirmationState(a.confirmacao); return cf && cf.waiting; });
     });
@@ -484,15 +493,16 @@
     a.keys = a.keys || {};
     var key = a.keys[st] || (a.keys[st] = C.newKey()); // a mesma chave numa nova tentativa
     api.setStatus(a.id, { chave: key, status: st, prestador_id: c.prest, data: c.day, usuario: userLabel || undefined }).then(function (r) {
+      var here = stillShowing(a);
       if (r.status === 200 && r.body && r.body.ok) {
         a.status = st;
-        showAppt(a, c);
-        status('sa-status', DONE(st));
+        if (here) { showAppt(a, c); status('sa-status', DONE(st)); }
         if (cols.indexOf(c) >= 0) renderCol(c); // a coluna ainda está na tela
         return;
       }
       var erro = r.body && r.body.erro;
       if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') a.keys[st] = null;
+      if (!here) { if (erro === 'CONSULTA_NAO_ENCONTRADA') loadView(); return; }
       apptActions(a, C.statusInfo(a.status), c);
       status('sa-status', erro === 'CONSULTA_NAO_ENCONTRADA'
         ? ('Essa consulta não está mais na agenda deste dia ' + C.sis('na') + '. A agenda foi atualizada.')
@@ -509,6 +519,7 @@
     api.patient(busca).then(function (r) {
       btn.disabled = false;
       btn.textContent = 'Remarcar';
+      if (!stillShowing(a)) return; // o atendente já saiu desta consulta
       var c = r.status === 200 && r.body && r.body.encontrado && find(r.body.consultas || [], a.id);
       if (!c || !r.body.paciente.id) {
         status('sa-status', r.status === 200 ? 'Não achei esta consulta pelo telefone do paciente. Busque o paciente pelo CPF e remarque por lá.' : C.readError(r.status, r.body), 'err');
@@ -527,6 +538,7 @@
     api.patient(busca).then(function (r) {
       btn.disabled = false;
       btn.textContent = 'Lançar cobrança';
+      if (!stillShowing(a)) return; // o atendente já saiu desta consulta
       if (!(r.status === 200 && r.body && r.body.encontrado && r.body.paciente.id)) {
         status('sa-status', r.status === 200 ? 'Não achei o paciente pelo telefone desta consulta. Busque pelo CPF e lance por lá.' : C.readError(r.status, r.body), 'err');
         return;

@@ -185,10 +185,13 @@
 
   // Histórico das contas lançadas pela Kentro para o paciente (a Asa não devolve as contas).
   function history(list, api, patientId, fit) {
+    // Só a última chamada desenha: a resposta atrasada de outro paciente não pode cair nesta lista.
+    var req = list.clinfyReq = (list.clinfyReq || 0) + 1;
     list.textContent = '';
     var wait = el('li', 'muted', 'Carregando as cobranças…');
     list.appendChild(wait);
     return api.charges(patientId).then(function (r) {
+      if (req !== list.clinfyReq) return;
       list.textContent = '';
       if (r.status !== 200 || !r.body) { list.appendChild(el('li', 'muted', C.readError(r.status, r.body))); (fit || function () {})(); return; }
       var items = r.body.cobrancas || [];

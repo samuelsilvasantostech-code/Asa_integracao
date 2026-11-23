@@ -51,6 +51,8 @@
     patient = null;
     consultas = [];
     $('f-box').textContent = '';
+    $('f-list').textContent = ''; // histórico de cobranças do paciente anterior
+    $('f-list').clinfyReq = ($('f-list').clinfyReq || 0) + 1; // e a carga dele que ainda esteja chegando
     $('p-facts').hidden = true;
     $('p-search').hidden = true;
     closeNewPatient();
@@ -175,10 +177,12 @@
   function sendConfirmation(c, box, btn) {
     Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
     btn.textContent = 'Enviando…';
-    api.sendConfirmation({ agendamento_id: c.id, busca: lastLookup, usuario: userLabel || undefined }).then(function (r) {
+    var s = seq, by = lastLookup; // a conversa pode mudar antes da resposta
+    api.sendConfirmation({ agendamento_id: c.id, busca: by, usuario: userLabel || undefined }).then(function (r) {
+      if (s !== seq) return; // outra conversa: o aviso cairia sobre outro paciente
       if (r.status === 200 && r.body && r.body.ok) {
         var notice = C.confirmationSent(r.body);
-        if (lastLookup) findPatient(lastLookup, seq, notice); else status('c-status', notice);
+        if (by) findPatient(by, s, notice); else status('c-status', notice);
         return;
       }
       box.textContent = '';
@@ -188,20 +192,37 @@
     });
   }
 
-  // Enquanto alguma consulta espera a resposta do paciente, a lista se atualiza a cada minuto.
+  // Algo aberto que a atualização automática apagaria: agendamento, cobrança, cadastro, "Sim, cancelar?"
+  // ou uma ação em andamento (botões desabilitados).
+  function userBusy() {
+    return !!(booking || $('f-box').firstChild || !$('p-new').hidden || $('c-list').querySelector('.item__ask, button:disabled'));
+  }
+
+  // Enquanto alguma consulta espera a resposta do paciente, a lista se atualiza a cada minuto, em silêncio:
+  // só as consultas, sem limpar o painel, e nunca por cima do que o atendente está fazendo.
   setInterval(function () {
-    if (document.hidden || !lastLookup || booking) return;
-    if (consultas.some(function (c) { var cf = C.confirmationState(c.confirmacao); return cf && cf.waiting; })) findPatient(lastLookup, seq);
+    if (document.hidden || !lastLookup || !patient || userBusy()) return;
+    if (!consultas.some(function (c) { var cf = C.confirmationState(c.confirmacao); return cf && cf.waiting; })) return;
+    var s = seq, by = lastLookup;
+    api.patient(by).then(function (r) {
+      if (s !== seq || by !== lastLookup || userBusy()) return;
+      if (!(r.status === 200 && r.body && r.body.encontrado)) return; // falha momentânea: tenta no próximo minuto
+      patient = r.body.paciente;
+      renderConsultas(r.body.consultas);
+      B.fitHeight();
+    });
   }, 60000);
 
   function doCancel(c, box, btn) {
     Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
     btn.textContent = 'Cancelando…';
     var key = c.cancelKey || (c.cancelKey = C.newKey()); // a mesma chave numa nova tentativa
-    api.cancel(c.id, { chave: key, busca: lastLookup, usuario: userLabel || undefined }).then(function (r) {
+    var s = seq, by = lastLookup; // a conversa pode mudar antes da resposta
+    api.cancel(c.id, { chave: key, busca: by, usuario: userLabel || undefined }).then(function (r) {
+      if (s !== seq) return; // outra conversa: o aviso cairia sobre outro paciente
       if (r.status === 200 && r.body && r.body.ok) {
         var notice = 'Consulta de ' + whenText(c) + (' cancelada ' + C.sis('na') + '.');
-        if (lastLookup) findPatient(lastLookup, seq, notice); else status('c-status', notice);
+        if (by) findPatient(by, s, notice); else status('c-status', notice);
         return;
       }
       var erro = r.body && r.body.erro;
@@ -371,6 +392,10 @@
 
   function onSpecialty() {
     var esp = $('a-esp').value, sel = $('a-prest');
+    ++dayReq; ++slotReq; // dias e horários do profissional anterior que ainda estejam chegando não valem mais
+    closeBooking();
+    $('a-dias').textContent = '';
+    $('a-horas').textContent = '';
     sel.textContent = '';
     $('a-dias-wrap').hidden = true;
     $('a-horas-wrap').hidden = true;
@@ -393,6 +418,7 @@
   var dayReq = 0;
   function onProvider(pick) {
     var id = typeof pick === 'string' ? pick : $('a-prest').value, box = $('a-dias'), r0 = ++dayReq;
+    ++slotReq; // horários de outro profissional ainda chegando
     closeBooking();
     $('a-horas-wrap').hidden = true;
     box.textContent = '';
@@ -461,6 +487,7 @@
     $('a-by-prof').hidden = byExam;
     $('a-by-exam').hidden = !byExam;
     exam = byExam ? { results: [], group: null, item: null, insurances: [], insurance: null, providers: [] } : null;
+    ++dayReq; ++slotReq; // respostas do outro modo que ainda estejam chegando não valem mais
     hideFrom(0);
     $('a-prest').value = '';
     closeBooking();
@@ -822,6 +849,7 @@
     b.conv = conv;
     b.proc = proc;
     b.obs = $('b-obs').value.trim();
+    b.who = patient ? patient.nome : np.value.nome;
 
     var dl = $('b-summary');
     dl.textContent = '';
@@ -860,9 +888,16 @@
     }, b.slot, b.patient);
     api.book(payload).then(function (r) {
       $('b-back').disabled = false;
-      if (booking !== b) return;
-      if (r.status === 200 && r.body && r.body.ok) { bookingDone(b, r.body); return; }
       var erro = r.body && r.body.erro;
+      if (booking !== b) {
+        // O formulário fechou (outra conversa, outro horário) antes da resposta: o resultado não pode sumir,
+        // senão o atendente marca de novo e a consulta fica duplicada.
+        var oque = 'A consulta de ' + b.who + ' em ' + C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario;
+        if (r.status === 200 && r.body && r.body.ok) status('a-status', oque + (b.original ? ' foi remarcada ' : ' foi marcada ') + C.sis('na') + '.');
+        else if (erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || (r.status === 0 && !erro)) status('a-status', 'Não deu para confirmar se ' + oque.charAt(0).toLowerCase() + oque.slice(1) + ' foi gravada. Confira ' + C.sis('na') + ' antes de marcar de novo.', 'err');
+        return;
+      }
+      if (r.status === 200 && r.body && r.body.ok) { bookingDone(b, r.body); return; }
       status('b-confirm-status', C.bookingError(r.status, r.body), 'err');
       // Recusa definitiva: um novo pedido precisa de chave nova. Incerto, sem resposta ou em andamento:
       // mantém a chave, e o botão passa a só conferir (o Conector nunca grava duas vezes a mesma chave).
@@ -931,6 +966,10 @@
     if (C.queueList(cfg.queueIds).indexOf(Number(chat.queueId)) < 0) { pill('idle', 'Inativo'); show('v-off'); return; }
     show('v-chat');
     pill('idle', 'Verificando');
+    // Some com o paciente da conversa anterior (e seus botões Cancelar/Remarcar) antes da busca nova.
+    resetPatient();
+    lastLookup = null;
+    status('p-status', '');
     renderContact(chat.contact && chat.contact.name, '');
     var phone = !chat.contactId ? Promise.resolve('') : omni.contacts.get(chat.contactId).then(function (ct) {
       if (s === seq && ct) renderContact(ct.name || ct.nickname, C.contactPhone(ct));
