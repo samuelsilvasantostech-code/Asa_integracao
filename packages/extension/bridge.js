@@ -14,7 +14,7 @@
 
   // O host monta o chatPanel sem altura; omni.ui.resize(px) é o mecanismo oficial. O painel se
   // estica, mede quanto o host deixa visível e pede exatamente isso.
-  var fit = { busy: false, again: false, probe: null, timer: null, key: '', at: 0 };
+  var fit = { busy: false, force: true, probe: null, timer: null, key: '' };
   function measureVisible() {
     return new Promise(function (resolve) {
       var probe = fit.probe || (fit.probe = Object.assign(document.createElement('div'), { style: 'position:absolute;left:0;top:0;width:1px;height:100%;pointer-events:none' }));
@@ -39,15 +39,16 @@
 
   // A medida depende só da área que o host deixa visível, não do conteúdo. Por isso as telas podem chamar
   // fitHeight à vontade: as chamadas em sequência viram uma só, e a medida só é refeita quando a área pode
-  // ter mudado (largura da janela ou da tela diferente) ou depois de um tempo.
-  var REMEDIR_MS = 10000;
+  // ter mudado (largura da janela ou da tela diferente) ou quando o painel é aberto de novo (force).
+  // Medir estica o painel e encolhe de volta: refazer por tempo fazia o painel pular a cada clique.
   function viewportKey() { return [root.innerWidth, screen.availWidth, screen.availHeight].join('x'); }
 
   function runFit() {
     var omni = root.omni;
     if (!omni || !omni.ui || !omni.ui.resize) return;
-    if (fit.busy) { fit.again = true; return; } // ao terminar, mede de novo em vez de perder o pedido
-    if (fit.key === viewportKey() && Date.now() - fit.at < REMEDIR_MS) return;
+    if (fit.busy) return; // ao terminar, mede de novo se algum pedido forçado chegou no meio
+    if (!fit.force && fit.key === viewportKey()) return;
+    fit.force = false;
     fit.busy = true;
     resize(omni, 2400)
       .then(function () { return new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); }); })
@@ -61,8 +62,9 @@
       .then(function () {
         fit.busy = false;
         fit.key = viewportKey();
-        fit.at = Date.now();
-        if (fit.again) { fit.again = false; fit.at = 0; schedule(); }
+        // O host pode ainda estar montando o painel na primeira medida: confere uma vez, logo depois.
+        if (!fit.checked) { fit.checked = true; setTimeout(function () { fitHeight(true); }, 4000); }
+        if (fit.force) schedule();
       });
   }
 
@@ -71,14 +73,15 @@
     fit.timer = setTimeout(runFit, 120);
   }
 
-  function fitHeight() {
+  function fitHeight(force) {
+    if (force === true) fit.force = true;
     schedule();
     return Promise.resolve();
   }
 
   // A janela mudou de largura (o host redimensionou o painel): a próxima chamada mede de novo.
   root.addEventListener && root.addEventListener('resize', function () {
-    if (!fit.busy && fit.key !== viewportKey()) { fit.at = 0; schedule(); }
+    if (fit.key !== viewportKey()) schedule();
   });
 
   root.AsaBridge = { applyTheme: applyTheme, fitHeight: fitHeight };

@@ -4,6 +4,7 @@ import { hojeEm } from "../confirmacao.js";
 import type { FalhaErp, Resultado } from "../erp/index.js";
 import { telefoneNacional, type Consulta } from "../erp/modelo.js";
 import { Limite } from "../limite.js";
+import { Cache, chaveDaClinica, guardavel } from "../cache.js";
 import { erpDaRequisicao, tenantComErp } from "../tenant-auth.js";
 
 // Rotas de LEITURA do ERP da clínica para o painel. Nada aqui grava no ERP.
@@ -27,8 +28,9 @@ export function naoEncontrado(r: Resultado<unknown> | null): boolean {
 // equipe grande no pico; mais que isso é varredura de CPF/telefone com uma chave vazada.
 const buscasPorClinica = new Limite(300, 60 * 1000);
 
-const AGENDA_CACHE_MS = 5 * 60 * 1000;
-const cacheAgenda = new Map<string, { em: number; corpo: unknown }>();
+// Especialidades e profissionais: 5 min. Dias com atendimento: 1 min (um dia pode lotar).
+const cacheAgenda = new Cache<any>(5 * 60 * 1000, 500);
+const cacheDias = new Cache<any>(60 * 1000);
 
 // Estado da confirmação (véspera ou botão do atendente) de cada consulta, para o selo. "fila" = pedido
 // manual que ainda não saiu.
@@ -94,20 +96,18 @@ export async function consultaRoutes(app: FastifyInstance) {
   app.get("/v1/agenda", async (req, reply) => {
     const ctx = await tenantComErp(req, reply);
     if (!ctx) return;
-    const guardado = cacheAgenda.get(ctx.tenant.id);
-    if (guardado && Date.now() - guardado.em < AGENDA_CACHE_MS) return guardado.corpo;
-    const r = await ctx.erp.especialidadesEPrestadores();
+    const r = await cacheAgenda.obter(chaveDaClinica(ctx.tenant) + "agenda", () => ctx.erp.especialidadesEPrestadores(), (x) => x.ok) as Awaited<ReturnType<typeof ctx.erp.especialidadesEPrestadores>>;
     if (!r.ok) return falha(reply, r);
-    cacheAgenda.set(ctx.tenant.id, { em: Date.now(), corpo: r.dados });
     return r.dados;
   });
 
   // Dias com atendimento do prestador (até 60 dias à frente).
   app.get<{ Querystring: { prestador_id?: string } }>("/v1/agenda/dias", async (req, reply) => {
-    if (!idValido(req.query.prestador_id)) return reply.code(400).send({ erro: "PRESTADOR_INVALIDO" });
-    const erp = await erpDaRequisicao(req, reply);
-    if (!erp) return;
-    const r = await erp.diasDisponiveis(req.query.prestador_id);
+    const prest = req.query.prestador_id;
+    if (!idValido(prest)) return reply.code(400).send({ erro: "PRESTADOR_INVALIDO" });
+    const ctx = await tenantComErp(req, reply);
+    if (!ctx) return;
+    const r = await cacheDias.obter(chaveDaClinica(ctx.tenant) + "dias|" + prest, () => ctx.erp.diasDisponiveis(prest), guardavel) as Awaited<ReturnType<typeof ctx.erp.diasDisponiveis>>;
     if (naoEncontrado(r)) return { dias: [] };
     if (!r.ok) return falha(reply, r);
     return { dias: r.dados };

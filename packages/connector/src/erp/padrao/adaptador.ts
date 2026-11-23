@@ -1,6 +1,8 @@
 // Adaptador "Padrão Kentro": fala a "Especificação da API do ERP para a extensão Kentro" (REST + JSON,
 // Bearer token, erros no envelope {erro: {codigo, mensagem, campos}}). Qualquer ERP que implemente a
 // especificação conecta com URL e token, sem código novo no Conector.
+import { createHash } from "node:crypto";
+import { Cache } from "../../cache.js";
 import { config } from "../../config.js";
 import { telefoneKentro } from "../../confirmacao.js";
 import type { BuscaPaciente, ErpAdapter, FalhaErp, NovoPaciente, PacienteCadastrado, PedidoConta, PedidoMarcacao, Resultado, StatusConsulta, Vaga } from "../adaptador.js";
@@ -24,6 +26,19 @@ const DIAS_A_FRENTE = 60;
 const SEM_SLOT = "h-";
 
 type Params = Record<string, string | number | boolean | undefined | null>;
+
+// Preço de um procedimento num convênio/profissional: muda pouco e era pedido de novo a cada vaga
+// escolhida (uma chamada por procedimento). Fica 10 min por credencial; no máximo 6 pedidos de preço
+// ao mesmo tempo por lista, para não disparar dezenas de chamadas contra o ERP de uma vez.
+const cachePreco = new Cache<number | null>(10 * 60 * 1000, 5000);
+const PRECOS_JUNTOS = 6;
+async function emLotes<T, R>(itens: T[], n: number, f: (x: T) => Promise<R>): Promise<R[]> {
+  const saida: R[] = new Array(itens.length);
+  let i = 0;
+  const trabalhador = async () => { while (i < itens.length) { const k = i++; saida[k] = await f(itens[k]); } };
+  await Promise.all(Array.from({ length: Math.min(n, itens.length) }, trabalhador));
+  return saida;
+}
 
 const texto = (v: unknown): string | null => (v === null || v === undefined || String(v).trim() === "" ? null : String(v).trim());
 const reais = (centavos: unknown): number | null => (typeof centavos === "number" && Number.isFinite(centavos) ? centavos / 100 : null);
@@ -68,7 +83,12 @@ export class PadraoAdapter implements ErpAdapter {
     nome = "padrao",
   ) {
     this.erp = nome;
+    this.ns = createHash("sha256").update(nome + "|" + JSON.stringify(credencial)).digest("hex").slice(0, 16) + "|";
   }
+  // Prefixo do cache de preços: o mesmo ERP e a mesma credencial.
+  private readonly ns: string;
+  // O adaptador vive uma requisição: buscas iguais nela (paciente + consultas dele) vão ao ERP uma vez só.
+  private buscas = new Map<string, ReturnType<PadraoAdapter["pacienteDaErp"]>>();
 
   // Uma chamada a uma rota da especificação, traduzida pelo conector. Erros viram FalhaErp: primeiro pelas
   // regras do conector, depois pelos códigos HTTP da especificação.
@@ -176,13 +196,24 @@ export class PadraoAdapter implements ErpAdapter {
   }
 
   // Preço em reais de um procedimento (null se o ERP não tiver a rota ou o preço).
-  private async preco(procedimentoId: string, convenioId?: string, profissionalId?: string): Promise<number | null> {
-    const r = await this.chamar<any>("GET", "/precos", { params: { procedimento_id: procedimentoId, convenio_id: convenioId, profissional_id: profissionalId } });
-    return r.ok ? reais(r.dados?.valor_centavos) : null;
+  // Só preço respondido fica guardado: falha do ERP é pedida de novo na próxima vez.
+  private preco(procedimentoId: string, convenioId?: string, profissionalId?: string): Promise<number | null> {
+    let respondeu = false;
+    return cachePreco.obter(this.ns + [procedimentoId, convenioId ?? "", profissionalId ?? ""].join("|"), async () => {
+      const r = await this.chamar<any>("GET", "/precos", { params: { procedimento_id: procedimentoId, convenio_id: convenioId, profissional_id: profissionalId } });
+      respondeu = r.ok || r.naoEncontrado;
+      return r.ok ? reais(r.dados?.valor_centavos) : null;
+    }, () => respondeu);
   }
 
   // Busca de paciente. Um telefone pode ser de mais de um paciente (mãe e filho): vale o primeiro.
   private pacienteDa(busca: BuscaPaciente) {
+    const k = JSON.stringify(busca);
+    let p = this.buscas.get(k);
+    if (!p) this.buscas.set(k, (p = this.pacienteDaErp(busca)));
+    return p;
+  }
+  private pacienteDaErp(busca: BuscaPaciente) {
     return this.ler(this.chamar<any>("GET", "/pacientes", { params: { ...busca } }), (d) => {
       const lista = listaDe(d);
       if (lista.length > 1) this.log.info({ achados: lista.length }, "padrão: busca de paciente com mais de um resultado; usado o primeiro");
@@ -192,9 +223,10 @@ export class PadraoAdapter implements ErpAdapter {
 
   testarConexao() {
     return (async (): Promise<Resultado<{ prestadores: number }>> => {
-      const s = await this.chamar<any>("GET", "/status");
+      // As duas em paralelo: antes a lista de profissionais esperava o /status.
+      const [s, p] = await Promise.all([this.chamar<any>("GET", "/status"), this.chamar<any>("GET", "/profissionais")]);
       if (!s.ok) return s;
-      return this.ler(this.chamar<any>("GET", "/profissionais"), (d) => ({ prestadores: listaDe(d).length }));
+      return this.ler(Promise.resolve(p), (d) => ({ prestadores: listaDe(d).length }));
     })();
   }
 
@@ -305,7 +337,7 @@ export class PadraoAdapter implements ErpAdapter {
     const r = await this.todas("/procedimentos", { profissional_id: vaga.prestador_id, convenio_id: convenioId }, 3);
     if (!r.ok) return r;
     const itens = r.dados.filter((p) => p?.id != null && texto(p.nome));
-    const precos = itens.length <= 20 ? await Promise.all(itens.map((p) => this.preco(String(p.id), convenioId, vaga.prestador_id))) : [];
+    const precos = itens.length <= 20 ? await emLotes(itens, PRECOS_JUNTOS, (p) => this.preco(String(p.id), convenioId, vaga.prestador_id)) : [];
     return {
       ok: true as const,
       dados: itens.map((p, i) => ({ id: String(p.id), nome: String(p.nome), valor: precos[i] ?? null, procedimento_id: String(p.id) })),
@@ -342,7 +374,7 @@ export class PadraoAdapter implements ErpAdapter {
     const r = await this.chamar<any>("GET", "/convenios", { params: { procedimento_id: exameId } });
     if (!r.ok) return r;
     const lista = listaDe(r.dados).filter((c) => c?.id != null && texto(c.nome));
-    const precos = await Promise.all(lista.map((c) => this.preco(exameId, String(c.id))));
+    const precos = await emLotes(lista, PRECOS_JUNTOS, (c) => this.preco(exameId, String(c.id)));
     return { ok: true as const, dados: lista.map((c, i) => ({ id: String(c.id), nome: String(c.nome), valor: precos[i] })) };
   }
 
@@ -350,7 +382,7 @@ export class PadraoAdapter implements ErpAdapter {
     const r = await this.chamar<any>("GET", "/profissionais", { params: { procedimento_id: exameId, convenio_id: convenioId } });
     if (!r.ok) return r;
     const lista = listaDe(r.dados).filter((p) => p?.id != null && texto(p.nome));
-    const precos = convenioId ? await Promise.all(lista.map((p) => this.preco(exameId, convenioId, String(p.id)))) : [];
+    const precos = convenioId ? await emLotes(lista, PRECOS_JUNTOS, (p) => this.preco(exameId, convenioId, String(p.id))) : [];
     return {
       ok: true as const,
       dados: lista.map((p, i) => ({

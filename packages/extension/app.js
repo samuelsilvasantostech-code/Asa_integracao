@@ -361,12 +361,13 @@
 
   // notice: aviso para mostrar acima das consultas depois de recarregar (ex.: "cancelada").
   // created: aviso de cadastro recém-feito, mostrado quando o paciente aparece.
-  function findPatient(by, s, notice, created) {
+  // pre: a busca já pedida antes (em paralelo com a verificação da conexão).
+  function findPatient(by, s, notice, created, pre) {
     resetPatient();
     notFound = null;
     lastLookup = by;
     status('p-status', ('Buscando o paciente ' + C.sis('na') + '…'));
-    api.patient(by).then(function (r) {
+    (pre || api.patient(by)).then(function (r) {
       if (s !== seq) return;
       if (r.status === 200 && r.body && r.body.encontrado) {
         status('p-status', created || '');
@@ -960,12 +961,15 @@
   }
 
   /* ---------- conversa ---------- */
-  function checkConnection(s, phone) {
+  // A busca do paciente sai junto com a verificação da conexão (que fica guardada alguns minutos): antes uma
+  // esperava a outra, e cada troca de conversa ia ao sistema da clínica duas vezes em fila.
+  function checkConnection(s, phone, force) {
     $('conn-text').removeAttribute('data-tone');
     $('conn-text').textContent = 'Verificando…';
     $('conn-retry').hidden = true;
     $('modules').hidden = true;
-    return api.testConnection().then(function (r) {
+    var pre = phone.then(function (p) { return p ? api.patient({ telefone: p }) : null; });
+    return api.testConnection(force).then(function (r) {
       if (s !== seq) return;
       var st = C.connectionState(r.status, r.body);
       pill(st.tone, st.pill);
@@ -978,13 +982,13 @@
       if (!fin) loadFinance();
       phone.then(function (p) {
         if (s !== seq) return;
-        if (p) findPatient({ telefone: p }, s);
+        if (p) pre.then(function (r) { if (s === seq) findPatient({ telefone: p }, s, null, null, Promise.resolve(r)); });
         else { status('p-status', 'O contato não tem telefone. Busque o paciente pelo CPF.'); resetPatient(); $('p-search').hidden = false; }
       });
     });
   }
 
-  function loadChat(c) {
+  function loadChat(c, force) {
     var s = ++seq;
     chat = c || null;
     stopReschedule();
@@ -1002,7 +1006,7 @@
       if (s === seq && ct) renderContact(ct.name || ct.nickname, C.contactPhone(ct));
       return C.contactPhone(ct);
     }).catch(function () { return ''; });
-    checkConnection(s, phone);
+    checkConnection(s, phone, force);
     B.fitHeight();
   }
 
@@ -1011,7 +1015,7 @@
     cfg = (ctx && ctx.config) || {};
     B.applyTheme(ctx && ctx.theme);
     omni.on('themeChanged', B.applyTheme);
-    omni.on('chatPanelOpened', function () { setTimeout(B.fitHeight, 60); });
+    omni.on('chatPanelOpened', function () { setTimeout(function () { B.fitHeight(true); }, 60); });
 
     Array.prototype.forEach.call(document.querySelectorAll('.tab[data-tab]'), function (t) {
       t.addEventListener('click', function () { selectTab(t.getAttribute('data-tab')); });
@@ -1069,14 +1073,16 @@
     $('conn-retry').addEventListener('click', function () {
       if (!chat) return;
       // A chave pode ter sido cadastrada depois que o painel abriu.
-      root.AsaApi.load(omni, cfg).then(function (a) { api = a; loadChat(chat); });
+      root.AsaApi.load(omni, cfg, true).then(function (a) { api = a; loadChat(chat, true); });
     });
 
     B.fitHeight();
-    root.AsaApi.load(omni, cfg).then(function (a) {
-      api = a;
-      omni.on('omniChatSelected', loadChat);
-      omni.chats.getSelected().then(loadChat, function () { loadChat(null); });
+    // A conversa aberta é pedida ao host junto com a api, não depois dela.
+    var selected = Promise.resolve().then(function () { return omni.chats.getSelected(); }).catch(function () { return null; });
+    Promise.all([root.AsaApi.load(omni, cfg), selected]).then(function (x) {
+      api = x[0];
+      omni.on('omniChatSelected', function (c) { loadChat(c); });
+      loadChat(x[1]);
     });
   });
 })(this);

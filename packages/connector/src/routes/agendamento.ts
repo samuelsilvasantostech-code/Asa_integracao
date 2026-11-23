@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { pool } from "../db.js";
 import type { NovoPaciente, PedidoMarcacao, Vaga as VagaErp } from "../erp/adaptador.js";
 import { Limite } from "../limite.js";
+import { Cache, chaveDaClinica, guardavel } from "../cache.js";
 import type { BuscaPaciente, ErpAdapter, FalhaErp } from "../erp/index.js";
 import { consultaNoHorario, telefoneNacional, type Consulta } from "../erp/modelo.js";
 import { erpDaRequisicao, tenantComErp } from "../tenant-auth.js";
@@ -202,12 +203,16 @@ async function dadosDoCadastro(
   return { ok: true, campos: { paciente_id: pacienteId, nome: p.nome, nascimento: p.nascimento!, telefone: telefone!, ...(cpf.length === 11 ? { cpf } : {}) } };
 }
 
+const cacheVaga = new Cache<any>(10 * 60 * 1000);
+
 export async function agendamentoRoutes(app: FastifyInstance) {
+  // Convênios e procedimentos de uma vaga mudam pouco: ficam 10 min por clínica (e por credencial).
   app.get<{ Querystring: Vaga }>("/v1/agenda/convenios", async (req, reply) => {
     if (!vagaValida(req.query)) return reply.code(400).send({ erro: "VAGA_INVALIDA" });
-    const erp = await erpDaRequisicao(req, reply);
-    if (!erp) return;
-    const r = await erp.conveniosDaVaga(vagaDe(req.query));
+    const ctx = await tenantComErp(req, reply);
+    if (!ctx) return;
+    const vaga = vagaDe(req.query);
+    const r = await cacheVaga.obter(chaveDaClinica(ctx.tenant) + "conv|" + JSON.stringify(vaga), () => ctx.erp.conveniosDaVaga(vaga), guardavel) as Awaited<ReturnType<typeof ctx.erp.conveniosDaVaga>>;
     if (naoEncontrado(r)) return { convenios: [] };
     if (!r.ok) return falha(reply, r);
     return { convenios: r.dados };
@@ -215,9 +220,10 @@ export async function agendamentoRoutes(app: FastifyInstance) {
 
   app.get<{ Querystring: Vaga & { convenio_id?: string } }>("/v1/agenda/procedimentos", async (req, reply) => {
     if (!vagaValida(req.query) || !idValido(req.query.convenio_id)) return reply.code(400).send({ erro: "VAGA_INVALIDA" });
-    const erp = await erpDaRequisicao(req, reply);
-    if (!erp) return;
-    const r = await erp.procedimentosDaVaga(vagaDe(req.query), req.query.convenio_id);
+    const ctx = await tenantComErp(req, reply);
+    if (!ctx) return;
+    const vaga = vagaDe(req.query), conv = req.query.convenio_id;
+    const r = await cacheVaga.obter(chaveDaClinica(ctx.tenant) + "proc|" + conv + "|" + JSON.stringify(vaga), () => ctx.erp.procedimentosDaVaga(vaga, conv), guardavel) as Awaited<ReturnType<typeof ctx.erp.procedimentosDaVaga>>;
     if (naoEncontrado(r)) return { procedimentos: [] };
     if (!r.ok) return falha(reply, r);
     return { procedimentos: r.dados };

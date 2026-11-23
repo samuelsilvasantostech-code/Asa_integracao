@@ -1,3 +1,5 @@
+import { gzip } from "node:zlib";
+import { promisify } from "node:util";
 import Fastify from "fastify";
 import { config, problemaDeConfig } from "./config.js";
 import { migrate, pool } from "./db.js";
@@ -49,6 +51,18 @@ app.addHook("onRequest", async (req, reply) => {
   if (!config.allowedHosts.length || req.url === "/health") return;
   const host = String(req.headers.host ?? "").replace(/:\d+$/, "").toLowerCase();
   if (!config.allowedHosts.includes(host)) return reply.code(421).send({ erro: "HOST_NAO_PERMITIDO" });
+});
+
+// Respostas JSON grandes (lista de exames, dia da agenda) vão comprimidas quando o cliente aceita: o
+// texto cai a uns 20% do tamanho. Pequenas seguem puras (comprimir não compensa).
+const gzipAsync = promisify(gzip);
+const MIN_COMPRIMIR = 2048;
+app.addHook("onSend", async (req, reply, payload) => {
+  if (typeof payload !== "string" || payload.length < MIN_COMPRIMIR || reply.getHeader("content-encoding")) return payload;
+  const ae = req.headers["accept-encoding"];
+  if (typeof ae !== "string" || !ae.split(",").some((x) => x.trim().split(";")[0] === "gzip")) return payload;
+  reply.header("Content-Encoding", "gzip").header("Vary", "Accept-Encoding").removeHeader("content-length");
+  return gzipAsync(payload);
 });
 
 await app.register(healthRoutes);

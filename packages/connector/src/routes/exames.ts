@@ -2,6 +2,10 @@ import type { FastifyInstance } from "fastify";
 import type { Exame, GrupoExame } from "../erp/modelo.js";
 import { erpDaRequisicao, tenantComErp } from "../tenant-auth.js";
 import { falha, idValido, naoEncontrado } from "./consulta.js";
+import { Cache, chaveDaClinica, guardavel } from "../cache.js";
+
+// Convênios e prestadores de um exame (com preços): 10 min por clínica.
+const cacheExame = new Cache<any>(10 * 60 * 1000);
 
 // Agendar por exame (procedimento): achar o procedimento, os convênios que o cobrem e os prestadores que o
 // fazem. Tudo LEITURA. Daí em diante o painel segue o fluxo normal (dias → horários → agendamento).
@@ -95,10 +99,11 @@ export async function examesRoutes(app: FastifyInstance) {
 
   // Convênios que cobrem o procedimento, com o valor.
   app.get<{ Params: { id: string } }>("/v1/exames/:id/convenios", async (req, reply) => {
-    if (!idValido(req.params.id)) return reply.code(400).send({ erro: "EXAME_INVALIDO" });
-    const erp = await erpDaRequisicao(req, reply);
-    if (!erp) return;
-    const r = await erp.conveniosDoExame(req.params.id);
+    const id = req.params.id;
+    if (!idValido(id)) return reply.code(400).send({ erro: "EXAME_INVALIDO" });
+    const ctx = await tenantComErp(req, reply);
+    if (!ctx) return;
+    const r = await cacheExame.obter(chaveDaClinica(ctx.tenant) + "conv|" + id, () => ctx.erp.conveniosDoExame(id), guardavel) as Awaited<ReturnType<typeof ctx.erp.conveniosDoExame>>;
     if (naoEncontrado(r)) return { convenios: [] };
     if (!r.ok) return falha(reply, r);
     return { convenios: r.dados };
@@ -107,10 +112,11 @@ export async function examesRoutes(app: FastifyInstance) {
   // Prestadores que fazem o procedimento (pelo convênio, se vier), com o valor naquele convênio.
   app.get<{ Params: { id: string }; Querystring: { convenio_id?: string } }>("/v1/exames/:id/prestadores", async (req, reply) => {
     const conv = req.query.convenio_id;
-    if (!idValido(req.params.id) || (conv && !idValido(conv))) return reply.code(400).send({ erro: "EXAME_INVALIDO" });
-    const erp = await erpDaRequisicao(req, reply);
-    if (!erp) return;
-    const r = await erp.prestadoresDoExame(req.params.id, conv || undefined);
+    const id = req.params.id;
+    if (!idValido(id) || (conv && !idValido(conv))) return reply.code(400).send({ erro: "EXAME_INVALIDO" });
+    const ctx = await tenantComErp(req, reply);
+    if (!ctx) return;
+    const r = await cacheExame.obter(chaveDaClinica(ctx.tenant) + "prest|" + id + "|" + (conv || ""), () => ctx.erp.prestadoresDoExame(id, conv || undefined), guardavel) as Awaited<ReturnType<typeof ctx.erp.prestadoresDoExame>>;
     if (naoEncontrado(r)) return { prestadores: [] };
     if (!r.ok) return falha(reply, r);
     return { prestadores: r.dados };

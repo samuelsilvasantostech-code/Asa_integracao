@@ -18,6 +18,34 @@
   var ABAS = ['agenda', 'painel', 'configurar'];
   var CHAVE = 'clinfy.aba';
 
+  // Cada tela só começa (e só faz os pedidos dela ao Conector) quando a aba dela aparece pela primeira vez.
+  // Antes as quatro começavam juntas ao abrir a página, e Painel e Configurar disputavam a rede com a Agenda.
+  // O host chama omni.ready uma vez para todas; o início de cada tela fica guardado até a aba abrir.
+  var ABA_DO_SCRIPT = { 'agenda.js': 'agenda', 'painel.js': 'painel', 'config.js': 'configurar', 'confirmacao.js': 'configurar' };
+  var aberta = {}, esperando = {};
+  function abaDoScript() {
+    var src = root.document && root.document.currentScript && root.document.currentScript.src;
+    var nome = src ? src.split('?')[0].split('/').pop() : '';
+    return ABA_DO_SCRIPT[nome] || null;
+  }
+  var omni = root.omni;
+  if (omni && typeof omni.ready === 'function') {
+    var ready = omni.ready.bind(omni);
+    omni.ready = function (cb) {
+      var aba = abaDoScript();
+      return ready(function (ctx) {
+        if (!aba || aberta[aba]) { cb(ctx); return; }
+        (esperando[aba] = esperando[aba] || []).push(function () { cb(ctx); });
+      });
+    };
+  }
+  function abrirTela(aba) {
+    aberta[aba] = true;
+    var fila = esperando[aba] || [];
+    esperando[aba] = [];
+    fila.forEach(function (f) { f(); });
+  }
+
   function mostrar(aba) {
     if (ABAS.indexOf(aba) < 0) aba = 'agenda';
     ABAS.forEach(function (a) {
@@ -27,6 +55,7 @@
       if (btn) btn.setAttribute('aria-selected', a === aba ? 'true' : 'false');
       if (btn) btn.tabIndex = a === aba ? 0 : -1;
     });
+    abrirTela(aba);
     try { root.localStorage.setItem(CHAVE, aba); } catch (e) { /* sem armazenamento: abre na Agenda da próxima vez */ }
   }
 

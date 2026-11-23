@@ -259,7 +259,7 @@
     c.sumNode.removeAttribute('data-tone');
     var rows = C.dayRows(c.data.agendados, c.data.livres);
     c.sumNode.textContent = rows.length ? summaryParts(c, true).join(' · ') : 'Sem agenda';
-    rows.forEach(function (row) { c.list.appendChild(row.kind === 'appt' ? apptRow(row.appt, c) : freeRow(row.slot, c)); });
+    c.list.appendChild(rowsFragment(rows, c));
     placeNow(c.list, c.day);
     renderTally();
   }
@@ -270,9 +270,16 @@
     sheet.textContent = '';
     if (c.erro) return;
     $('day-sum').textContent = providerName(c.prest);
-    C.dayRows(c.data.agendados, c.data.livres).forEach(function (row) { sheet.appendChild(row.kind === 'appt' ? apptRow(row.appt, c) : freeRow(row.slot, c)); });
+    sheet.appendChild(rowsFragment(C.dayRows(c.data.agendados, c.data.livres), c));
     placeNow(sheet, c.day);
     renderTally();
+  }
+
+  // As linhas são montadas fora da tela e entram de uma vez (uma só atualização da página por coluna).
+  function rowsFragment(rows, c) {
+    var f = document.createDocumentFragment();
+    rows.forEach(function (row) { f.appendChild(row.kind === 'appt' ? apptRow(row.appt, c) : freeRow(row.slot, c)); });
+    return f;
   }
 
   function nowHm() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
@@ -281,9 +288,9 @@
   function placeNow(list, day) {
     var old = list.querySelector('.now'), today = C.todayIso(), hm = nowHm(), next = null;
     if (old) old.remove();
-    Array.prototype.forEach.call(list.querySelectorAll('.slot'), function (li) {
-      var past = day < today || (day === today && li.getAttribute('data-hora') < hm);
-      li.classList.toggle('slot--past', past);
+    if (day <= today) Array.prototype.forEach.call(list.querySelectorAll('.slot'), function (li) {
+      var past = day < today || li.getAttribute('data-hora') < hm;
+      if (li.classList.contains('slot--past') !== past) li.classList.toggle('slot--past', past);
       if (day === today && !past && !next) next = li;
     });
     if (day !== today || !list.querySelector('.slot')) return;
@@ -293,6 +300,7 @@
     list.insertBefore(n, next);
   }
   function tickNow() {
+    if (document.hidden) return;
     cols.forEach(function (c) {
       var list = sel.view === 'dia' ? $('sheet') : c.list;
       if (c.data && list) placeNow(list, c.day);
@@ -301,7 +309,14 @@
 
   // Painel vazio = resumo do que está na tela, com as mesmas cores da folha (serve de legenda).
   var TALLY = [['ok', 'Confirmadas'], ['idle', 'A confirmar'], ['warn', 'Faltas e remarcações'], ['done', 'Atendidas'], ['err', 'Canceladas'], ['free', 'Horários livres']];
+  // Cada coluna que chega pedia o resumo de novo (7 ou 8 vezes na semana e no lado a lado): agora as
+  // chamadas do mesmo quadro viram uma só.
+  var tallyFrame = 0;
   function renderTally() {
+    if (tallyFrame) return;
+    tallyFrame = setTimeout(function () { tallyFrame = 0; drawTally(); }, 16);
+  }
+  function drawTally() {
     var n = {}, loaded = cols.filter(function (c) { return c.data; }), today = C.todayIso();
     $('s-tally').hidden = !loaded.length;
     if (!loaded.length) { $('day-kpis').hidden = true; return; }
@@ -376,6 +391,8 @@
     seal.setAttribute('data-tone', info.key === 'agendado' && cf ? cf.tone : info.tone);
     if (cf) b.title = info.label + ' · ' + cf.label;
     b.appendChild(seal);
+    li.setAttribute('data-sel', 'a:' + a.id);
+    if (selKey === 'a:' + a.id) li.classList.add('slot--sel');
     b.addEventListener('click', function () { markSelected(li); showAppt(a, c); });
     li.appendChild(b);
     return li;
@@ -384,6 +401,8 @@
   function freeRow(h, c) {
     var li = el('li', 'slot slot--free'), b = el('button', 'slot__btn');
     li.setAttribute('data-hora', h.horario || '');
+    li.setAttribute('data-sel', 'f:' + c.prest + '|' + c.day + '|' + h.horario);
+    if (selKey === li.getAttribute('data-sel')) li.classList.add('slot--sel');
     b.type = 'button';
     b.appendChild(el('span', 'slot__time', h.horario));
     b.appendChild(el('span', 'slot__body', rescheduling ? 'Livre: remarcar para este horário' : 'Livre'));
@@ -396,8 +415,14 @@
     return li;
   }
 
+  // Só a linha marcada antes e a nova mudam (antes a página inteira era percorrida a cada clique). A chave
+  // faz a marca sobreviver quando a coluna é redesenhada pela atualização automática.
+  var selKey = null;
   function markSelected(li) {
-    Array.prototype.forEach.call(document.querySelectorAll('.slot'), function (x) { x.classList.toggle('slot--sel', x === li); });
+    var old = document.querySelectorAll('.slot--sel');
+    for (var i = 0; i < old.length; i++) if (old[i] !== li) old[i].classList.remove('slot--sel');
+    selKey = li ? li.getAttribute('data-sel') : null;
+    if (li) li.classList.add('slot--sel');
   }
 
   /* ---------- consulta do dia: confirmar, falta, cancelar, remarcar ---------- */
@@ -489,10 +514,21 @@
     if (document.hidden || !$('ws').offsetParent) return; // aba ou tela escondida (Painel/Configurar na tela única)
     if (!$('s-book').hidden || !$('s-review').hidden || !$('s-charge').hidden) return;
     if ($('s-appt').querySelector('.item__ask, button:disabled')) return; // "Sim, cancelar?" ou ação em andamento
-    var waiting = cols.some(function (c) {
+    // Só as colunas com confirmação esperando são pedidas de novo, e trocadas no lugar: a folha não some
+    // nem pisca, e o resto da tela não volta ao "Carregando".
+    var s = viewSeq;
+    var waiting = cols.filter(function (c) {
       return c.data && (c.data.agendados || []).some(function (a) { var cf = C.confirmationState(a.confirmacao); return cf && cf.waiting; });
     });
-    if (waiting) loadView();
+    if (!waiting.length) return;
+    Promise.all(waiting.map(function (c) {
+      return api.day(c.prest, c.day).then(function (r) {
+        if (s !== viewSeq || r.status !== 200 || !r.body) return;
+        c.data = r.body;
+        c.erro = null;
+        renderCol(c);
+      });
+    })).then(function () { if (s === viewSeq) viewStatus(); });
   }
 
   // Função, não constante: o nome do sistema só chega depois que o script carrega.
@@ -941,12 +977,16 @@
   }
 
   /* ---------- conexão e início ---------- */
-  function connect() {
+  // force = botão "Tentar de novo": monta a api e verifica a conexão de novo, sem o que ficou guardado.
+  // A lista de profissionais é pedida junto com a verificação (antes esperava por ela).
+  function connect(force) {
+    force = force === true;
     pill('idle', 'Verificando');
     $('g-off').hidden = true;
-    return root.AsaApi.load(omni, cfg).then(function (a) {
+    return root.AsaApi.load(omni, cfg, force).then(function (a) {
       api = a;
-      return api.testConnection();
+      if (!sched) api.schedule();
+      return api.testConnection(force);
     }).then(function (r) {
       var st = C.connectionState(r.status, r.body);
       pill(st.tone, st.pill);
@@ -1011,7 +1051,7 @@
     $('sr-go').addEventListener('click', confirmBooking);
     $('sr-back').addEventListener('click', function () { side('s-book'); });
     $('sd-close').addEventListener('click', closeSide);
-    $('g-retry').addEventListener('click', connect);
+    $('g-retry').addEventListener('click', function () { connect(true); });
     $('day-refresh').addEventListener('click', loadView);
 
     setView(recall('view'));
