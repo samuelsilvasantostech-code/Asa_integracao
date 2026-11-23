@@ -5,6 +5,7 @@ import type { FalhaErp, Resultado } from "../erp/index.js";
 import { telefoneNacional, type Consulta } from "../erp/modelo.js";
 import { Limite } from "../limite.js";
 import { Cache, chaveDaClinica, guardavel } from "../cache.js";
+import { atendimentosDe } from "./atendimento.js";
 import { erpDaRequisicao, tenantComErp } from "../tenant-auth.js";
 
 // Rotas de LEITURA do ERP da clínica para o painel. Nada aqui grava no ERP.
@@ -128,10 +129,19 @@ export async function consultaRoutes(app: FastifyInstance) {
     const agendados = ra.ok ? ra.dados : [];
     // Horários livres indisponíveis não derrubam a agenda: as consultas marcadas ainda servem.
     const livres = rl && rl.ok ? rl.dados : [];
-    const conf = await confirmacoesDe(ctx.tenant.id, agendados.map((x) => x.id));
+    const ids = agendados.map((x) => x.id);
+    // Tempo de espera (chegada, chamada, fim) só existe para hoje.
+    const [conf, atend] = await Promise.all([confirmacoesDe(ctx.tenant.id, ids), data === hojeEm(new Date()) ? atendimentosDe(ctx.tenant.id, ids) : null]);
     return {
       data,
-      agendados: agendados.map((x) => (conf.has(x.id) ? { ...x, confirmacao: conf.get(x.id) } : x)),
+      // Hora do Conector: os cronômetros das telas contam a partir dela (o relógio do computador pode errar).
+      agora: new Date().toISOString(),
+      agendados: agendados.map((x) => {
+        const extra: Record<string, unknown> = {};
+        if (conf.has(x.id)) extra.confirmacao = conf.get(x.id);
+        if (atend?.has(x.id)) extra.atendimento = atend.get(x.id);
+        return Object.keys(extra).length ? { ...x, ...extra } : x;
+      }),
       livres,
       livres_ok: !rl || rl.ok || naoEncontrado(rl),
     };

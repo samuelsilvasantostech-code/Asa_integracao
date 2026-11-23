@@ -14,6 +14,7 @@ test("retenção: só limpa campos pessoais, sem mexer na data que o painel usa"
   assert.match(SQL_RETENCAO.confirmacoes, /nome = NULL/);
   assert.match(SQL_RETENCAO.agendamentos, /resposta = NULL/);
   assert.match(SQL_RETENCAO.cobrancas, /paciente_id = NULL/);
+  assert.match(SQL_RETENCAO.atendimentos, /chegada_por = NULL/);
   for (const sql of Object.values(SQL_RETENCAO)) {
     assert.doesNotMatch(sql, /^\s*DELETE/i);
     assert.doesNotMatch(sql, /atualizado_em|enviado_em|criado_em\s*=|valor|estado\s*=|situacao\s*=/);
@@ -21,12 +22,12 @@ test("retenção: só limpa campos pessoais, sem mexer na data que o painel usa"
   }
 });
 
-test("retenção: aplica nas três tabelas com o corte de hoje em São Paulo", async () => {
+test("retenção: aplica nas quatro tabelas com o corte de hoje em São Paulo", async () => {
   const chamadas: unknown[][] = [];
   const db = { query: async (sql: string, args: unknown[]) => (chamadas.push([sql, args]), { rowCount: 2 }) };
   // 02:00 UTC de 04/11 ainda é 03/11 em São Paulo.
   const r = await aplicarRetencao(db as any, new Date("2026-11-04T02:00:00Z"));
-  assert.deepEqual(r, { corte: "2026-08-05", confirmacoes: 2, agendamentos: 2, cobrancas: 2 });
-  assert.equal(chamadas.length, 3);
+  assert.deepEqual(r, { corte: "2026-08-05", confirmacoes: 2, agendamentos: 2, cobrancas: 2, atendimentos: 2 });
+  assert.equal(chamadas.length, 4);
   for (const [, args] of chamadas) assert.deepEqual(args, ["2026-08-05"]);
 });

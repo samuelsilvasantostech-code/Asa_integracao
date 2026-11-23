@@ -17,6 +17,11 @@
   var newPatientKey = null;                 // idempotência do cadastro sem consulta
   var rescheduling = null;                  // {consulta, paciente, busca}
   var booking = null;
+  // Diferença entre o relógio do Conector e o deste computador: o cronômetro conta pelo Conector, e assim
+  // todas as recepções veem o mesmo tempo de espera.
+  var skew = 0;
+  function syncClock(iso) { var t = Date.parse(iso || ''); if (!isNaN(t)) skew = t - Date.now(); }
+  function nowMs() { return Date.now() + skew; }
 
   // Na tela única (clinfy.html), os ids repetidos entre telas têm prefixo: o mapa vem de hub.js.
   var IDS = (root.ClinFyIds && root.ClinFyIds.agenda) || {};
@@ -189,7 +194,7 @@
       if (s !== viewSeq) return null; // a visão mudou: o resto da fila não é mais pedido
       return api.day(c.prest, c.day).then(function (r) {
         if (s !== viewSeq) return;
-        if (r.status === 200 && r.body) c.data = r.body; else c.erro = C.readError(r.status, r.body);
+        if (r.status === 200 && r.body) { c.data = r.body; syncClock(r.body.agora); } else c.erro = C.readError(r.status, r.body);
         renderCol(c);
         if (list.every(function (x) { return x.data || x.erro; })) viewStatus();
       });
@@ -319,6 +324,7 @@
   function drawTally() {
     var n = {}, loaded = cols.filter(function (c) { return c.data; }), today = C.todayIso();
     $('s-tally').hidden = !loaded.length;
+    renderWaitRoom();
     if (!loaded.length) { $('day-kpis').hidden = true; return; }
     loaded.forEach(function (c) {
       (c.data.agendados || []).forEach(function (a) { var t = C.statusInfo(a.status).tone; n[t] = (n[t] || 0) + 1; });
@@ -384,6 +390,14 @@
     if (a.paciente.idade != null) who.appendChild(el('span', 'slot__age', a.paciente.idade + ' anos'));
     body.appendChild(who);
     if (a.procedimentos.length) body.appendChild(el('span', 'slot__proc', a.procedimentos.join(', ')));
+    // Paciente na clínica: cronômetro da espera (ou da consulta), atualizado a cada 30 s por tickWaits.
+    var st = c.day === C.todayIso() ? C.attendanceState(a.atendimento, nowMs()) : null;
+    if (st) {
+      var w = body.appendChild(el('span', 'wait'));
+      w._appt = a;
+      paintWait(w, st);
+      li.classList.add('slot--in');
+    }
     b.appendChild(body);
     // Consulta ainda "agendada" com confirmação pedida: o selo mostra que espera a resposta.
     var cf = C.confirmationState(a.confirmacao);
@@ -451,6 +465,20 @@
     if (a.obs) fact(dl, 'Observação', a.obs);
     var cf = C.confirmationState(a.confirmacao);
     if (cf) fact(dl, 'Confirmação', cf.label);
+    var at = a.atendimento, st = c.day === C.todayIso() ? C.attendanceState(at, nowMs()) : null;
+    if (st) {
+      fact(dl, 'Chegada', C.clockOf(at.chegada));
+      if (at.chamada) fact(dl, 'Chamada', C.clockOf(at.chamada) + ' · esperou ' + C.duration(st.wait));
+      if (at.fim) fact(dl, 'Fim', C.clockOf(at.fim) + ' · consulta de ' + C.duration(st.consult));
+      if (st.open) {
+        fact(dl, 'Agora', '');
+        var dd = dl.lastChild.lastChild;
+        dd.textContent = '';
+        var w = dd.appendChild(el('span', 'wait'));
+        w._appt = a;
+        paintWait(w, st);
+      }
+    }
     fact(dl, ('Nº ' + C.sis('na')), a.id);
     status('sa-status', '');
     apptActions(a, info, c);
@@ -461,19 +489,28 @@
     box.textContent = '';
     if (!info.active) { status('sa-status', 'Consulta ' + info.label.toLowerCase() + ': sem ações.'); return; }
     var today = C.todayIso();
-    if (info.key !== 'confirmado' && info.key !== 'atendido' && c.day >= today) {
-      box.appendChild(button('Confirmar presença', 'btn--primary', function (ev) { setStatus(a, 'confirmado', ev.currentTarget, c); }));
+    // Tempo de espera (só hoje): Confirmar chegada → Chamar para consulta → Finalizar consulta. Com o paciente
+    // na clínica, falta, confirmação, remarcar e cancelar saem da frente (desfazer a chegada os traz de volta).
+    var st = c.day === today ? C.attendanceState(a.atendimento, nowMs()) : null;
+    var next = c.day === today && info.key !== 'ausente' && (st || info.key !== 'atendido') ? C.attendanceNext(st) : null;
+    if (next) box.appendChild(button(next.label, 'btn--primary', function (ev) { attend(a, { acao: next.acao }, ev.currentTarget, c); }));
+    if (!st && info.key !== 'confirmado' && info.key !== 'atendido' && c.day >= today) {
+      box.appendChild(button('Confirmar presença', next ? null : 'btn--primary', function (ev) { setStatus(a, 'confirmado', ev.currentTarget, c); }));
     }
-    if (info.key !== 'ausente' && info.key !== 'atendido' && c.day <= today) {
+    if (!st && info.key !== 'ausente' && info.key !== 'atendido' && c.day <= today) {
       box.appendChild(button('Marcar falta', null, function (ev) { setStatus(a, 'ausente', ev.currentTarget, c); }));
     }
     var cf = C.confirmationState(a.confirmacao);
-    if (api.capacidades.confirmacao && c.day >= today && a.paciente.telefone && info.key !== 'confirmado' && info.key !== 'atendido' && !(cf && cf.answered)) {
+    if (!st && api.capacidades.confirmacao && c.day >= today && a.paciente.telefone && info.key !== 'confirmado' && info.key !== 'atendido' && !(cf && cf.answered)) {
       box.appendChild(button(cf ? 'Reenviar confirmação' : 'Enviar confirmação', null, function (ev) { sendConfirmation(a, ev.currentTarget, c); }));
     }
-    if (c.day >= today && a.paciente.telefone) box.appendChild(button('Remarcar', null, function (ev) { rescheduleFromAppt(a, ev.currentTarget); }));
+    if (!st && c.day >= today && a.paciente.telefone) box.appendChild(button('Remarcar', null, function (ev) { rescheduleFromAppt(a, ev.currentTarget); }));
     if (a.paciente.telefone && C.canCharge(fin, userType)) box.appendChild(button('Lançar cobrança', null, function (ev) { chargeFromAppt(a, ev.currentTarget, c); }));
-    if (c.day >= today) {
+    if (st) {
+      box.appendChild(button(UNDO[st.stage], 'btn--sm', function (ev) { attend(a, { acao: 'desfazer' }, ev.currentTarget, c); }));
+      box.appendChild(button('Ajustar hora', 'btn--sm', function () { adjustForm(a, c); }));
+    }
+    if (!st && c.day >= today) {
       box.appendChild(button('Cancelar', 'btn--danger btn--apart', function () {
         box.textContent = '';
         box.appendChild(el('span', 'item__ask', 'Cancelar a consulta de ' + (a.paciente.nome || 'este paciente') + ' (' + C.formatDay(c.day) + ' às ' + (a.hora || '--:--') + ') ' + C.sis('na') + '?'));
@@ -487,6 +524,123 @@
         box.appendChild(nao);
         nao.focus();
       }));
+    }
+  }
+
+  /* ---------- tempo de espera: chegada, chamada, fim ---------- */
+  var UNDO = { chegada: 'Desfazer chegada', chamada: 'Desfazer chamada', fim: 'Reabrir consulta' };
+
+  function paintWait(node, st) {
+    if (node.textContent !== st.label) node.textContent = st.label;
+    if (node.getAttribute('data-tone') !== st.tone) node.setAttribute('data-tone', st.tone);
+  }
+
+  // Grava a etapa no Conector (resposta imediata: o ERP não é chamado). Num 409 o Conector devolve os
+  // tempos de agora (outra recepção pode ter marcado antes), e a tela passa a mostrar esses.
+  function attend(a, p, btn, c) {
+    var box = $('sa-actions'), antes = C.attendanceState(a.atendimento, nowMs());
+    Array.prototype.forEach.call(box.querySelectorAll('button, input, select'), function (b) { b.disabled = true; });
+    btn.textContent = 'Gravando…';
+    var payload = Object.assign({ prestador_id: c.prest, data: c.day, hora_marcada: a.hora || undefined, usuario: userLabel || undefined }, p);
+    api.attendance(a.id, payload).then(function (r) {
+      var ok = r.status === 200 && r.body && r.body.ok;
+      if (r.body && r.body.atendimento) {
+        a.atendimento = r.body.atendimento;
+        // A atualização automática pode ter trocado a lista da coluna enquanto esta consulta estava aberta.
+        ((c.data && c.data.agendados) || []).forEach(function (x) { if (x.id === a.id) x.atendimento = a.atendimento; });
+      }
+      if (r.body && r.body.agora) syncClock(r.body.agora);
+      if (cols.indexOf(c) >= 0) renderCol(c);
+      if (!stillShowing(a)) return;
+      showAppt(a, c);
+      status('sa-status', ok ? C.attendanceDone(p.acao, antes && antes.stage) : C.attendanceError(r.status, r.body), ok ? null : 'err');
+      var first = ok && box.querySelector('button');
+      if (first) first.focus();
+    });
+  }
+
+  // Ajustar hora: a recepção esqueceu de marcar na hora certa. Só etapas já marcadas.
+  function adjustForm(a, c) {
+    var box = $('sa-actions'), at = a.atendimento || {};
+    box.textContent = '';
+    var f = el('form', 'adjust');
+    var l1 = el('label', 'adjust__field'), l2 = el('label', 'adjust__field');
+    l1.appendChild(el('span', null, 'Etapa'));
+    var s = l1.appendChild(el('select'));
+    ['chegada', 'chamada', 'fim'].forEach(function (e) {
+      if (at[e]) s.appendChild(option(e, C.stageName(e).charAt(0).toUpperCase() + C.stageName(e).slice(1) + ' (' + C.clockOf(at[e]) + ')'));
+    });
+    s.value = (C.attendanceState(at, nowMs()) || {}).stage || 'chegada';
+    l2.appendChild(el('span', null, 'Hora certa'));
+    var t = l2.appendChild(el('input'));
+    t.type = 'time';
+    t.required = true;
+    t.value = C.clockOf(at[s.value]);
+    s.addEventListener('change', function () { t.value = C.clockOf(at[s.value]); });
+    f.appendChild(l1);
+    f.appendChild(l2);
+    var save = el('button', 'btn btn--primary btn--sm', 'Salvar');
+    save.type = 'submit';
+    f.appendChild(save);
+    f.appendChild(button('Voltar', 'btn--sm', function () { apptActions(a, C.statusInfo(a.status), c); }));
+    f.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      if (!/^\d{2}:\d{2}$/.test(t.value)) { status('sa-status', 'Informe a hora no formato HH:MM.', 'err'); return; }
+      attend(a, { acao: 'ajustar', etapa: s.value, hora: t.value }, save, c);
+    });
+    box.appendChild(f);
+    status('sa-status', '');
+    t.focus();
+  }
+
+  // Sala de espera (painel lateral vazio): quem está aguardando e quem está em consulta nas colunas de hoje,
+  // quem espera há mais tempo primeiro.
+  function renderWaitRoom() {
+    var today = C.todayIso(), now = nowMs(), items = [];
+    cols.forEach(function (c) {
+      if (c.day !== today || !c.data) return;
+      (c.data.agendados || []).forEach(function (a) {
+        var st = C.statusInfo(a.status).active ? C.attendanceState(a.atendimento, now) : null;
+        if (st && st.open) items.push({ a: a, c: c, st: st });
+      });
+    });
+    items.sort(function (x, y) {
+      if (x.st.stage !== y.st.stage) return x.st.stage === 'chegada' ? -1 : 1;
+      return x.st.since - y.st.since;
+    });
+    var waiting = items.filter(function (x) { return x.st.stage === 'chegada'; }).length;
+    var box = $('s-wait'), list = $('sw-list');
+    box.hidden = !items.length;
+    $('sw-count').textContent = waiting ? String(waiting) : '';
+    $('sw-count').hidden = !waiting;
+    list.textContent = '';
+    items.forEach(function (x) {
+      var li = el('li'), b = el('button', 'wroom__item');
+      b.type = 'button';
+      b.appendChild(el('span', 'wroom__time', x.a.hora || '--:--'));
+      var who = el('span', 'wroom__who', x.a.paciente.nome || 'Paciente sem nome');
+      if (sel.view === 'lado') who.appendChild(el('span', 'wroom__prof', providerName(x.c.prest)));
+      b.appendChild(who);
+      var w = b.appendChild(el('span', 'wait'));
+      w._appt = x.a;
+      paintWait(w, x.st);
+      b.addEventListener('click', function () {
+        var rows = document.querySelectorAll('.slot--appt'), key = 'a:' + x.a.id;
+        for (var i = 0; i < rows.length; i++) if (rows[i].getAttribute('data-sel') === key) { markSelected(rows[i]); break; }
+        showAppt(x.a, x.c);
+      });
+      li.appendChild(b);
+      list.appendChild(li);
+    });
+  }
+
+  // A cada 30 s: os cronômetros andam sem pedir nada ao Conector (o relógio dele já está guardado).
+  function tickWaits() {
+    if (document.hidden) return;
+    var now = nowMs(), nodes = document.querySelectorAll('.wait');
+    for (var i = 0; i < nodes.length; i++) {
+      var st = nodes[i]._appt && C.attendanceState(nodes[i]._appt.atendimento, now);
+      if (st) paintWait(nodes[i], st);
     }
   }
 
@@ -517,14 +671,20 @@
     // Só as colunas com confirmação esperando são pedidas de novo, e trocadas no lugar: a folha não some
     // nem pisca, e o resto da tela não volta ao "Carregando".
     var s = viewSeq;
+    // Também as colunas de hoje com paciente na clínica: outra recepção pode chamar ou finalizar.
+    var today = C.todayIso(), now = nowMs();
     var waiting = cols.filter(function (c) {
-      return c.data && (c.data.agendados || []).some(function (a) { var cf = C.confirmationState(a.confirmacao); return cf && cf.waiting; });
+      return c.data && (c.data.agendados || []).some(function (a) {
+        var cf = C.confirmationState(a.confirmacao), st = c.day === today && C.attendanceState(a.atendimento, now);
+        return (cf && cf.waiting) || (st && st.open);
+      });
     });
     if (!waiting.length) return;
     Promise.all(waiting.map(function (c) {
       return api.day(c.prest, c.day).then(function (r) {
         if (s !== viewSeq || r.status !== 200 || !r.body) return;
         c.data = r.body;
+        syncClock(r.body.agora);
         c.erro = null;
         renderCol(c);
       });
@@ -1058,6 +1218,7 @@
     side('s-empty');
     root.setInterval(tickNow, 60000);
     root.setInterval(refreshWaiting, 60000);
+    root.setInterval(tickWaits, 30000);
     connect();
   });
 })(this);

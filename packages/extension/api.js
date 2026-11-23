@@ -76,6 +76,9 @@
       day: function (providerId, day) { return request('GET', '/v1/agenda/dia' + query({ prestador_id: providerId, data: day })); },
       // payload = {chave, status: confirmado|ausente|cancelado, prestador_id, data, usuario}
       setStatus: function (id, payload) { return request('POST', '/v1/agendamentos/' + encodeURIComponent(id) + '/status', payload); },
+      // Tempo de espera (só no Conector, não vai ao ERP). payload = {acao: chegada|chamada|fim|desfazer|ajustar,
+      // etapa?, hora? (HH:MM, só no ajuste), prestador_id, data, hora_marcada, usuario}
+      attendance: function (id, payload) { return request('POST', '/v1/atendimentos/' + encodeURIComponent(id), payload, 10000); },
       exams: function () { return shared(ns + 'exames', 30 * MIN, function () { return request('GET', '/v1/exames'); }); },
       examGroups: function () { return shared(ns + 'grupos', 30 * MIN, function () { return request('GET', '/v1/exames/grupos'); }); },
       examGroup: function (groupId) { return request('GET', '/v1/exames/grupos/' + encodeURIComponent(groupId)); },

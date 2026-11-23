@@ -329,6 +329,57 @@
     return readError(status, body);
   }
 
+  /* ---------- tempo de espera: chegada → chamada → fim (marcados pela recepção na Agenda) ---------- */
+  var ESPERA_ATENCAO = 15, ESPERA_ATRASO = 30; // minutos: cronômetro âmbar e vermelho
+
+  // Hora "HH:MM" de um instante ISO, no fuso da clínica (o navegador pode estar em outro).
+  function clockOf(iso) {
+    var d = new Date(iso);
+    if (!iso || isNaN(d.getTime())) return '';
+    try { return d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false }); }
+    catch (e) { return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+  }
+
+  function duration(ms) {
+    var m = Math.max(0, Math.floor(ms / 60000));
+    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + pad2(m % 60);
+  }
+
+  // Tempos de uma consulta ({chegada, chamada, fim} em ISO) → etapa, rótulo e tom do cronômetro.
+  // now = relógio do Conector (ms). null = o paciente ainda não chegou.
+  function attendanceState(at, now) {
+    if (!at || !at.chegada) return null;
+    var ch = Date.parse(at.chegada), cm = at.chamada ? Date.parse(at.chamada) : null, fm = at.fim ? Date.parse(at.fim) : null;
+    if (fm && cm) return { stage: 'fim', open: false, tone: 'done', since: fm, wait: cm - ch, consult: fm - cm, label: 'Atendido · esperou ' + duration(cm - ch) };
+    if (cm) return { stage: 'chamada', open: true, tone: 'brand', since: cm, wait: cm - ch, consult: now - cm, label: 'Em consulta · ' + duration(now - cm) };
+    var w = now - ch, min = w / 60000;
+    return { stage: 'chegada', open: true, tone: min >= ESPERA_ATRASO ? 'err' : min >= ESPERA_ATENCAO ? 'warn' : 'wait', since: ch, wait: w, label: 'Aguardando · ' + duration(w) };
+  }
+
+  // Próximo botão da recepção para a etapa atual (null = paciente ainda não chegou).
+  var NEXT_STAGE = { '': ['chegada', 'Confirmar chegada'], chegada: ['chamada', 'Chamar para consulta'], chamada: ['fim', 'Finalizar consulta'] };
+  function attendanceNext(st) { var n = NEXT_STAGE[st ? st.stage : '']; return n ? { acao: n[0], label: n[1] } : null; }
+  var STAGE_NAME = { chegada: 'chegada', chamada: 'chamada para a consulta', fim: 'fim da consulta' };
+  function stageName(e) { return STAGE_NAME[e] || ''; }
+
+  function attendanceDone(acao, etapa) {
+    if (acao === 'chegada') return 'Chegada registrada. O tempo de espera está contando.';
+    if (acao === 'chamada') return 'Paciente chamado. O tempo de consulta está contando.';
+    if (acao === 'fim') return 'Consulta finalizada.';
+    if (acao === 'desfazer') return 'Desfeito: ' + stageName(etapa) + '.';
+    return 'Hora ajustada.';
+  }
+
+  function attendanceError(status, body) {
+    var erro = body && body.erro;
+    if (erro === 'SO_HOJE') return 'A chegada só pode ser marcada em consulta de hoje.';
+    if (erro === 'ETAPA_FORA_DE_ORDEM') return 'Outra pessoa já mudou esta consulta. A tela foi atualizada.';
+    if (erro === 'HORA_INVALIDA') return 'Hora inválida: ela precisa ficar entre a etapa anterior e a seguinte, e não pode ser no futuro.';
+    if (erro === 'NADA_A_DESFAZER') return 'Não há etapa para desfazer.';
+    if (status === 0) return 'Não foi possível falar com o Conector. Tente de novo.';
+    return readError(status, body);
+  }
+
   function fold(s) {
     return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   }
@@ -366,6 +417,7 @@
   var api = { setSistema: setSistema, sis: sis, applySistema: applySistema, queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, newPatientError: newPatientError, formatCpf: formatCpf,bookingError: bookingError, confirmationState: confirmationState, confirmationError: confirmationError, confirmationSent: confirmationSent, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
     todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, weekDays: weekDays, weekLabel: weekLabel, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
+    clockOf: clockOf, duration: duration, attendanceState: attendanceState, attendanceNext: attendanceNext, attendanceDone: attendanceDone, attendanceError: attendanceError, stageName: stageName,
     fold: fold, paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;
 })(this);

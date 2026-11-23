@@ -670,3 +670,31 @@ body:has(.toast:not([hidden])) .body { padding-bottom: 72px; }
 .day__upd { margin: -8px 0 12px; color: var(--muted); font-size: 12px; }
 .day__upd[hidden] { display: none; }
 .next .seal { flex: none; margin-left: auto; }
+
+/* ---------- tempo de espera: cronômetro na linha, sala de espera, ajuste de hora ---------- */
+.wait { display: inline-block; align-self: flex-start; margin-top: 2px; padding: 0 7px; border-radius: 999px; font-size: 11.5px; font-weight: 650; line-height: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; background: var(--surface); color: var(--muted); }
+.wait[data-tone="wait"] { background: var(--ok-soft); color: var(--ok); }
+.wait[data-tone="warn"] { background: var(--remind-soft); color: var(--remind); }
+.wait[data-tone="err"] { background: color-mix(in srgb, var(--err) 14%, var(--bg)); color: var(--err); }
+.wait[data-tone="brand"] { background: var(--brand-soft); color: var(--brand); }
+.slot--in .slot__btn { box-shadow: inset 3px 0 0 var(--ok); }
+.slot--in.slot--sel .slot__btn { box-shadow: inset 3px 0 0 var(--brand); }
+.slot--in.slot--past .slot__btn { background: var(--bg); }
+.sheet--compact .wait { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 10.5px; line-height: 16px; padding: 0 5px; }
+
+.wroom { margin-bottom: 16px; }
+.wroom[hidden] { display: none; }
+.wroom__title { margin: 0 0 8px; font-size: 14px; font-weight: 650; display: flex; align-items: center; gap: 4px; }
+.wroom__title .count[hidden] { display: none; }
+.wroom__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.wroom__item { width: 100%; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.wroom__item:hover { border-color: var(--brand); }
+.wroom__time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.wroom__who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wroom__prof { display: block; color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; }
+.wroom__item .wait { margin: 0; align-self: center; }
+
+.adjust { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; width: 100%; }
+.adjust__field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.adjust select, .adjust input { padding: 6px 8px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
+.adjust .btn { margin-top: 0; }

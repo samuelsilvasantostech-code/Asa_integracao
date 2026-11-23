@@ -1,4 +1,4 @@
-// Retenção: depois de 90 dias, os dados pessoais das trilhas (confirmacoes, agendamentos, cobrancas) são
+// Retenção: depois de 90 dias, os dados pessoais das trilhas (confirmacoes, agendamentos, cobrancas, atendimentos) são
 // apagados. A linha fica, com estado, tipo, valor e datas, para os números do painel (que vai até 90 dias).
 import type pg from "pg";
 import { hojeEm } from "./confirmacao.js";
@@ -29,11 +29,15 @@ export const SQL_RETENCAO = {
   cobrancas: `UPDATE cobrancas SET usuario = NULL, paciente_id = NULL, msg = NULL
     WHERE (criado_em AT TIME ZONE '${FUSO}')::date < $1::date
       AND (usuario IS NOT NULL OR paciente_id IS NOT NULL OR msg IS NOT NULL)`,
+  // Tempo de espera antigo: quem marcou cada etapa. As horas ficam, para o relatório.
+  atendimentos: `UPDATE atendimentos SET chegada_por = NULL, chamada_por = NULL, fim_por = NULL
+    WHERE data < $1::date
+      AND (chegada_por IS NOT NULL OR chamada_por IS NOT NULL OR fim_por IS NOT NULL)`,
 } as const;
 
 export async function aplicarRetencao(db: Pick<pg.Pool, "query">, agora = new Date()) {
   const corte = corteRetencao(hojeEm(agora));
-  const feito: Record<keyof typeof SQL_RETENCAO, number> = { confirmacoes: 0, agendamentos: 0, cobrancas: 0 };
+  const feito: Record<keyof typeof SQL_RETENCAO, number> = { confirmacoes: 0, agendamentos: 0, cobrancas: 0, atendimentos: 0 };
   for (const [tabela, sql] of Object.entries(SQL_RETENCAO) as [keyof typeof SQL_RETENCAO, string][]) {
     feito[tabela] = (await db.query(sql, [corte])).rowCount ?? 0;
   }
