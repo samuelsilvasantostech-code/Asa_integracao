@@ -322,11 +322,12 @@
 
   /* ---------- nome do sistema (ERP) da clínica nas frases ---------- */
   // Vem de /v1/capacidades ("Asa", artigo "a"). Até lá, e sem nome cadastrado: "o sistema da clínica".
-  var sistema = { nome: 'sistema da clínica', artigo: 'o' };
+  var SISTEMA_PADRAO = 'sistema da clínica';
+  var sistema = { nome: SISTEMA_PADRAO, artigo: 'o' };
   function setSistema(s) {
     if (s && typeof s.nome === 'string' && s.nome.trim()) sistema = { nome: s.nome.trim(), artigo: s.artigo === 'a' ? 'a' : 'o' };
   }
-  // sis('na') vira "na Asa" ou "no Feegow". Formas: na, da, ao (à/ao), pela, a (a/o), A (A/O), nome, Nome.
+  // sis('na') vira "na Asa" ou "no Feegow". Formas: na, da, ao (à/ao), pela, a (a/o), A (A/O), nome, Nome, marca.
   function sis(forma) {
     var f = sistema.artigo === 'a', n = sistema.nome;
     switch (forma) {
@@ -337,6 +338,8 @@
       case 'a': return (f ? 'a ' : 'o ') + n;
       case 'A': return (f ? 'A ' : 'O ') + n;
       case 'Nome': return n.charAt(0).toUpperCase() + n.slice(1);
+      // Ao lado do "ClinFy" no título: "ClinFy + Luna". Sem sistema conhecido, nada.
+      case 'marca': return n === SISTEMA_PADRAO ? '' : ' + ' + n.charAt(0).toUpperCase() + n.slice(1);
       default: return n;
     }
   }

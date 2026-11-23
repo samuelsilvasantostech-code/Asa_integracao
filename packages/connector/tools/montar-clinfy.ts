@@ -52,7 +52,7 @@ export function montarClinfy(dir = DIR_EXTENSAO): string {
 <header class="hub__bar">
   <div class="hd__brand">
     <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
-    <div class="hd__title">ClinFy</div>
+    <div class="hd__title">ClinFy<span class="hd__sis" data-sis="marca"></span></div>
   </div>
   <nav class="hub__tabs" role="tablist" aria-label="Seções do ClinFy">
 ${aba("agenda", "Agenda")}

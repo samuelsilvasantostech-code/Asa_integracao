@@ -43,6 +43,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .hd__logo { width: 28px; height: 28px; border-radius: 8px; background: var(--on-deep-line); display: grid; place-items: center; flex: none; }
 .hd__logo svg { width: 17px; height: 17px; fill: none; stroke: var(--deep-mint); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .hd__title { font-family: var(--display); font-weight: 650; font-size: 14px; letter-spacing: -.005em; }
+.hd__sis { color: var(--deep-mint); }
 .hd__sub { color: var(--on-deep-muted); font-size: 11.5px; }
 .hd .pill { background: var(--on-deep-line); }
 .hd .pill, .hd .pill[data-tone] { color: var(--on-deep); }
