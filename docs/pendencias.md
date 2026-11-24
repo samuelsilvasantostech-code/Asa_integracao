@@ -69,5 +69,5 @@ Legenda: **API** = a Asa não entrega · **Asa** = a Asa entrega, mas com compor
 | P39 | Nosso | ~~`confirmacoes` guarda o telefone do paciente sem prazo.~~ | **Resolvido na 0.19.0** (`src/retencao.ts`): depois de 90 dias, os dados pessoais de `confirmacoes`, `agendamentos`, `cobrancas` e `atendimentos` são apagados, e as linhas ficam para o painel. |
 | P40 | Nosso | Qualquer atendente altera a confirmação (inclusive ligar para todos os pacientes), e o nome gravado na trilha vem do navegador. | Decisão do usuário em 30/10. Reavaliar se houver incidente. |
 | P41 | Teste | Tempo de espera: chegada, chamada, fim, Desfazer, Ajustar hora, dois computadores ao mesmo tempo e o relatório no Painel. O primeiro clique confirma que a migração 019 rodou em produção | 0.32.0 / 0.33.0 |
-| P42 | Teste | Cadastro de paciente pelo painel e pela Agenda, num ERP com `cadastro_paciente` (Luna ou Feegow) | 0.25.0 / 0.27.0 |
+| P42 | Teste | Cadastro de paciente: **validado na Asa (Medular) em 24/11, na 0.33.5**. Falta em Luna e Feegow | 0.25.0 / 0.27.0 / 0.33.5 |
 | P36 | Teste | Agendar por exame: o procedimento buscado já deve vir escolhido no formulário. A Asa pode não trazer o id do procedimento no horário; nesse caso, ele é casado pelo nome | 0.13.0 |

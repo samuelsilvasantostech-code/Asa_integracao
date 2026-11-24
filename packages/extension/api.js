@@ -94,11 +94,11 @@
       // A Asa pode levar até 40 s para gravar, e o Conector ainda confere a agenda se ela não responder.
       book: function (payload) { return request('POST', '/v1/agendamentos', payload, 60000); },
       // payload = {chave, busca: {telefone|cpf}, usuario}; a busca prova que a consulta é do paciente.
-      cancel: function (id, payload) { return request('POST', '/v1/agendamentos/' + encodeURIComponent(id) + '/cancelar', payload); },
+      cancel: function (id, payload) { return request('POST', '/v1/agendamentos/' + encodeURIComponent(id) + '/cancelar', payload, 60000); },
       financeConfig: function () { return shared(ns + 'financeiro', 5 * MIN, function () { return request('GET', '/v1/tenant/financeiro'); }); },
       charges: function (patientId) { return request('GET', '/v1/cobrancas' + query({ paciente_id: patientId })); },
       // Grava na Asa SEM VOLTA (conta a receber). payload = {chave, paciente_id, busca, valor, forma, vencimento?, agendamento?, usuario}
-      charge: function (payload) { return request('POST', '/v1/cobrancas', payload); },
+      charge: function (payload) { return request('POST', '/v1/cobrancas', payload, 60000); },
       reminderConfig: function () { return request('GET', '/v1/tenant/confirmacao'); },
       // payload = {agendamento_id, busca: {telefone|cpf}, usuario}: põe na fila e aciona o envio da confirmação.
       sendConfirmation: function (payload) { return request('POST', '/v1/confirmacao/enviar', payload, 30000); },

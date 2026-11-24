@@ -57,7 +57,18 @@
   function recall(k) { try { return root.localStorage.getItem('asa.' + k) || ''; } catch (e) { return ''; } }
 
   var SIDE = ['s-empty', 's-appt', 's-pac', 's-charge', 's-book', 's-review', 's-done'];
-  function side(id) { SIDE.forEach(function (v) { $(v).hidden = v !== id; }); }
+  function side(id) {
+    if (id !== 's-review' && id !== 's-done' && bookingBusy()) return;
+    SIDE.forEach(function (v) { $(v).hidden = v !== id; });
+  }
+  // Marcação sendo gravada: a lateral fica na revisão até a resposta. Trocar de tela descartaria o resultado,
+  // e o horário seguiria livre na tela mesmo já marcado.
+  function bookingBusy() {
+    if (!(booking && booking.sending)) return false;
+    SIDE.forEach(function (v) { $(v).hidden = v !== 's-review'; });
+    status('sr-status', 'Aguarde: a gravação ' + C.sis('na') + ' ainda não terminou.');
+    return true;
+  }
 
   function providerName(id) {
     var p = sched && find(sched.prestadores, id);
@@ -546,12 +557,13 @@
     Array.prototype.forEach.call(box.querySelectorAll('button, input, select'), function (b) { b.disabled = true; });
     btn.textContent = 'Gravando…';
     var payload = Object.assign({ prestador_id: c.prest, data: c.day, hora_marcada: a.hora || undefined, usuario: userLabel || undefined }, p);
+    busy(c, 1);
     api.attendance(a.id, payload).then(function (r) {
+      busy(c, -1);
       var ok = r.status === 200 && r.body && r.body.ok;
       if (r.body && r.body.atendimento) {
         a.atendimento = r.body.atendimento;
-        // A atualização automática pode ter trocado a lista da coluna enquanto esta consulta estava aberta.
-        ((c.data && c.data.agendados) || []).forEach(function (x) { if (x.id === a.id) x.atendimento = a.atendimento; });
+        patchRow(c, a, { atendimento: a.atendimento });
       }
       if (r.body && r.body.agora) syncClock(r.body.agora);
       if (cols.indexOf(c) >= 0) renderCol(c);
@@ -653,10 +665,13 @@
     var box = $('sa-actions');
     Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
     btn.textContent = 'Enviando…';
+    busy(c, 1);
     api.sendConfirmation({ agendamento_id: a.id, busca: { telefone: a.paciente.telefone }, usuario: userLabel || undefined }).then(function (r) {
+      busy(c, -1);
       var here = stillShowing(a);
       if (r.status === 200 && r.body && r.body.ok) {
         a.confirmacao = { estado: 'fila', resposta: null };
+        patchRow(c, a, { confirmacao: a.confirmacao });
         if (here) { showAppt(a, c); status('sa-status', C.confirmationSent(r.body)); }
         if (cols.indexOf(c) >= 0) renderCol(c);
         return;
@@ -664,6 +679,19 @@
       if (!here) return;
       apptActions(a, C.statusInfo(a.status), c);
       status('sa-status', C.confirmationError(r.status, r.body), 'err');
+    });
+  }
+
+  // Ação gravando numa coluna: a atualização automática não a troca enquanto isso, e uma leitura que saiu antes
+  // da ação terminar é descartada (gen muda a cada ação concluída).
+  function busy(c, d) {
+    c.busy = Math.max(0, (c.busy || 0) + d);
+    if (d < 0) c.gen = (c.gen || 0) + 1;
+  }
+  // Copia o resultado da ação para a linha da coluna, caso a lista tenha sido trocada com a consulta aberta.
+  function patchRow(c, a, f) {
+    ((c.data && c.data.agendados) || []).forEach(function (x) {
+      if (x.id === a.id && x !== a) Object.keys(f).forEach(function (k) { x[k] = f[k]; });
     });
   }
 
@@ -678,19 +706,30 @@
     // Também as colunas de hoje com paciente na clínica: outra recepção pode chamar ou finalizar.
     var today = C.todayIso(), now = nowMs();
     var waiting = cols.filter(function (c) {
-      return c.data && (c.data.agendados || []).some(function (a) {
+      return c.data && !c.busy && (c.data.agendados || []).some(function (a) {
         var cf = C.confirmationState(a.confirmacao), st = c.day === today && C.attendanceState(a.atendimento, now);
         return (cf && cf.waiting) || (st && st.open);
       });
     });
     if (!waiting.length) return;
     Promise.all(waiting.map(function (c) {
+      var gen = c.gen || 0;
       return api.day(c.prest, c.day).then(function (r) {
         if (s !== viewSeq || r.status !== 200 || !r.body) return;
+        // Uma ação gravou nesta coluna enquanto a leitura estava a caminho: a leitura pode ser anterior a ela.
+        if (c.busy || (c.gen || 0) !== gen) return;
+        var old = shownAppt, here = old && stillShowing(old);
+        (r.body.agendados || []).forEach(function (x) {
+          var prev = find((c.data && c.data.agendados) || [], x.id);
+          if (prev && prev.keys) x.keys = prev.keys; // chaves de idempotência de tentativas incertas
+        });
         c.data = r.body;
         syncClock(r.body.agora);
         c.erro = null;
         renderCol(c);
+        // A lateral mostrava a consulta antiga: passa para a lida agora, senão os botões agiriam sobre dados velhos.
+        var fresh = here && find(r.body.agendados || [], old.id);
+        if (fresh && !$('s-appt').querySelector('.item__ask, button:disabled, form')) showAppt(fresh, c);
       });
     })).then(function () { if (s === viewSeq) viewStatus(); });
   }
@@ -703,21 +742,24 @@
     btn.textContent = 'Gravando…';
     a.keys = a.keys || {};
     var key = a.keys[st] || (a.keys[st] = C.newKey()); // a mesma chave numa nova tentativa
+    busy(c, 1);
     api.setStatus(a.id, { chave: key, status: st, prestador_id: c.prest, data: c.day, usuario: userLabel || undefined }).then(function (r) {
+      busy(c, -1);
       var here = stillShowing(a);
       if (r.status === 200 && r.body && r.body.ok) {
         a.status = st;
+        patchRow(c, a, { status: st });
         if (here) { showAppt(a, c); status('sa-status', DONE(st)); }
         if (cols.indexOf(c) >= 0) renderCol(c); // a coluna ainda está na tela
         return;
       }
       var erro = r.body && r.body.erro;
-      if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') a.keys[st] = null;
+      if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO' && !C.uncertain(r.status, r.body)) a.keys[st] = null;
       if (!here) { if (erro === 'CONSULTA_NAO_ENCONTRADA') loadView(); return; }
       apptActions(a, C.statusInfo(a.status), c);
       status('sa-status', erro === 'CONSULTA_NAO_ENCONTRADA'
         ? ('Essa consulta não está mais na agenda deste dia ' + C.sis('na') + '. A agenda foi atualizada.')
-        : C.bookingError(r.status, r.body), 'err');
+        : st === 'cancelado' ? C.cancelError(r.status, r.body) : C.bookingError(r.status, r.body), 'err');
       if (erro === 'CONSULTA_NAO_ENCONTRADA') loadView();
     });
   }
@@ -787,6 +829,7 @@
   }
 
   function closeSide() {
+    if (bookingBusy()) return;
     booking = null;
     side('s-empty');
     markSelected(null);
@@ -971,6 +1014,7 @@
   }
 
   function openBooking(slot) {
+    if (bookingBusy()) return;
     var orig = rescheduling;
     booking = {
       slot: slot, providerName: providerName(slot.prestador_id), key: C.newKey(), insurances: [], procedures: [],
@@ -1084,7 +1128,9 @@
     fact(dl, 'Procedimento', proc.nome + (proc.valor > 0 ? ' — ' + C.formatMoney(proc.valor) : ''));
     if (b.obs) fact(dl, 'Observação', b.obs);
     $('sr-title').textContent = b.original ? 'Confirme a remarcação' : 'Confirme o agendamento';
-    $('sr-go').textContent = b.original ? 'Confirmar remarcação' : 'Confirmar agendamento';
+    // Mudou algo depois de um resultado incerto: pedido novo, chave nova. Sem mudança: o botão continua só conferindo.
+    if (b.sent && bookingSig(b) !== b.sent) { b.key = C.newKey(); b.sent = null; b.unsure = false; }
+    $('sr-go').textContent = b.unsure ? ('Conferir ' + C.sis('na')) : b.original ? 'Confirmar remarcação' : 'Confirmar agendamento';
     $('sr-hint').textContent = b.original
       ? ('Ao confirmar, a consulta original é trocada pelo novo horário na agenda da clínica ' + C.sis('na') + '.')
       : ('Ao confirmar, a consulta é gravada na agenda da clínica ' + C.sis('na') + '.');
@@ -1093,12 +1139,19 @@
     side('s-review');
   }
 
+  // O que identifica o pedido de marcação: com a mesma chave, o Conector devolve o resultado do primeiro pedido.
+  function bookingSig(b) {
+    return JSON.stringify([b.slot, b.patient, b.conv && b.conv.id, b.proc && b.proc.id, b.obs || '', b.original && b.original.id]);
+  }
+
   function confirmBooking() {
     var b = booking;
-    if (!b) return;
+    if (!b || b.sending) return;
     $('sr-go').disabled = true;
     $('sr-back').disabled = true;
-    status('sr-status', $('sr-go').textContent === ('Conferir ' + C.sis('na')) ? ('Conferindo na agenda ' + C.sis('da') + '…') : ('Gravando ' + C.sis('na') + '… pode levar até um minuto.'));
+    status('sr-status', b.unsure ? ('Conferindo na agenda ' + C.sis('da') + '…') : ('Gravando ' + C.sis('na') + '… pode levar até um minuto.'));
+    b.sending = true;
+    b.sent = bookingSig(b);
     var payload = Object.assign({
       chave: b.key,
       convenio_id: b.conv.id,
@@ -1108,15 +1161,17 @@
       remarcar: b.original ? { agendamento_id: b.original.id, busca: b.busca } : undefined
     }, b.slot, b.patient);
     api.book(payload).then(function (r) {
+      b.sending = false;
       $('sr-back').disabled = false;
-      if (booking !== b) return;
+      if (booking !== b) { loadView(); return; } // a tela do horário precisa refletir o que foi gravado
+      side('s-review');
       if (r.status === 200 && r.body && r.body.ok) { bookingDone(b, r.body); return; }
       var erro = r.body && r.body.erro;
       status('sr-status', C.bookingError(r.status, r.body), 'err');
       // Recusa definitiva: um novo pedido precisa de chave nova. Incerto, sem resposta ou em andamento:
       // mantém a chave, e o botão passa a só conferir (o Conector nunca grava duas vezes a mesma chave).
-      var unsure = erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || (r.status === 0 && !erro);
-      if (!unsure) b.key = C.newKey();
+      var unsure = b.unsure = erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || C.uncertain(r.status, r.body);
+      if (!unsure) { b.key = C.newKey(); b.sent = null; }
       $('sr-go').textContent = unsure ? ('Conferir ' + C.sis('na')) : (b.original ? 'Confirmar remarcação' : 'Confirmar agendamento');
       $('sr-go').disabled = erro === 'HORARIO_INDISPONIVEL';
       if (erro === 'HORARIO_INDISPONIVEL') setTimeout(loadView, 1500);

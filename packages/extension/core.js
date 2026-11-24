@@ -189,11 +189,18 @@
     return 'Confirmação na fila. Ela sai na próxima rodada da automação.';
   }
 
+  // Gravação sem resposta clara: tempo esgotado (0), falha do servidor ou do proxy sem código nosso (5xx),
+  // ou 200 sem o "ok". O sistema pode ter gravado, então a chave fica a mesma e o botão só confere.
+  function uncertain(status, body) {
+    if (body && body.erro) return false;
+    return status === 0 || status >= 500 || status === 200;
+  }
+
   function bookingError(status, body) {
     var erro = body && body.erro;
     if (erro === 'HORARIO_INDISPONIVEL') return 'Esse horário acabou de ser ocupado. Escolha outro.';
     if (erro === 'AGENDAMENTO_INCERTO') return (sis('A') + ' não confirmou e a consulta ainda não aparece na agenda do profissional. Ela pode ser gravada nos próximos instantes: aguarde um pouco e toque em "Conferir ' + sis('na') + '". Isso só confere, não marca de novo.') + (body.detalhe ? ' Diagnóstico: ' + body.detalhe + '.' : '');
-    if (status === 0 && !erro) return ('O Conector não respondeu a tempo e a consulta pode ter sido gravada. Toque em "Conferir ' + sis('na') + '": isso só confere, não marca de novo.');
+    if (uncertain(status, body)) return ('A resposta não chegou a tempo e a consulta pode ter sido gravada. Clique em "Conferir ' + sis('na') + '": isso só confere, não marca de novo.');
     if (erro === 'AGENDAMENTO_SEM_NUMERO') return (sis('A') + ' respondeu sem o número da consulta') + (body.msg ? ' ("' + body.msg + '")' : '') + ', então não dá para garantir que foi marcada. Confira na agenda do profissional antes de tentar de novo.';
     if (erro === 'PACIENTE_INCOMPLETO') return ('O cadastro do paciente ' + sis('na') + ' está sem ') + ((body.faltam || []).join(' e ') || 'dados obrigatórios') + (', que ' + sis('a') + ' exige para marcar. Complete o cadastro ' + sis('na') + ' e tente de novo.');
     if (erro === 'PACIENTE_NAO_CONFERE') return ('O paciente escolhido não confere com o cadastro ' + sis('da') + '. Busque o paciente de novo e tente outra vez.');
@@ -318,11 +325,21 @@
     return fin.quem === 'todos' || type === 0;
   }
 
+  // Resposta de POST /v1/agendamentos/:id/cancelar → mensagem para o atendente.
+  function cancelError(status, body) {
+    var erro = body && body.erro;
+    if (erro === 'CONSULTA_NAO_ENCONTRADA') return ('Essa consulta não está mais na lista do paciente ' + sis('na') + '. Atualize.');
+    if (erro === 'AGENDAMENTO_INCERTO' || uncertain(status, body)) return ('A resposta não chegou a tempo e a consulta pode ter sido cancelada. Atualize a lista antes de tentar de novo.');
+    if (erro === 'AGENDAMENTO_EM_ANDAMENTO') return 'Este cancelamento já está sendo gravado. Aguarde alguns segundos.';
+    return readError(status, body);
+  }
+
   // Resposta de POST /v1/cobrancas → mensagem para o atendente.
   function chargeError(status, body) {
     var erro = body && body.erro;
     if (erro === 'COBRANCA_INCERTA') return (sis('A') + ' não confirmou a tempo e a conta pode ter sido lançada. Confira no financeiro ' + sis('da') + ' antes de lançar de novo.');
     if (erro === 'COBRANCA_EM_ANDAMENTO') return 'Esta cobrança já está sendo lançada. Aguarde alguns segundos.';
+    if (uncertain(status, body)) return ('A resposta não chegou a tempo e a conta pode ter sido lançada. Confira no financeiro ' + sis('da') + ' antes de lançar de novo; "Conferir" repete o mesmo pedido, sem lançar outra conta.');
     if (erro === 'FINANCEIRO_DESLIGADO') return 'O lançamento de cobrança está desligado para esta clínica.';
     if (erro === 'PACIENTE_NAO_CONFERE') return ('O paciente não conferiu ' + sis('na') + '. Busque o paciente de novo.');
     if (erro === 'CONSULTA_NAO_ENCONTRADA') return 'A consulta vinculada não foi encontrada para este paciente. Lance sem vínculo ou escolha outra.';
@@ -419,6 +436,6 @@
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
     todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, weekDays: weekDays, weekLabel: weekLabel, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
     clockOf: clockOf, duration: duration, attendanceState: attendanceState, attendanceNext: attendanceNext, attendanceDone: attendanceDone, attendanceError: attendanceError, stageName: stageName,
-    fold: fold, paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError };
+    fold: fold, paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError, uncertain: uncertain, cancelError: cancelError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;
 })(this);

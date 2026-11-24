@@ -251,11 +251,9 @@
         return;
       }
       var erro = r.body && r.body.erro;
-      if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO') c.cancelKey = null;
+      if (erro !== 'AGENDAMENTO_INCERTO' && erro !== 'AGENDAMENTO_EM_ANDAMENTO' && !C.uncertain(r.status, r.body)) c.cancelKey = null;
       box.textContent = '';
-      box.appendChild(el('span', 'item__ask', erro === 'CONSULTA_NAO_ENCONTRADA'
-        ? ('Essa consulta não está mais na lista do paciente ' + C.sis('na') + '. Atualize.')
-        : C.bookingError(r.status, r.body)));
+      box.appendChild(el('span', 'item__ask', C.cancelError(r.status, r.body)));
       box.appendChild(button('Voltar', 'btn--sm', function () { var nova = consultaActions(c); box.parentNode.replaceChild(nova, box); if (nova.firstChild) nova.firstChild.focus(); }));
       B.fitHeight();
     });
@@ -277,12 +275,17 @@
     if (!(patient && patient.id) || !C.canCharge(fin, userType)) return;
     selectTab('financeiro');
     $('f-new').hidden = true;
+    var pid = patient.id, pname = patient.nome;
     root.AsaCharge.mount($('f-box'), {
       api: api, user: userLabel, patient: patient, busca: lastLookup, preselect: preselect,
       appointments: consultas.filter(function (c) { return c.id; }).map(function (c) {
         return { id: c.id, label: whenText(c) + (c.prestador ? ' — ' + c.prestador : '') };
       }),
-      onDone: function () { root.AsaCharge.history($('f-list'), api, patient.id, B.fitHeight); },
+      onDone: function (res, p, shown) {
+        // A conversa pode ter mudado durante o envio: o resultado vira aviso, para não ser lançado de novo.
+        if (!shown) toast('Cobrança de ' + C.formatMoney(Number(p.valor)) + ' para ' + pname + (' lançada ' + C.sis('na') + '.'));
+        if (patient && patient.id === pid) root.AsaCharge.history($('f-list'), api, pid, B.fitHeight);
+      },
       onClose: function () { $('f-box').textContent = ''; $('f-new').hidden = false; B.fitHeight(); },
       fit: B.fitHeight
     });
@@ -886,7 +889,9 @@
     fact(dl, 'Profissional', b.providerName);
     fact(dl, b.original ? 'Vai para' : 'Quando', C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario);
     $('b-confirm-title').textContent = b.original ? 'Confirme a remarcação' : 'Confirme o agendamento';
-    $('b-go').textContent = b.original ? 'Confirmar remarcação' : 'Confirmar agendamento';
+    // Mudou algo depois de um resultado incerto: pedido novo, chave nova. Sem mudança: o botão continua só conferindo.
+    if (b.sent && bookingSig(b) !== b.sent) { b.key = C.newKey(); b.sent = null; b.unsure = false; }
+    $('b-go').textContent = b.unsure ? ('Conferir ' + C.sis('na')) : b.original ? 'Confirmar remarcação' : 'Confirmar agendamento';
     $('b-confirm-hint').textContent = b.original
       ? ('Ao confirmar, a consulta original é trocada pelo novo horário na agenda da clínica ' + C.sis('na') + '.')
       : ('Ao confirmar, a consulta é gravada na agenda da clínica ' + C.sis('na') + '.');
@@ -900,12 +905,18 @@
     B.fitHeight();
   }
 
+  // O que identifica o pedido de marcação: com a mesma chave, o Conector devolve o resultado do primeiro pedido.
+  function bookingSig(b) {
+    return JSON.stringify([b.slot, b.patient, b.conv && b.conv.id, b.proc && b.proc.id, b.obs || '', b.original && b.original.id]);
+  }
+
   function confirmBooking() {
     var b = booking;
     if (!b) return;
     $('b-go').disabled = true;
     $('b-back').disabled = true;
-    status('b-confirm-status', $('b-go').textContent === ('Conferir ' + C.sis('na')) ? ('Conferindo na agenda ' + C.sis('da') + '…') : ('Gravando ' + C.sis('na') + '… pode levar até um minuto.'));
+    status('b-confirm-status', b.unsure ? ('Conferindo na agenda ' + C.sis('da') + '…') : ('Gravando ' + C.sis('na') + '… pode levar até um minuto.'));
+    b.sent = bookingSig(b);
     var payload = Object.assign({
       chave: b.key,
       convenio_id: b.conv.id,
@@ -922,15 +933,15 @@
         // senão o atendente marca de novo e a consulta fica duplicada.
         var oque = 'A consulta de ' + b.who + ' em ' + C.formatDay(b.slot.data, true) + ' às ' + b.slot.horario;
         if (r.status === 200 && r.body && r.body.ok) toast(oque + (b.original ? ' foi remarcada ' : ' foi marcada ') + C.sis('na') + '.');
-        else if (erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || (r.status === 0 && !erro)) toast('Não deu para confirmar se ' + oque.charAt(0).toLowerCase() + oque.slice(1) + ' foi gravada. Confira ' + C.sis('na') + ' antes de marcar de novo.', 'err');
+        else if (erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || C.uncertain(r.status, r.body)) toast('Não deu para confirmar se ' + oque.charAt(0).toLowerCase() + oque.slice(1) + ' foi gravada. Confira ' + C.sis('na') + ' antes de marcar de novo.', 'err');
         return;
       }
       if (r.status === 200 && r.body && r.body.ok) { bookingDone(b, r.body); return; }
       status('b-confirm-status', C.bookingError(r.status, r.body), 'err');
       // Recusa definitiva: um novo pedido precisa de chave nova. Incerto, sem resposta ou em andamento:
       // mantém a chave, e o botão passa a só conferir (o Conector nunca grava duas vezes a mesma chave).
-      var unsure = erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || (r.status === 0 && !erro);
-      if (!unsure) b.key = C.newKey();
+      var unsure = b.unsure = erro === 'AGENDAMENTO_INCERTO' || erro === 'AGENDAMENTO_EM_ANDAMENTO' || C.uncertain(r.status, r.body);
+      if (!unsure) { b.key = C.newKey(); b.sent = null; }
       $('b-go').textContent = unsure ? ('Conferir ' + C.sis('na')) : (b.original ? 'Confirmar remarcação' : 'Confirmar agendamento');
       $('b-go').disabled = erro === 'HORARIO_INDISPONIVEL';
       if (erro === 'HORARIO_INDISPONIVEL') {

@@ -42,10 +42,13 @@
   /* opts = {
    *   api, user (texto da trilha), patient {id, nome}, busca {telefone|cpf},
    *   appointments [{id, label, prestador_id?, data?}], preselect (id da consulta),
-   *   onDone(res), onClose(), fit()
+   *   onDone(res, p, shown), onClose(), fit()
    * } */
   function mount(box, opts) {
-    var key = C.newKey(), pending = null;
+    // sent = o pedido que foi com a chave atual. Se o atendente mudar algo depois de um resultado incerto,
+    // a chave é trocada: a mesma chave com outro valor faria o Conector devolver a conta antiga como se fosse a nova.
+    var key = C.newKey(), pending = null, sent = null, unsure = false;
+    function sig(p) { return JSON.stringify([p.valor, p.forma, p.vencimento || '', p.appt ? p.appt.id : '']); }
     var fit = opts.fit || function () {};
     box.textContent = '';
 
@@ -127,8 +130,10 @@
       fact(sum, 'Forma', C.paymentLabel(forma.value));
       fact(sum, 'Vencimento', venc.value ? C.formatDay(venc.value, true) : ('Amanhã (padrão ' + C.sis('da') + ')'));
       fact(sum, 'Consulta', a ? a.label : 'Sem vínculo');
+      if (sent && sig(pending) !== sent) { key = C.newKey(); sent = null; unsure = false; }
       msg(formMsg, '');
-      msg(revMsg, '');
+      msg(revMsg, unsure ? 'A cobrança anterior ficou sem resposta. "Conferir" repete o mesmo pedido, sem lançar outra conta.' : '');
+      confirm.textContent = unsure ? 'Conferir' : 'Confirmar cobrança';
       confirm.disabled = false;
       form.hidden = true;
       rev.hidden = false;
@@ -140,7 +145,8 @@
       var p = pending;
       confirm.disabled = true;
       back.disabled = true;
-      msg(revMsg, ('Lançando ' + C.sis('na') + '…'));
+      msg(revMsg, unsure ? ('Conferindo ' + C.sis('na') + '…') : ('Lançando ' + C.sis('na') + '… pode levar até um minuto.'));
+      sent = sig(p);
       opts.api.charge({
         chave: key,
         paciente_id: opts.patient.id,
@@ -155,8 +161,11 @@
         if (r.status === 200 && r.body && r.body.ok) { finish(p, r.body); return; }
         var erro = r.body && r.body.erro;
         msg(revMsg, C.chargeError(r.status, r.body), 'err');
-        // Recusa definitiva: um novo pedido precisa de chave nova. Incerta ou em andamento: mantém.
-        if (erro !== 'COBRANCA_INCERTA' && erro !== 'COBRANCA_EM_ANDAMENTO') key = C.newKey();
+        // Recusa definitiva: um novo pedido precisa de chave nova. Incerta, sem resposta ou em andamento:
+        // mantém a chave (o Conector nunca lança duas vezes a mesma chave) e o botão passa a só conferir.
+        unsure = erro === 'COBRANCA_INCERTA' || erro === 'COBRANCA_EM_ANDAMENTO' || C.uncertain(r.status, r.body);
+        if (!unsure) { key = C.newKey(); sent = null; }
+        confirm.textContent = unsure ? 'Conferir' : 'Confirmar cobrança';
         confirm.disabled = erro === 'COBRANCA_INCERTA';
         fit();
       });
@@ -172,10 +181,12 @@
       fact(dl, 'Vencimento', p.vencimento ? C.formatDay(p.vencimento, true) : 'Amanhã');
       if (p.appt) fact(dl, 'Consulta', p.appt.label);
       if (res.msg) fact(dl, ('' + C.sis('Nome')), res.msg);
+      if (res.repetido) fact(dl, 'Situação', 'Já tinha sido lançada (mesmo pedido, sem conta nova)');
       done.appendChild(dl);
       if (opts.onClose) done.appendChild(button('Fechar', null, opts.onClose));
       done.hidden = false;
-      if (opts.onDone) opts.onDone(res);
+      // shown = false: a tela foi trocada (outra conversa ou outra cobrança) e quem chamou precisa avisar.
+      if (opts.onDone) opts.onDone(res, p, done.isConnected);
       fit();
     }
 
