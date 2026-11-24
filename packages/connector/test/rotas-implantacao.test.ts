@@ -97,3 +97,12 @@ test("admin: rota de ligar o ERP existe e exige a chave (a validação do endere
   assert.equal((await app.inject({ method: "PUT", url, headers: { "x-admin-key": CHAVE }, payload: { erp: "padrao" } })).statusCode, 503);
   await app.close();
 });
+
+test("admin: diagnóstico da agenda na Asa existe e exige a chave", async () => {
+  const app = Fastify();
+  await app.register(adminRoutes);
+  const url = `/admin/tenants/${UUID}/diagnostico/asa?prestador_id=12&data=2026-11-24`;
+  assert.equal((await app.inject({ method: "GET", url })).statusCode, 401);
+  assert.equal((await app.inject({ method: "GET", url, headers: { "x-admin-key": CHAVE } })).statusCode, 503);
+  await app.close();
+});

@@ -102,6 +102,7 @@
   function readError(status, body) {
     var erro = body && body.erro;
     if (erro === 'ASA_RECUSOU' && body.msg) return (sis('A') + ' respondeu: ') + body.msg;
+    if (erro === 'ASA_LIMITE') return sis('A') + ' pediu uma pausa nas consultas (muitas chamadas seguidas). Aguarde um instante e clique em Atualizar.';
     if (erro === 'ERP_RECUSOU' && body.msg) return sis('A') + ' respondeu: ' + body.msg;
     if (erro === 'CREDENCIAL_AUSENTE') return 'A credencial ' + sis('da') + ' ainda não foi cadastrada.';
     if (erro === 'ASA_CREDENCIAL_INVALIDA') return (sis('A') + ' recusou a credencial cadastrada.');

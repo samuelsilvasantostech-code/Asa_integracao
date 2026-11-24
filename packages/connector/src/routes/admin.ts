@@ -11,6 +11,8 @@ import { perfilErp } from "../tenant-auth.js";
 import { usuariosAdmin } from "./acesso.js";
 import { conectoresAdmin } from "./conectores.js";
 import { gravarCredencial } from "./tenant.js";
+import { decifrar } from "../crypto.js";
+import { chamarAsaBruto, type CredencialAsa } from "../erp/asa/cliente.js";
 
 const hash = (valor: string) => createHash("sha256").update(valor).digest("hex");
 
@@ -189,6 +191,56 @@ export async function adminRoutes(app: FastifyInstance) {
       [req.params.id],
     );
     return { agendamentos: rows };
+  });
+
+  // Diagnóstico da agenda na Asa: o que a Asa responde, cru, para um profissional num dia. Sem prestador_id,
+  // lista os profissionais. Só leitura. Numa resposta boa devolve só contagens (nada de paciente); numa
+  // recusa devolve o texto, que é a mensagem de erro da Asa.
+  app.get<{ Params: { id: string }; Querystring: { prestador_id?: string; data?: string } }>("/admin/tenants/:id/diagnostico/asa", async (req, reply) => {
+    const { rows } = await pool!.query<{ erp: string; asa_credencial_cifrada: Buffer | null }>(
+      "SELECT erp, asa_credencial_cifrada FROM tenants WHERE id = $1",
+      [req.params.id],
+    );
+    const t = rows[0];
+    if (!t) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+    if (t.erp !== "asa") return reply.code(409).send({ erro: "SO_ASA" });
+    if (!t.asa_credencial_cifrada) return reply.code(409).send({ erro: "CREDENCIAL_AUSENTE" });
+    const cred = JSON.parse(decifrar(t.asa_credencial_cifrada)) as CredencialAsa;
+    const json = (texto: string) => { try { return JSON.parse(texto); } catch { return null; } };
+    const lista = (v: unknown): any[] => (Array.isArray(v) ? v : v && typeof v === "object" ? Object.values(v) : []);
+    const resumo = (r: { http: number; ms: number; texto: string }, contar: (c: any) => number) => {
+      const c = json(r.texto);
+      const ok = r.http === 200 && c && c.status !== "error";
+      return ok ? { http: r.http, ms: r.ms, ok: true, chaves: Object.keys(c), itens: contar(c) } : { http: r.http, ms: r.ms, ok: false, corpo: r.texto.slice(0, 600) };
+    };
+    const { prestador_id, data } = req.query;
+    if (!prestador_id) {
+      const r = await chamarAsaBruto(cred, "api-agendamento");
+      const c = json(r.texto);
+      if (r.http !== 200 || !c) return { http: r.http, corpo: r.texto.slice(0, 600) };
+      const esp = new Map(lista(c.especialidades).map((e: any) => [String(e.id), String(e.descricao ?? "")]));
+      return {
+        prestadores: lista(c.prestadores).map((p: any) => ({
+          id: String(p.id), nome: String(p.nome ?? ""), especialidade: esp.get(String(p.especialidade_id)) ?? null, ordem_chegada: !!Number(p.ordem_chegada),
+        })),
+      };
+    }
+    if (!/^\d{1,12}$/.test(prestador_id) || !data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return reply.code(400).send({ erro: "PARAMETROS_INVALIDOS" });
+    const [agendados, horarios, dias] = await Promise.all([
+      chamarAsaBruto(cred, "api-agendamento-horarios-agendados", { prestador_id, data }),
+      chamarAsaBruto(cred, "api-agendamento-horarios-atendimento", { prestador_id, data: `${data} 00:00:00` }),
+      chamarAsaBruto(cred, "api-agendamento-dias-atendimento", { prestador_id }),
+    ]);
+    const diasLidos = json(dias.texto);
+    return {
+      prestador_id,
+      data,
+      horarios_agendados: resumo(agendados, (c) => lista(c.agendamentos ?? c).length),
+      horarios_atendimento: resumo(horarios, (c) => lista(c.horarios).length),
+      dias_atendimento: dias.http === 200 && diasLidos && diasLidos.status !== "error"
+        ? { http: dias.http, ok: true, dias: lista(diasLidos.dias ?? diasLidos).map((d: unknown) => String(d).slice(0, 10)).slice(0, 20) }
+        : resumo(dias, () => 0),
+    };
   });
 
   // Captura de webhook da Kentro que roda a automação de disparo na hora (botão "Enviar confirmação").

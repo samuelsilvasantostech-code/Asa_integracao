@@ -176,3 +176,13 @@ test("agenda: recusa com mensagem vazia é dia sem expediente, e não falha; com
   const outra = await asa().agendaDoDia("12", "2026-11-29");
   if (!outra.ok) assert.equal(!!outra.semExpediente, false);
 });
+
+test("limite de chamadas (429) não vira 'não atende neste dia'", async () => {
+  simular({ status: 429, corpo: { message: "Too Many Attempts." } });
+  const dia = await asa().agendaDoDia("12", "2026-11-24");
+  assert.equal(dia.ok, false);
+  if (dia.ok) return;
+  assert.equal(dia.erro, "ASA_LIMITE");
+  assert.equal(!!dia.semExpediente, false);
+  assert.equal(dia.naoEncontrado, false);
+});

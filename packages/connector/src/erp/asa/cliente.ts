@@ -9,6 +9,7 @@ export type ErroAsa =
   | "ASA_BLOQUEIO_CLOUDFLARE"
   | "ASA_ROTA_INEXISTENTE"
   | "ASA_RECUSOU"
+  | "ASA_LIMITE"
   | "ASA_FORA_DO_AR"
   | "ASA_RESPOSTA_INVALIDA";
 
@@ -46,6 +47,30 @@ export function validacaoDa(corpo: any): string | null {
   return (campos || String(corpo.message ?? corpo.msg ?? "dados inválidos")).slice(0, 400);
 }
 
+function urlDaAsa(rota: string, params: Record<string, string | number | Array<string | number>>) {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (Array.isArray(v)) v.forEach((item) => qs.append(k, String(item)));
+    else qs.append(k, String(v));
+  }
+  return `${BASE}/${rota}${qs.size ? "?" + qs.toString() : ""}`;
+}
+
+// Diagnóstico da implantação: a resposta como a Asa mandou (HTTP, tempo e texto), sem interpretar.
+export async function chamarAsaBruto(credencial: CredencialAsa, rota: string, params: Record<string, string | number> = {}, timeoutMs = 15000) {
+  const inicio = Date.now();
+  try {
+    const resp = await fetch(urlDaAsa(rota, params), {
+      method: "POST",
+      headers: { Authorization: authorization(credencial), "User-Agent": USER_AGENT, Accept: "application/json" },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return { http: resp.status, ms: Date.now() - inicio, texto: await resp.text() };
+  } catch (err: any) {
+    return { http: 0, ms: Date.now() - inicio, texto: `${err?.name ?? "erro"} ${err?.cause?.code ?? ""}`.trim() };
+  }
+}
+
 // Todas as rotas da Asa são POST com parâmetros na query string.
 export async function chamarAsa<T>(
   credencial: CredencialAsa,
@@ -53,12 +78,7 @@ export async function chamarAsa<T>(
   params: Record<string, string | number | Array<string | number>> = {},
   timeoutMs = 15000,
 ): Promise<RespostaAsa<T>> {
-  const qs = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (Array.isArray(v)) v.forEach((item) => qs.append(k, String(item)));
-    else qs.append(k, String(v));
-  }
-  const url = `${BASE}/${rota}${qs.size ? "?" + qs.toString() : ""}`;
+  const url = urlDaAsa(rota, params);
 
   let resp: Response;
   const inicio = Date.now();
@@ -85,6 +105,8 @@ export async function chamarAsa<T>(
   if (resp.status === 403 && corpo === null) {
     return { ok: false, erro: "ASA_BLOQUEIO_CLOUDFLARE", status: 403, msg: texto.slice(0, 120) };
   }
+  // Limite de chamadas da Asa: não é recusa de negócio (a agenda não pode virar "não atende neste dia").
+  if (resp.status === 429) return { ok: false, erro: "ASA_LIMITE", status: 429, msg: String(corpo?.msg ?? corpo?.message ?? "") };
   // A Asa usa 403 também para recusas de negócio (ex.: paciente não encontrado). Só é credencial
   // quando a mensagem fala de autorização.
   if (resp.status === 401 || (resp.status === 403 && /autoriza/i.test(String(corpo?.msg ?? "")))) {
