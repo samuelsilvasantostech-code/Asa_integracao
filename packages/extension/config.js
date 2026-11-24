@@ -165,7 +165,7 @@
         return;
       }
       var e = r.body && r.body.erro;
-      msg($('f-msg'), 'err', e === 'MUITOS_PEDIDOS' ? 'Esta clínica já tem pedidos em aberto. Aguarde o retorno da implantação.' : e === 'SISTEMA_INVALIDO' ? 'Informe o nome do sistema (2 a 80 caracteres).' : 'Não deu para enviar agora' + (r.status > 0 ? ' (HTTP ' + r.status + ')' : '') + '. Tente de novo.');
+      msg($('f-msg'), 'err', e === 'MUITOS_PEDIDOS' ? 'Esta clínica já tem pedidos em aberto. Aguarde o retorno da implantação.' : e === 'SISTEMA_INVALIDO' ? 'Informe o nome do sistema (2 a 80 caracteres).' : C.readError(r.status, r.body));
     });
   }
 

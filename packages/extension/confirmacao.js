@@ -113,7 +113,7 @@
       if (r.status !== 200 || !r.body || !r.body.config) {
         var st = C.connectionState(r.status, r.body);
         pill(st.tone === 'ok' ? 'err' : st.tone, st.pill);
-        msg($('conn-text'), 'err', r.status === 0 || r.status >= 500 ? 'O Conector não respondeu. Tente de novo em instantes.' : st.text);
+        msg($('conn-text'), 'err', r.status === 0 || r.status >= 500 ? C.readError(r.status, r.body) : st.text);
         return;
       }
       saved = r.body.config;

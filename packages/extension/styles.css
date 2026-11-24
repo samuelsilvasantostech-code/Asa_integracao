@@ -112,6 +112,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .soon { margin: 0; color: var(--muted); font-size: 11.5px; text-align: center; }
 .muted { margin: 0; color: var(--muted); }
 .muted[data-tone="err"] { color: var(--err); }
+.muted[data-tone="warn"] { color: var(--warn); }
 .muted:empty { display: none; }
 .hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 

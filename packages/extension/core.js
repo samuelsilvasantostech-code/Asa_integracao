@@ -44,9 +44,9 @@
         default: return { tone: 'err', pill: 'Sistema fora do ar', text: nome + ': ' + sis('a') + ' não respondeu agora.', retry: true };
       }
     }
-    if (status === 401) return { tone: 'err', pill: 'Chave inválida', text: 'A chave da instalação não foi reconhecida pelo Conector.', retry: false };
+    if (status === 401) return { tone: 'err', pill: 'Chave inválida', text: 'A chave da instalação não foi reconhecida. Fale com a implantação.', retry: false };
     if (status === -1) return { tone: 'warn', pill: 'Sem chave', text: 'A chave da instalação ainda não foi cadastrada. Um superusuário cadastra em Administração de extensões, no campo "Chave da instalação".', retry: true };
-    return { tone: 'err', pill: 'Fora do ar', text: 'Não foi possível falar com o Conector' + (status ? ' (HTTP ' + status + ').' : '.'), retry: true };
+    return { tone: 'err', pill: 'Fora do ar', text: serverDown(status), retry: true };
   }
 
   // Resposta de PUT /v1/tenant/credencial → mensagem da tela de configuração.
@@ -57,9 +57,9 @@
     if (erro === 'DADOS_INVALIDOS') return { tone: 'err', text: ('Cole o token ' + sis('da') + ' (sem espaços ou quebras de linha).') };
     if (erro === 'CREDENCIAL_JA_CADASTRADA') return { tone: 'err', text: 'Esta clínica já tem um token cadastrado. Para trocar, fale com a implantação.' };
     if (erro === 'INSTITUICAO_DIVERGENTE') return { tone: 'err', text: ('Este token é de outra instituição ' + sis('da') + '. Confira com a implantação.') };
-    if (erro === 'CIFRA_NAO_CONFIGURADA') return { tone: 'err', text: 'O Conector ainda não está pronto para guardar credenciais (falta a chave de cifra).' };
-    if (status === 401) return { tone: 'err', text: 'A chave da instalação não foi reconhecida pelo Conector.' };
-    return { tone: 'err', text: 'Não foi possível validar agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '. Tente de novo.' };
+    if (erro === 'CIFRA_NAO_CONFIGURADA') return { tone: 'err', text: 'O servidor do ClinFy ainda não está pronto para guardar credenciais. Fale com a implantação.' };
+    if (status === 401) return { tone: 'err', text: 'A chave da instalação não foi reconhecida. Fale com a implantação.' };
+    return { tone: 'err', text: readError(status, body) };
   }
 
   var WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -81,9 +81,9 @@
   function age(iso, today) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
     if (!m) return null;
-    var t = today || new Date();
-    var a = t.getFullYear() - Number(m[1]);
-    if (t.getMonth() + 1 < Number(m[2]) || (t.getMonth() + 1 === Number(m[2]) && t.getDate() < Number(m[3]))) a--;
+    var t = todayIso(today).split('-').map(Number);
+    var a = t[0] - Number(m[1]);
+    if (t[1] < Number(m[2]) || (t[1] === Number(m[2]) && t[2] < Number(m[3]))) a--;
     return a >= 0 && a < 130 ? a : null;
   }
 
@@ -98,28 +98,45 @@
     return d.length === 11 ? d : null;
   }
 
-  // Resposta de leitura do Conector → texto de erro para o atendente.
+  // Sem resposta do servidor do ClinFy (rede, proxy do host) ou falha dele.
+  function serverDown(status) {
+    return !(status > 0)
+      ? 'Não foi possível falar com o servidor do ClinFy. Confira a internet e tente de novo.'
+      : 'O servidor do ClinFy teve um problema agora. Tente de novo em instantes.';
+  }
+
+  // Pedido recusado por dado fora do formato: em geral, tela aberta há muito tempo ou dado que mudou.
+  var PEDIDO_INVALIDO = /^(PARAMETROS_INVALIDOS|DATA_INVALIDA|ID_INVALIDO|VAGA_INVALIDA|EXAME_INVALIDO|GRUPO_INVALIDO|PRESTADOR_INVALIDO|OBSERVACAO_INVALIDA|CHAVE_IDEMPOTENCIA_INVALIDA|CONFIG_INVALIDA)$/;
+
+  // Resposta de leitura do Conector → texto de erro para o atendente. Sem códigos HTTP nem nomes internos.
   function readError(status, body) {
     var erro = body && body.erro;
-    if (erro === 'ASA_RECUSOU' && body.msg) return (sis('A') + ' respondeu: ') + body.msg;
-    if (erro === 'ASA_LIMITE') return sis('A') + ' pediu uma pausa nas consultas (muitas chamadas seguidas). Aguarde um instante e clique em Atualizar.';
-    if (erro === 'ERP_RECUSOU' && body.msg) return sis('A') + ' respondeu: ' + body.msg;
-    if (erro === 'CREDENCIAL_AUSENTE') return 'A credencial ' + sis('da') + ' ainda não foi cadastrada.';
-    if (erro === 'ASA_CREDENCIAL_INVALIDA') return (sis('A') + ' recusou a credencial cadastrada.');
-    if (erro === 'ERP_CREDENCIAL_INVALIDA') return sis('A') + ' recusou a credencial cadastrada.';
+    if ((erro === 'ASA_RECUSOU' || erro === 'ERP_RECUSOU') && body.msg) return sis('A') + ' respondeu: ' + body.msg;
+    if (erro === 'ASA_LIMITE' || erro === 'ERP_LIMITE') return sis('A') + ' pediu um intervalo: foram muitos pedidos seguidos. Aguarde alguns segundos e clique em Atualizar.';
+    if (erro === 'CREDENCIAL_AUSENTE') return 'A credencial ' + sis('da') + ' ainda não foi cadastrada. Fale com a implantação.';
+    if (erro === 'ASA_CREDENCIAL_INVALIDA' || erro === 'ERP_CREDENCIAL_INVALIDA') return sis('A') + ' recusou a credencial cadastrada. Fale com a implantação.';
     if (erro === 'ERP_SEM_CONFIRMACAO') return 'A confirmação pelo WhatsApp não está disponível com ' + sis('a') + '.';
     if (erro === 'ERP_SEM_FINANCEIRO') return 'O lançamento de cobrança não está disponível com ' + sis('a') + '.';
-    if (typeof erro === 'string' && erro.indexOf('ERP_') === 0) return sis('A') + ' não respondeu agora' + (status > 0 ? ' (HTTP ' + status + ')' : '') + '.';
+    if (erro === 'ASA_BLOQUEIO_CLOUDFLARE') return sis('A') + ' bloqueou o acesso do ClinFy (proteção do site ' + sis('da') + '). Fale com a implantação.';
+    if (erro === 'ASA_ROTA_INEXISTENTE' || erro === 'ERP_ROTA_INEXISTENTE') return 'Esta função não está disponível com ' + sis('a') + '. Fale com a implantação.';
+    if (erro === 'ASA_RESPOSTA_INVALIDA' || erro === 'ERP_RESPOSTA_INVALIDA') return sis('A') + ' respondeu de um jeito inesperado. Tente de novo; se continuar, fale com a implantação.';
+    if (typeof erro === 'string' && (erro.indexOf('ERP_') === 0 || erro.indexOf('ASA_') === 0)) return sis('A') + ' não respondeu agora. Tente de novo em instantes.';
     if (erro === 'TELEFONE_INVALIDO') return ('O telefone do contato não está num formato que ' + sis('a') + ' aceite.');
     if (erro === 'CPF_INVALIDO') return 'Informe um CPF com 11 dígitos.';
     if (erro === 'MUITAS_BUSCAS') return 'Muitas buscas de paciente em pouco tempo. Aguarde um minuto e tente de novo.';
-    if (status === 429) return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo.';
-    if (status === 401) return 'A chave da instalação não foi reconhecida pelo Conector.';
-    return (sis('A') + ' não respondeu agora') + (status > 0 ? ' (HTTP ' + status + ')' : '') + '.';
+    if (typeof erro === 'string' && PEDIDO_INVALIDO.test(erro)) return 'O pedido saiu com algum dado fora do formato. Atualize a tela e tente de novo.';
+    if (erro === 'CHAVE_AUSENTE' || erro === 'CHAVE_INVALIDA' || status === 401) return 'A chave da instalação não foi reconhecida. Fale com a implantação.';
+    if (erro === 'HOST_NAO_PERMITIDO') return 'O endereço do servidor do ClinFy está errado nesta instalação. Fale com a implantação.';
+    if (status === 429 || erro === 'MUITAS_TENTATIVAS') return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo.';
+    if (status === 404) return 'Esta função ainda não está disponível no servidor do ClinFy. Fale com a implantação.';
+    if (status >= 400 && status < 500) return 'O pedido não foi aceito. Atualize a tela e tente de novo.';
+    return serverDown(status);
   }
 
   function formatMoney(v) {
-    return typeof v === 'number' && isFinite(v) ? 'R$ ' + v.toFixed(2).replace('.', ',') : '';
+    if (typeof v !== 'number' || !isFinite(v)) return '';
+    var p = Math.abs(v).toFixed(2).split('.');
+    return (v < 0 ? '-' : '') + 'R$ ' + p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + p[1];
   }
 
   // Chave de idempotência do agendamento. O iframe do host tem origem opaca: randomUUID pode faltar.
@@ -199,7 +216,7 @@
   function bookingError(status, body) {
     var erro = body && body.erro;
     if (erro === 'HORARIO_INDISPONIVEL') return 'Esse horário acabou de ser ocupado. Escolha outro.';
-    if (erro === 'AGENDAMENTO_INCERTO') return (sis('A') + ' não confirmou e a consulta ainda não aparece na agenda do profissional. Ela pode ser gravada nos próximos instantes: aguarde um pouco e toque em "Conferir ' + sis('na') + '". Isso só confere, não marca de novo.') + (body.detalhe ? ' Diagnóstico: ' + body.detalhe + '.' : '');
+    if (erro === 'AGENDAMENTO_INCERTO') return (sis('A') + ' não confirmou e a consulta ainda não aparece na agenda do profissional. Ela pode ser gravada nos próximos instantes: aguarde um pouco e clique em "Conferir ' + sis('na') + '". Isso só confere, não marca de novo.') + (body.detalhe ? ' Diagnóstico: ' + body.detalhe + '.' : '');
     if (uncertain(status, body)) return ('A resposta não chegou a tempo e a consulta pode ter sido gravada. Clique em "Conferir ' + sis('na') + '": isso só confere, não marca de novo.');
     if (erro === 'AGENDAMENTO_SEM_NUMERO') return (sis('A') + ' respondeu sem o número da consulta') + (body.msg ? ' ("' + body.msg + '")' : '') + ', então não dá para garantir que foi marcada. Confira na agenda do profissional antes de tentar de novo.';
     if (erro === 'PACIENTE_INCOMPLETO') return ('O cadastro do paciente ' + sis('na') + ' está sem ') + ((body.faltam || []).join(' e ') || 'dados obrigatórios') + (', que ' + sis('a') + ' exige para marcar. Complete o cadastro ' + sis('na') + ' e tente de novo.');
@@ -216,7 +233,20 @@
 
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function isoOf(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
-  function todayIso(now) { return isoOf(now || new Date()); }
+  // "Hoje" da clínica (São Paulo), não o do computador: com o relógio em outro fuso, a virada do dia
+  // mudava a agenda, o vencimento da cobrança e a idade antes ou depois da hora certa.
+  var FUSO = 'America/Sao_Paulo', diaFmt = null;
+  function todayIso(now) {
+    var d = now || new Date();
+    try {
+      diaFmt = diaFmt || new Intl.DateTimeFormat('en-CA', { timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit' });
+      var iso = diaFmt.format(d);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+    } catch (e) { /* navegador sem fusos: usa o do computador */ }
+    return isoOf(d);
+  }
+  // Hora "HH:MM" de agora no fuso da clínica.
+  function nowClock(now) { return clockOf((now || new Date()).toISOString()); }
   function shiftDay(iso, n) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
     if (!m) return iso;
@@ -394,7 +424,6 @@
     if (erro === 'ETAPA_FORA_DE_ORDEM') return 'Outra pessoa já mudou esta consulta. A tela foi atualizada.';
     if (erro === 'HORA_INVALIDA') return 'Hora inválida: ela precisa ficar entre a etapa anterior e a seguinte, e não pode ser no futuro.';
     if (erro === 'NADA_A_DESFAZER') return 'Não há etapa para desfazer.';
-    if (status === 0) return 'Não foi possível falar com o Conector. Tente de novo.';
     return readError(status, body);
   }
 
@@ -435,7 +464,7 @@
   var api = { setSistema: setSistema, sis: sis, applySistema: applySistema, queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, newPatientError: newPatientError, formatCpf: formatCpf,bookingError: bookingError, confirmationState: confirmationState, confirmationError: confirmationError, confirmationSent: confirmationSent, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
     todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, weekDays: weekDays, weekLabel: weekLabel, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
-    clockOf: clockOf, duration: duration, attendanceState: attendanceState, attendanceNext: attendanceNext, attendanceDone: attendanceDone, attendanceError: attendanceError, stageName: stageName,
+    clockOf: clockOf, nowClock: nowClock, duration: duration, attendanceState: attendanceState, attendanceNext: attendanceNext, attendanceDone: attendanceDone, attendanceError: attendanceError, stageName: stageName,
     fold: fold, paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError, uncertain: uncertain, cancelError: cancelError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;
 })(this);

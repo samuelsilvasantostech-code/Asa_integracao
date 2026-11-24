@@ -79,7 +79,7 @@
     kpi(box, 'Responderam', c.enviadas ? pct(resp, c.enviadas) + '%' : '—', c.sem_resposta ? plural(c.sem_resposta, 'ainda sem resposta', 'ainda sem resposta') : 'todas respondidas');
     kpi(box, 'Consultas marcadas', String(a.criar || 0), plural(a.remarcar || 0, 'remarcação', 'remarcações') + ' · ' + plural(a.cancelar || 0, 'cancelamento', 'cancelamentos'));
     kpi(box, 'Cobranças lançadas', money(d.cobrancas.total), plural(d.cobrancas.quantidade, 'lançamento', 'lançamentos'));
-    var alertas = d.alertas.agendamentos_incertos.length + d.cobrancas.incertas + c.falharam;
+    var alertas = incertasDe(d) + d.cobrancas.incertas + c.falharam;
     kpi(box, 'Alertas', String(alertas), alertas ? 'veja em Cobranças › Alertas' : 'nada a conferir', alertas ? 'err' : 'ok');
     box.hidden = false;
   }
@@ -221,6 +221,9 @@
     });
   }
 
+  // Ações sem confirmação do sistema: a lista vem limitada (30), o total vem na atividade.
+  function incertasDe(d) { return Math.max(d.atividade.incertas || 0, d.alertas.agendamentos_incertos.length); }
+
   /* ---------- cobranças e alertas ---------- */
   function hbar(box, label, value, frac, note, tone) {
     var row = el('div', 'hbar');
@@ -263,6 +266,8 @@
         [x.data ? C.formatDay(x.data) + (x.horario ? ' às ' + x.horario : '') : '', providerName(x.prestador_id), x.usuario ? 'por ' + x.usuario.replace(/^\d+\s+/, '') : '']
           .filter(Boolean).join(' · ') + '. Confira na agenda do profissional.');
     });
+    var resto = incertasDe(d) - d.alertas.agendamentos_incertos.length;
+    if (resto > 0) alert('E mais ' + plural(resto, 'ação', 'ações') + (' sem confirmação ' + C.sis('da')), 'Aqui aparecem as ' + d.alertas.agendamentos_incertos.length + ' mais recentes. Escolha um período menor para ver as outras.');
     if (c.incertas) alert(plural(c.incertas, 'cobrança incerta', 'cobranças incertas'), (C.sis('A') + ' não confirmou o lançamento: confira no financeiro ' + C.sis('da') + ' antes de lançar de novo.'));
     if (d.confirmacoes.falharam) alert(plural(d.confirmacoes.falharam, 'confirmação não entregue', 'confirmações não entregues'), 'Veja os pacientes em "Precisa de contato".', 'warn');
     if (!any) ul.appendChild(el('li', 'alert', 'Nada a conferir no período.')).setAttribute('data-tone', 'ok');
@@ -272,7 +277,7 @@
   function minutes(m) { return m == null ? '—' : C.duration(m * 60000); }
   function renderWait(d) {
     var e = d.espera;
-    if (!e) { $('esp-sub').textContent = 'O Conector ainda não tem o relatório de espera: falta publicar a versão nova.'; $('esp-body').hidden = true; return; }
+    if (!e) { $('esp-sub').textContent = 'O servidor do ClinFy ainda não tem o relatório de espera. Fale com a implantação.'; $('esp-body').hidden = true; return; }
     var agora = e.agora.aguardando || e.agora.em_consulta
       ? ' Agora: ' + plural(e.agora.aguardando, 'aguardando', 'aguardando') + ', ' + plural(e.agora.em_consulta, 'em consulta', 'em consulta') + '.' : '';
     $('esp-body').hidden = !e.esperas_medidas;
@@ -377,7 +382,7 @@
     var profs = sched.prestadores.filter(function (p) { return !esp || p.especialidade_id === esp; });
     var cut = profs.length > MAX_PROF;
     profs = profs.slice(0, MAX_PROF);
-    var box = $('oc-list'), done = 0, rows = [];
+    var box = $('oc-list'), done = 0, rows = [], falhas = 0, ultimaFalha = null;
     box.textContent = '';
     $('oc-legend').hidden = true;
     if (!profs.length) { status('oc-status', 'Nenhum profissional nessa especialidade.'); return; }
@@ -387,19 +392,37 @@
     function next() {
       if (s !== ocSeq || i >= profs.length) return null;
       var p = profs[i++];
-      return api.day(p.id, day).then(function (r) {
+      return dayWithRetry(p.id, day).then(function (r) {
         if (s !== ocSeq) return;
         done++;
         if (r.status === 200 && r.body) {
           var t = C.daySummary(r.body.agendados, r.body.livres);
           if (t.consultas + t.livres) rows.push({ nome: p.nome, consultas: t.consultas, livres: t.livres, confirmadas: t.confirmadas });
+        } else {
+          falhas++;
+          ultimaFalha = r;
         }
         drawOccupancy(rows);
-        status('oc-status', done < profs.length ? 'Carregando ' + done + ' de ' + profs.length + '…'
-          : (rows.length ? plural(rows.length, 'profissional com agenda', 'profissionais com agenda') + ' no dia.' : 'Ninguém tem agenda neste dia.') + (cut ? ' Mostrando os ' + MAX_PROF + ' primeiros: filtre pela especialidade.' : ''));
+        if (done < profs.length) { status('oc-status', 'Carregando ' + done + ' de ' + profs.length + '…'); return; }
+        var corte = cut ? ' Mostrando os ' + MAX_PROF + ' primeiros: filtre pela especialidade.' : '';
+        if (falhas) {
+          status('oc-status', (falhas === profs.length ? 'Nenhum profissional carregou. ' : plural(falhas, 'profissional não carregou', 'profissionais não carregaram') + '. ')
+            + C.readError(ultimaFalha.status, ultimaFalha.body) + ' Clique em "Ver ocupação" para tentar de novo.' + corte, rows.length ? 'warn' : 'err');
+          return;
+        }
+        status('oc-status', (rows.length ? plural(rows.length, 'profissional com agenda', 'profissionais com agenda') + ' no dia.' : 'Ninguém tem agenda neste dia.') + corte);
       }).then(next, next);
     }
     for (var k = 0; k < Math.min(3, profs.length); k++) next();
+  }
+
+  // Um dia de um profissional. Se o sistema pedir intervalo (muitas chamadas seguidas), espera e tenta uma vez mais.
+  function dayWithRetry(id, day) {
+    return api.day(id, day).then(function (r) {
+      var limite = r.status === 429 || (r.body && /_LIMITE$/.test(String(r.body.erro || '')));
+      if (!limite) return r;
+      return new Promise(function (ok) { setTimeout(ok, 2500); }).then(function () { return api.day(id, day); });
+    });
   }
 
   function drawOccupancy(rows) {
@@ -429,21 +452,23 @@
     api.dashboard(dias).then(function (r) {
       if (s !== seq) return;
       $('d-body').removeAttribute('aria-busy');
-      if (r.status !== 200 || !r.body || !r.body.confirmacoes) {
+      if (r.status !== 200 || !r.body || !r.body.confirmacoes || !r.body.periodo) {
         var st = C.connectionState(r.status, r.body);
         pill(st.tone === 'ok' ? 'err' : st.tone, st.pill);
-        status('d-status', r.status === 404 ? 'O Conector ainda não tem o painel: falta publicar a versão nova.' : C.readError(r.status, r.body), 'err');
+        // Sem os números deste período, os do anterior não podem continuar na tela.
+        $('d-body').hidden = true;
+        status('d-status', r.status === 404 ? 'O servidor do ClinFy ainda não tem o painel. Fale com a implantação.'
+          : r.status === -1 || r.status === 401 ? st.text : C.readError(r.status, r.body), 'err');
         return;
       }
       pill('ok', 'Conectado');
       var d = r.body, p = d.periodo;
-      status('d-status', p.dias === 1 ? 'Hoje, ' + C.formatDay(p.fim) + '.' : 'De ' + C.formatDay(p.inicio) + ' a ' + C.formatDay(p.fim) + '.');
-      renderKpis(d);
-      renderConfirmations(d);
-      renderTodo(d);
-      renderActivity(d);
-      renderCharges(d);
-      renderWait(d);
+      var quando = p.dias === 1 ? 'Hoje, ' + C.formatDay(p.fim) + '.' : 'De ' + C.formatDay(p.inicio) + ' a ' + C.formatDay(p.fim) + '.';
+      // Cada parte desenha sozinha: uma que venha incompleta não impede as outras.
+      var falhou = [renderKpis, renderConfirmations, renderTodo, renderActivity, renderCharges, renderWait].filter(function (f) {
+        try { f(d); return false; } catch (e) { return true; }
+      }).length;
+      status('d-status', falhou ? quando + ' Parte dos números não veio completa: clique no período de novo para recarregar.' : quando, falhou ? 'warn' : null);
       $('d-body').hidden = false;
     });
   }

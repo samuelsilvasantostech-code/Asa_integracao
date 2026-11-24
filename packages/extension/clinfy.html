@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClinFy</title>
-<link rel="stylesheet" href="styles.css?v=0.35.0">
+<link rel="stylesheet" href="styles.css?v=0.35.1">
 </head>
 <body class="page-hub">
 <!-- Gerado por packages/connector/tools/montar-clinfy.ts a partir de agenda, painel, config e confirmacao. Não editar à mão. -->
@@ -318,7 +318,7 @@
             <button class="btn btn--primary" id="oc-go" type="button">Ver ocupação</button>
           </div>
         </header>
-        <p class="muted" id="oc-status" role="status">Escolha o dia e toque em "Ver ocupação". Cada profissional é uma consulta <span data-sis="ao">ao sistema da clínica</span>, por isso a lista chega aos poucos.</p>
+        <p class="muted" id="oc-status" role="status">Escolha o dia e clique em "Ver ocupação". Cada profissional é uma consulta <span data-sis="ao">ao sistema da clínica</span>, por isso a lista chega aos poucos.</p>
         <div class="hbars hbars--occ" id="oc-list"></div>
         <div class="legend" id="oc-legend" hidden></div>
       </section>
@@ -349,17 +349,17 @@
 
     <div class="card" id="token-locked" hidden>
       <div class="card__label">Credencial <span data-sis="da">do sistema da clínica</span></div>
-      <p class="hint" id="token-locked-text">A credencial desta clínica fica guardada cifrada no Conector. Por segurança, cadastrar e trocar a credencial é feito pela implantação, com a chave de administrador do Conector.</p>
+      <p class="hint" id="token-locked-text">A credencial desta clínica fica guardada cifrada no servidor do ClinFy. Por segurança, cadastrar e trocar a credencial é feito pela implantação.</p>
     </div>
 
     <div class="card" id="key-help" hidden>
       <div class="card__label">Chave da instalação</div>
-      <p class="hint">A chave é gerada pela implantação no Conector, uma por clínica, e vale para todos os atendentes. Ela é cadastrada por um superusuário em Administração de extensões → esta instalação → campo "Chave da instalação".</p>
+      <p class="hint">A chave é gerada pela implantação, uma por clínica, e vale para todos os atendentes. Ela é cadastrada por um superusuário em Administração de extensões → esta instalação → campo "Chave da instalação".</p>
     </div>
 
     <form class="card form" id="form" autocomplete="off" hidden>
       <div class="card__label">Sistema da clínica</div>
-      <p class="hint">Escolha o sistema de gestão (ERP) que a clínica usa e preencha o acesso que ele fornece. O acesso é testado antes de gravar, fica cifrado no Conector e não volta para esta tela. Depois de gravado, trocar é com a implantação.</p>
+      <p class="hint">Escolha o sistema de gestão (ERP) que a clínica usa e preencha o acesso que ele fornece. O acesso é testado antes de gravar, fica cifrado no servidor do ClinFy e não volta para esta tela. Depois de gravado, trocar é com a implantação.</p>
       <label class="field">
         <span>Sistema</span>
         <select id="f-erp" required></select>
@@ -484,14 +484,14 @@
 </div>
 </div>
 </section>
-<script src="core.js?v=0.35.0"></script>
-<script src="api.js?v=0.35.0"></script>
-<script src="bridge.js?v=0.35.0"></script>
-<script src="cobranca.js?v=0.35.0"></script>
-<script src="hub.js?v=0.35.0"></script>
-<script src="agenda.js?v=0.35.0"></script>
-<script src="painel.js?v=0.35.0"></script>
-<script src="config.js?v=0.35.0"></script>
-<script src="confirmacao.js?v=0.35.0"></script>
+<script src="core.js?v=0.35.1"></script>
+<script src="api.js?v=0.35.1"></script>
+<script src="bridge.js?v=0.35.1"></script>
+<script src="cobranca.js?v=0.35.1"></script>
+<script src="hub.js?v=0.35.1"></script>
+<script src="agenda.js?v=0.35.1"></script>
+<script src="painel.js?v=0.35.1"></script>
+<script src="config.js?v=0.35.1"></script>
+<script src="confirmacao.js?v=0.35.1"></script>
 </body>
 </html>

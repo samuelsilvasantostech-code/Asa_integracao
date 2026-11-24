@@ -230,8 +230,7 @@
 
   // Situação geral, depois que todas as colunas responderam.
   function viewStatus() {
-    var agora = new Date();
-    $('day-upd-text').textContent = 'Atualizado às ' + String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0') + '.';
+    $('day-upd-text').textContent = 'Atualizado às ' + C.nowClock() + '.';
     $('day-upd').hidden = false;
     if (sel.view === 'dia') {
       var c = cols[0];
@@ -300,7 +299,7 @@
     return f;
   }
 
-  function nowHm() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function nowHm() { return C.nowClock(); }
 
   // Linha do "agora" na folha de hoje; o que já passou fica apagado. Refeita a cada minuto.
   function placeNow(list, day) {
