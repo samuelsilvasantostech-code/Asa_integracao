@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db.js";
-import { ACOES, aplicar, emJson, ETAPAS, horaNoDia, VAZIO, type Acao, type Etapa, type Tempos } from "../atendimento.js";
+import { ACOES, agendadoVisto, aplicar, emJson, ETAPAS, horaNoDia, lembrarAgendados, VAZIO, type Acao, type Etapa, type Tempos } from "../atendimento.js";
 import { hojeEm } from "../confirmacao.js";
-import { tenantDaRequisicao } from "../tenant-auth.js";
+import { erpOpcional, tenantDaRequisicao, type Tenant } from "../tenant-auth.js";
 import { dataValida, idValido } from "./consulta.js";
 
 // Tempo de espera: a recepção marca chegada, chamada e fim de uma consulta de HOJE. Fica só no banco do
@@ -20,6 +20,20 @@ export async function atendimentosDe(tenantId: string, ids: string[]) {
   );
   for (const r of rows) mapa.set(r.agendamento_id, emJson(r));
   return mapa;
+}
+
+// Chegada nova só para consulta que existe na agenda de hoje daquele profissional. A agenda da tela quase
+// sempre já passou por /v1/agenda/dia (memória); senão, pergunta ao ERP uma vez. ERP fora do ar não trava a
+// recepção: a chegada é gravada (o tempo de espera não depende do ERP).
+async function consultaDeHoje(req: Parameters<typeof erpOpcional>[0], tenant: Tenant, prestadorId: string, data: string, id: string) {
+  if (agendadoVisto(tenant.id, prestadorId, data, id)) return true;
+  const erp = await erpOpcional(req, tenant);
+  if (!erp) return true;
+  const r = await erp.agendaDoDia(prestadorId, data).catch(() => null);
+  if (!r || !r.ok) return true;
+  const ids = r.dados.map((x) => x.id);
+  lembrarAgendados(tenant.id, prestadorId, data, ids);
+  return ids.includes(id);
 }
 
 export async function atendimentoRoutes(app: FastifyInstance) {
@@ -46,6 +60,12 @@ export async function atendimentoRoutes(app: FastifyInstance) {
     if (!tenant) return;
     // Só o dia de hoje: chegada num dia que não é hoje é engano (e estragaria o relatório).
     if (b.data !== hojeEm(new Date())) return reply.code(409).send({ erro: "SO_HOJE" });
+    if (acao === "chegada" && pool) {
+      const ja = await pool.query("SELECT 1 FROM atendimentos WHERE tenant_id = $1 AND agendamento_id = $2", [tenant.id, id]);
+      if (!ja.rowCount && !(await consultaDeHoje(req, tenant, b.prestador_id!, b.data, id))) {
+        return reply.code(409).send({ erro: "AGENDAMENTO_DESCONHECIDO" });
+      }
+    }
 
     const db = await pool!.connect();
     try {

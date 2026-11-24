@@ -14,12 +14,7 @@
   var consultas = []; // próximas consultas do paciente, para vincular a cobrança
 
   function $(id) { return document.getElementById(id); }
-  function el(tag, cls, text) {
-    var n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text != null) n.textContent = text;
-    return n;
-  }
+  var el = C.el, option = C.option, button = C.button, fact = C.fact;
   function show(id) {
     ['v-loading', 'v-empty', 'v-off', 'v-chat'].forEach(function (v) { $(v).hidden = v !== id; });
   }
@@ -55,9 +50,11 @@
     $('toast-text').textContent = text;
     if (tone) t.setAttribute('data-tone', tone); else t.removeAttribute('data-tone');
     t.hidden = false;
+    document.body.classList.add('com-toast');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.hidden = true; }, tone === 'err' ? 15000 : 7000);
+    toastTimer = setTimeout(hideToast, tone === 'err' ? 15000 : 7000);
   }
+  function hideToast() { $('toast').hidden = true; document.body.classList.remove('com-toast'); }
 
   /* ---------- paciente e consultas ---------- */
   function resetPatient() {
@@ -164,13 +161,6 @@
     return (C.formatDay(c.data) || 'Data não informada') + (c.hora ? ' · ' + c.hora : '');
   }
 
-  function button(text, cls, onClick) {
-    var b = el('button', 'btn' + (cls ? ' ' + cls : ''), text);
-    b.type = 'button';
-    b.addEventListener('click', onClick);
-    return b;
-  }
-
   // Remarcar / Cancelar. Cancelar pede uma segunda confirmação ali mesmo.
   function consultaActions(c) {
     var box = el('div', 'item__actions');
@@ -218,18 +208,25 @@
 
   // Algo aberto que a atualização automática apagaria: agendamento, cobrança, cadastro, "Sim, cancelar?"
   // ou uma ação em andamento (botões desabilitados).
+  // Perfil do usuário e financeiro chegam depois da primeira lista: o botão Cobrar aparece quando os dois chegam.
+  function refazAcoes() {
+    if (patient && consultas.length && !userBusy()) { renderConsultas(consultas); B.fitHeight(); }
+  }
+
   function userBusy() {
     return !!(booking || $('f-box').firstChild || !$('p-new').hidden || $('c-list').querySelector('.item__ask, button:disabled'));
   }
 
   // Enquanto alguma consulta espera a resposta do paciente, a lista se atualiza a cada minuto, em silêncio:
   // só as consultas, sem limpar o painel, e nunca por cima do que o atendente está fazendo.
+  // listaVer: a resposta que saiu antes de um cancelamento não pode trazer a consulta cancelada de volta.
+  var listaVer = 0;
   setInterval(function () {
     if (document.hidden || !lastLookup || !patient || userBusy()) return;
     if (!consultas.some(function (c) { var cf = C.confirmationState(c.confirmacao); return cf && cf.waiting; })) return;
-    var s = seq, by = lastLookup;
+    var s = seq, by = lastLookup, v = listaVer;
     api.patient(by).then(function (r) {
-      if (s !== seq || by !== lastLookup || userBusy()) return;
+      if (s !== seq || by !== lastLookup || v !== listaVer || userBusy()) return;
       if (!(r.status === 200 && r.body && r.body.encontrado)) return; // falha momentânea: tenta no próximo minuto
       patient = r.body.paciente;
       renderConsultas(r.body.consultas);
@@ -295,6 +292,7 @@
     api.financeConfig().then(function (r) {
       fin = r.status === 200 && r.body ? r.body.config : null;
       $('tab-fin').hidden = !(fin && fin.ativo);
+      refazAcoes();
     });
   }
 
@@ -366,6 +364,7 @@
   // created: aviso de cadastro recém-feito, mostrado quando o paciente aparece.
   // pre: a busca já pedida antes (em paralelo com a verificação da conexão).
   function findPatient(by, s, notice, created, pre) {
+    ++listaVer;
     resetPatient();
     notFound = null;
     lastLookup = by;
@@ -396,8 +395,6 @@
   }
 
   /* ---------- agenda (consulta de horários) ---------- */
-  function option(value, text) { var o = el('option', null, text); o.value = value; return o; }
-
   function loadSchedule() {
     if (agenda) return;
     agenda = { loading: true };
@@ -506,7 +503,16 @@
   /* ---------- agendar por exame: procedimento → convênio → quem faz → dias e horários ---------- */
   var exam = null; // {results, group, item, insurances, insurance, providers}; null no modo "por profissional"
   var EXAM_STEPS = ['ex-conv-wrap', 'ex-prest-wrap', 'a-dias-wrap', 'a-horas-wrap'];
-  var examList = null; // lista completa de procedimentos: carregada uma vez por painel
+  var examList = null; // lista completa de procedimentos: carregada no primeiro uso da busca por exame
+  // O painel fica aberto o dia todo: listas de procedimentos e grupos valem 30 min, depois buscam de novo
+  // (procedimento novo ou retirado na Asa aparece sem fechar a conversa).
+  var LISTA_VALE = 30 * 60000, listasEm = 0;
+  function renovarListas() {
+    if (!listasEm || Date.now() - listasEm < LISTA_VALE) return;
+    examList = null; examReq = null; groupsReq = null; groupLists = {}; listasEm = 0;
+  }
+  // Nome sem acento guardado no item: a busca não refaz a conta a cada tecla.
+  function dobrado(x) { return x._busca || (x._busca = C.fold(x.nome)); }
   function hideFrom(i) { EXAM_STEPS.slice(i).forEach(function (id) { $(id).hidden = true; }); }
   function money(v) { return v > 0 ? ' — ' + C.formatMoney(v) : ''; }
 
@@ -531,7 +537,7 @@
   function fetchExams() {
     if (!examReq) {
       examReq = api.exams().then(function (r) {
-        if (r.status === 200 && r.body) examList = r.body.exames; else examReq = null;
+        if (r.status === 200 && r.body) { examList = r.body.exames; listasEm = listasEm || Date.now(); } else examReq = null;
         return r;
       });
     }
@@ -542,6 +548,7 @@
     var e = exam;
     $('ex-grp').value = '';
     $('ex-q').placeholder = 'Buscar exame ou procedimento';
+    renovarListas();
     loadGroups();
     if (examList) { e.results = examList; renderExams(); return; }
     $('ex-q').value = '';
@@ -620,6 +627,7 @@
         return;
       }
       groupLists[id] = r.body.exames || [];
+      listasEm = listasEm || Date.now();
       show(groupLists[id]);
     });
   }
@@ -639,11 +647,11 @@
     // Palavras em qualquer ordem: "glicose jejum" acha "Glicemia de jejum (glicose)".
     var words = term.split(/\s+/).filter(Boolean);
     var list = e.results.filter(function (x) {
-      var n = C.fold(x.nome);
+      var n = dobrado(x);
       return words.every(function (w) { return n.indexOf(w) >= 0; });
     });
     // Quem começa com o que foi digitado vem primeiro (sort estável: o resto segue alfabético).
-    if (term) list.sort(function (a, b) { return (C.fold(a.nome).indexOf(term) === 0 ? 0 : 1) - (C.fold(b.nome).indexOf(term) === 0 ? 0 : 1); });
+    if (term) list.sort(function (a, b) { return (dobrado(a).indexOf(term) === 0 ? 0 : 1) - (dobrado(b).indexOf(term) === 0 ? 0 : 1); });
     combo.list = list;
     combo.active = list.length ? 0 : -1;
     $('ex-hint').textContent = e.item ? '' : !term ? e.results.length + (e.results.length === 1 ? ' procedimento' : ' procedimentos') + (e.group ? ' em ' + e.group.nome + '. Escolha na lista ou digite parte do nome.' : '. Digite parte do nome.')
@@ -849,13 +857,6 @@
       if (match) sel.value = match.id;
       else if (ex) status('b-status', 'Confira o procedimento: "' + ex.nome + '" não apareceu com esse nome neste horário.', 'err');
     });
-  }
-
-  function fact(dl, label, value) {
-    var d = el('div');
-    d.appendChild(el('dt', null, label));
-    d.appendChild(el('dd', null, value || '—'));
-    dl.appendChild(d);
   }
 
   function find(list, id) { return list.filter(function (x) { return x.id === id; })[0]; }
@@ -1065,6 +1066,7 @@
       Promise.resolve(omni.session.getUser()).then(function (u) {
         if (u) userLabel = [u.id, u.name || u.username].filter(Boolean).join(' ');
         userType = C.userType(u);
+        refazAcoes();
         // O SDK não documenta o campo do perfil: registra os nomes (não os valores) para ajustar.
         if (u && userType === null && root.console) root.console.info('[ClinFy] perfil do usuário não reconhecido; campos:', Object.keys(u).join(', '));
       }).catch(function () { /* sem usuário: a trilha fica sem nome */ });
@@ -1080,7 +1082,7 @@
     $('p-new').addEventListener('submit', submitNewPatient);
     $('pn-cancel').addEventListener('click', function () { closeNewPatient(); $('p-new-open').hidden = !api.capacidades.cadastro_paciente; B.fitHeight(); });
     ['pn-nome', 'pn-cpf', 'pn-nasc', 'pn-tel'].forEach(function (id) { $(id).addEventListener('input', function () { newPatientKey = null; }); });
-    $('toast-close').addEventListener('click', function () { clearTimeout(toastTimer); $('toast').hidden = true; });
+    $('toast-close').addEventListener('click', function () { clearTimeout(toastTimer); hideToast(); });
     $('conn-retry').addEventListener('click', function () {
       if (!chat) return;
       // A chave pode ter sido cadastrada depois que o painel abriu.

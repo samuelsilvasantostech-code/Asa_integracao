@@ -66,6 +66,11 @@ export async function extensaoRoutes(app: FastifyInstance, opts: { dir?: string 
       // então podem ficar guardados no navegador.
       .header("Cache-Control", req.query.v && tipo !== TIPOS[".html"] && tipo !== TIPOS[".json"] ? "public, max-age=31536000, immutable" : "no-cache");
 
+    // CSP das telas: só o que não depende do host. script-src/connect-src/frame-ancestors ficam de fora:
+    // o SDK (omni) é posto na página pelo host da Kentro, o endereço da API pode ser trocado por clínica e o
+    // host abre as telas em domínios de cada cliente. Uma regra errada ali deixaria a extensão em branco.
+    if (tipo === TIPOS[".html"]) reply.header("Content-Security-Policy", "object-src 'none'; base-uri 'none'; form-action 'none'");
+
     if (req.headers["if-none-match"] === a.etag) return reply.code(304).send();
 
     reply.type(a.tipo);

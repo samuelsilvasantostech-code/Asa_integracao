@@ -401,7 +401,10 @@
     if (fm && cm) return { stage: 'fim', open: false, tone: 'done', since: fm, wait: cm - ch, consult: fm - cm, label: 'Atendido · esperou ' + duration(cm - ch) };
     if (cm) return { stage: 'chamada', open: true, tone: 'brand', since: cm, wait: cm - ch, consult: now - cm, label: 'Em consulta · ' + duration(now - cm) };
     var w = now - ch, min = w / 60000;
-    return { stage: 'chegada', open: true, tone: min >= ESPERA_ATRASO ? 'err' : min >= ESPERA_ATENCAO ? 'warn' : 'wait', since: ch, wait: w, label: 'Aguardando · ' + duration(w) };
+    // O texto muda junto com a cor: quem não distingue âmbar de vermelho lê a diferença.
+    var tone = min >= ESPERA_ATRASO ? 'err' : min >= ESPERA_ATENCAO ? 'warn' : 'wait';
+    var rotulo = tone === 'err' ? 'Atrasado · ' : tone === 'warn' ? 'Espera longa · ' : 'Aguardando · ';
+    return { stage: 'chegada', open: true, tone: tone, since: ch, wait: w, label: rotulo + duration(w) };
   }
 
   // Próximo botão da recepção para a etapa atual (null = paciente ainda não chegou).
@@ -424,6 +427,7 @@
     if (erro === 'ETAPA_FORA_DE_ORDEM') return 'Outra pessoa já mudou esta consulta. A tela foi atualizada.';
     if (erro === 'HORA_INVALIDA') return 'Hora inválida: ela precisa ficar entre a etapa anterior e a seguinte, e não pode ser no futuro.';
     if (erro === 'NADA_A_DESFAZER') return 'Não há etapa para desfazer.';
+    if (erro === 'AGENDAMENTO_DESCONHECIDO') return 'Esta consulta não está mais na agenda de hoje. Atualize a agenda.';
     return readError(status, body);
   }
 
@@ -461,7 +465,28 @@
     for (var i = 0; i < els.length; i++) els[i].textContent = sis(els[i].getAttribute('data-sis'));
   }
 
-  var api = { setSistema: setSistema, sis: sis, applySistema: applySistema, queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, newPatientError: newPatientError, formatCpf: formatCpf,bookingError: bookingError, confirmationState: confirmationState, confirmationError: confirmationError, confirmationSent: confirmationSent, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
+  /* ---------- DOM: ajudantes usados por todas as telas ---------- */
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function option(value, text) { var o = el('option', null, text); o.value = value; return o; }
+  function button(text, cls, onClick) {
+    var b = el('button', 'btn' + (cls ? ' ' + cls : ''), text);
+    b.type = 'button';
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function fact(dl, label, value) {
+    var d = el('div');
+    d.appendChild(el('dt', null, label));
+    d.appendChild(el('dd', null, value || '—'));
+    dl.appendChild(d);
+  }
+
+  var api = { el: el, option: option, button: button, fact: fact, setSistema: setSistema, sis: sis, applySistema: applySistema, queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, newPatientError: newPatientError, formatCpf: formatCpf,bookingError: bookingError, confirmationState: confirmationState, confirmationError: confirmationError, confirmationSent: confirmationSent, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
     todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, weekDays: weekDays, weekLabel: weekLabel, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
     clockOf: clockOf, nowClock: nowClock, duration: duration, attendanceState: attendanceState, attendanceNext: attendanceNext, attendanceDone: attendanceDone, attendanceError: attendanceError, stageName: stageName,

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { aplicar, etapaAtual, horaNoDia, VAZIO, type Tempos } from "../src/atendimento.js";
+import { agendadoVisto, aplicar, etapaAtual, horaNoDia, lembrarAgendados, VAZIO, type Tempos } from "../src/atendimento.js";
 
 // Tempo de espera: chegada → chamada → fim, com desfazer e ajuste de hora.
 
@@ -93,4 +93,15 @@ test("relatório: cronômetro aberto não conta; fora do normal é descartado", 
   assert.equal(r.esperas_medidas, 2);  // 10 (em consulta agora) e 5
   assert.equal(r.consultas_medidas, 1); // a espera de 5h30 sai, mas a consulta de 10 min daquela linha vale
   assert.equal(r.consulta_media, 10);
+});
+
+test("chegada: só consulta que a agenda do dia mostrou para aquele profissional", () => {
+  lembrarAgendados("t1", "p1", "2026-11-23", ["10", "11"]);
+  assert.equal(agendadoVisto("t1", "p1", "2026-11-23", "10"), true);
+  assert.equal(agendadoVisto("t1", "p1", "2026-11-23", "99"), false, "id inventado");
+  assert.equal(agendadoVisto("t1", "p2", "2026-11-23", "10"), false, "outro profissional");
+  assert.equal(agendadoVisto("t2", "p1", "2026-11-23", "10"), false, "outra clínica");
+  // A agenda nova substitui a antiga: consulta cancelada sai da lista.
+  lembrarAgendados("t1", "p1", "2026-11-23", ["11"]);
+  assert.equal(agendadoVisto("t1", "p1", "2026-11-23", "10"), false);
 });

@@ -121,6 +121,8 @@ test("extensão: brotli/gzip, ETag com 304, e cache longo só para arquivo com v
   const html = await app.inject({ url: "/extensao/chat.html" });
   assert.equal(html.headers["cache-control"], "no-cache");
   assert.equal(html.headers["content-encoding"], undefined);
+  assert.equal(html.headers["content-security-policy"], "object-src 'none'; base-uri 'none'; form-action 'none'");
+  assert.equal(gz.headers["content-security-policy"], undefined, "CSP só nas telas");
   const mesmo = await app.inject({ url: "/extensao/chat.html", headers: { "if-none-match": String(html.headers.etag) } });
   assert.equal(mesmo.statusCode, 304);
 

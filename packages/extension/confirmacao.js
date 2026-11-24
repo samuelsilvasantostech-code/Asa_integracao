@@ -14,12 +14,7 @@
   // Na tela única (clinfy.html), os ids repetidos entre telas têm prefixo: o mapa vem de hub.js.
   var IDS = (root.ClinFyIds && root.ClinFyIds.confirmacao) || {};
   function $(id) { return document.getElementById(IDS[id] || id); }
-  function el(tag, cls, text) {
-    var n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text != null) n.textContent = text;
-    return n;
-  }
+  var el = C.el;
   function pill(tone, text) { $('pill').setAttribute('data-tone', tone); $('pill-text').textContent = text; }
   function msg(node, tone, text) { if (tone) node.setAttribute('data-tone', tone); else node.removeAttribute('data-tone'); node.textContent = text; }
 

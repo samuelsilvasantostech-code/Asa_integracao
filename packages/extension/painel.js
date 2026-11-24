@@ -10,12 +10,7 @@
   // Na tela única (clinfy.html), os ids repetidos entre telas têm prefixo: o mapa vem de hub.js.
   var IDS = (root.ClinFyIds && root.ClinFyIds.painel) || {};
   function $(id) { return document.getElementById(IDS[id] || id); }
-  function el(tag, cls, text) {
-    var n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text != null) n.textContent = text;
-    return n;
-  }
+  var el = C.el;
   function pill(tone, text) { $('pill').setAttribute('data-tone', tone); $('pill-text').textContent = text; }
   function status(id, text, tone) {
     if (tone) $(id).setAttribute('data-tone', tone); else $(id).removeAttribute('data-tone');
@@ -27,9 +22,13 @@
   function shortDay(iso) { var p = String(iso).split('-'); return p[2] + '/' + p[1]; }
 
   /* ---------- dica ao passar o mouse (e no foco, pelo teclado) ---------- */
-  function hint(node, text) {
-    node.setAttribute('aria-label', text);
-    node.tabIndex = 0;
+  // soMouse: a dica só aparece ao passar o mouse (o teclado chega pelo gráfico inteiro, com as setas).
+  function hint(node, text, soMouse) {
+    if (!soMouse) {
+      node.setAttribute('aria-label', text);
+      node.tabIndex = 0;
+    }
+    node._dica = on;
     function on() {
       var t = $('tip'), r = node.getBoundingClientRect();
       t.textContent = text;
@@ -131,6 +130,8 @@
   // Colunas por dia. Com mais de 31 dias as colunas ficam finas e só alguns rótulos aparecem.
   function columns(box, days, text) {
     box.textContent = '';
+    ['tabindex', 'role', 'aria-roledescription', 'aria-label'].forEach(function (a) { box.removeAttribute(a); });
+    box.onkeydown = null;
     var max = Math.max.apply(null, days.map(function (x) { return x.total; }).concat([0]));
     if (!max) { box.appendChild(el('p', 'muted', 'Sem movimento no período.')); box.classList.add('cols--empty'); return; }
     box.classList.remove('cols--empty');
@@ -144,9 +145,31 @@
       col.appendChild(bar);
       col.appendChild(el('span', 'cols__lbl', i % every === 0 || i === days.length - 1 ? shortDay(x.dia) : ''));
       if (x.dia === days[days.length - 1].dia || x.total === max) col.appendChild(el('span', 'cols__val', String(x.total)));
-      hint(col, text(x));
+      hint(col, text(x), true);
       box.appendChild(col);
     });
+    // Um ponto de foco por gráfico (antes, até 90 paradas de Tab). O leitor de tela ouve o resumo; as setas
+    // percorrem os dias, com a dica na tela e o texto do dia anunciado.
+    var soma = days.reduce(function (s, x) { return s + x.total; }, 0);
+    var pico = days.filter(function (x) { return x.total === max; })[0];
+    box.tabIndex = 0;
+    box.setAttribute('role', 'img');
+    box.setAttribute('aria-roledescription', 'gráfico');
+    box.setAttribute('aria-label', plural(days.length, 'dia', 'dias') + ', ' + soma + ' no total. Maior: ' + text(pico) + '. Use as setas para ver cada dia.');
+    var voz = el('span', 'sr');
+    voz.setAttribute('aria-live', 'polite');
+    box.appendChild(voz);
+    var at = -1;
+    box.onkeydown = function (ev) {
+      var cols = box.querySelectorAll('.cols__col');
+      var k = ev.key;
+      if (k !== 'ArrowLeft' && k !== 'ArrowRight' && k !== 'Home' && k !== 'End') return;
+      ev.preventDefault();
+      at = k === 'Home' ? 0 : k === 'End' ? cols.length - 1 : Math.max(0, Math.min(cols.length - 1, at + (k === 'ArrowRight' ? 1 : -1)));
+      cols[at]._dica();
+      voz.textContent = text(days[at]);
+    };
+    box.onblur = function () { $('tip').hidden = true; at = -1; };
   }
 
   function renderTodo(d) {
@@ -227,7 +250,7 @@
   /* ---------- cobranças e alertas ---------- */
   function hbar(box, label, value, frac, note, tone) {
     var row = el('div', 'hbar');
-    row.appendChild(el('span', 'hbar__lbl', label));
+    row.appendChild(el('span', 'hbar__lbl', label)).title = label; // nome longo cortado com "…"
     var track = el('span', 'hbar__track');
     var f = el('span', 'hbar__fill');
     f.style.width = Math.max(frac * 100, frac ? 2 : 0) + '%';
@@ -235,7 +258,8 @@
     track.appendChild(f);
     row.appendChild(track);
     row.appendChild(el('span', 'hbar__val', value));
-    if (note) hint(row, note);
+    // A linha já mostra rótulo e valor; o detalhe vai no texto (leitor de tela) e na dica do mouse, sem parar o Tab.
+    if (note) { row.appendChild(el('span', 'sr', note)); hint(row, note, true); }
     box.appendChild(row);
     return row;
   }

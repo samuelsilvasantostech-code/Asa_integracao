@@ -28,6 +28,8 @@ function lerTela(dir: string, arquivo: string, prefixo: string) {
   if (!body) throw new Error(`${arquivo}: não achei <body class="…"> seguido dos <script>`);
   let conteudo = body[2];
   for (const id of REPETIDOS) conteudo = conteudo.split(`id="${id}"`).join(`id="${prefixo}${id}"`);
+  // Na tela única o h1 é o da barra (ClinFy); o título de cada tela vira h2.
+  conteudo = conteudo.replace(/<h1 class="hd__title">([\s\S]*?)<\/h1>/, '<h2 class="hd__title">$1</h2>');
   const versao = /\?v=([\d.]+)/.exec(html)?.[1];
   if (!versao) throw new Error(`${arquivo}: sem ?v= nos recursos`);
   return { classe: body[1], conteudo, versao };
@@ -52,7 +54,7 @@ export function montarClinfy(dir = DIR_EXTENSAO): string {
 <header class="hub__bar">
   <div class="hd__brand">
     <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
-    <div class="hd__title">ClinFy<span class="hd__sis" data-sis="marca"></span></div>
+    <h1 class="hd__title">ClinFy<span class="hd__sis" data-sis="marca"></span></h1>
   </div>
   <nav class="hub__tabs" role="tablist" aria-label="Seções do ClinFy">
 ${aba("agenda", "Agenda")}

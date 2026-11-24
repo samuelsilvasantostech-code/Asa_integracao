@@ -1,10 +1,11 @@
-/* Asa Saúde — painel da conversa e tela Configurar.
+/* ClinFy — painel da conversa, Agenda, Painel e Configurar.
    Ideia: a consulta é um cartão de consulta (canhoto com a data + corpo picotado).
    O resto fica quieto para não brigar com a tela da Kentro. */
 :root {
   --bg: #ffffff;        /* papel */
   --surface: #f2f5f4;   /* gaze */
-  --border: #dde4e2;    /* linha */
+  --border: #dde4e2;    /* linha: divisórias, só decoração */
+  --line: #7f8f93;      /* contorno de campo e botão: 3:1 sobre o papel e a gaze */
   --text: #1b2a30;      /* tinta */
   --muted: #5a6b70;
   --brand: #0b6b5e;     /* pinho */
@@ -12,7 +13,7 @@
   --brand-soft: #e3f0ec;
   --remind: #8f5210;    /* lembrete: só no canhoto da próxima consulta */
   --remind-soft: #f8efe3;
-  --ok: #1e7f48; --warn: #8f5210; --err: #b8352a; --idle: #8a979b;
+  --ok: #18733f; --warn: #8f5210; --err: #b8352a; --idle: #8a979b;
   --ok-soft: color-mix(in srgb, var(--ok) 13%, var(--bg));
   --perf: color-mix(in srgb, var(--muted) 45%, var(--bg)); /* picote do cartão */
   --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
@@ -22,14 +23,16 @@
   --lift: 0 1px 2px rgba(10, 61, 54, .06), 0 2px 8px rgba(10, 61, 54, .05);
   --display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
   font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  color-scheme: light;
 }
 :root[data-theme="dark"] {
-  --bg: #121a1c; --surface: #1a2427; --border: #2a3639; --text: #e4ecea; --muted: #97a7a8;
+  --bg: #121a1c; --surface: #1a2427; --border: #2a3639; --line: #66777a; --text: #e4ecea; --muted: #97a7a8;
   --brand: #5cc4ae; --brand-ink: #0c1f1b; --brand-soft: #173430;
   --remind: #e0a55a; --remind-soft: #33281a;
   --ok: #5ac98a; --warn: #e0a55a; --err: #f07466; --idle: #6e7d80;
   --ok-soft: color-mix(in srgb, var(--ok) 16%, var(--bg));
   --deep: #0e2c28; --lift: 0 1px 2px rgba(0, 0, 0, .25);
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13px; line-height: 1.4; }
@@ -42,7 +45,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .hd__brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .hd__logo { width: 28px; height: 28px; border-radius: 8px; background: var(--on-deep-line); display: grid; place-items: center; flex: none; }
 .hd__logo svg { width: 17px; height: 17px; fill: none; stroke: var(--deep-mint); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.hd__title { font-family: var(--display); font-weight: 650; font-size: 14px; letter-spacing: -.005em; }
+.hd__title { margin: 0; font-family: var(--display); font-weight: 650; font-size: 14px; letter-spacing: -.005em; }
 .hd__sis { color: var(--deep-mint); }
 .hd__sub { color: var(--on-deep-muted); font-size: 11.5px; }
 .hd .pill { background: var(--on-deep-line); }
@@ -88,7 +91,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .conn[data-tone="err"] { color: var(--err); }
 
 /* ---------- botões ---------- */
-.btn { margin-top: 8px; padding: 6px 12px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-weight: 550; cursor: pointer; }
+.btn { margin-top: 8px; padding: 6px 12px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-weight: 550; cursor: pointer; }
 .btn:hover { border-color: var(--brand); color: var(--brand); }
 .btn:disabled { opacity: .6; cursor: progress; }
 .btn--primary { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); align-self: flex-start; padding: 7px 14px; }
@@ -109,7 +112,6 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .pane { display: flex; flex-direction: column; gap: 12px; }
 .pane[hidden] { display: none; }
 
-.soon { margin: 0; color: var(--muted); font-size: 11.5px; text-align: center; }
 .muted { margin: 0; color: var(--muted); }
 .muted[data-tone="err"] { color: var(--err); }
 .muted[data-tone="warn"] { color: var(--warn); }
@@ -135,7 +137,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 550; color: var(--muted); }
 .field[hidden] { display: none; }
-.field input, .field select, .field textarea { padding: 7px 10px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; font-weight: 400; }
+.field input, .field select, .field textarea { padding: 7px 10px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; font-weight: 400; }
 .field textarea { resize: vertical; }
 .field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: -1px; border-color: transparent; }
 .field select:disabled { color: var(--muted); }
@@ -164,15 +166,13 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 
 /* ---------- agenda: dias e horários ---------- */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { min-height: 32px; padding: 5px 9px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.chip { min-height: 32px; padding: 5px 9px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer; }
 .chip:hover { border-color: var(--brand); }
 .chip[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); font-weight: 600; }
 .chip--day { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 5px 6px; line-height: 1.2; }
 .chip__wd { font-size: 11px; color: var(--muted); }
 .chip__date { font-weight: 600; }
 .chip--day[aria-pressed="true"] .chip__wd { color: inherit; opacity: .85; }
-.chip--static { cursor: default; }
-.chip--static:hover { border-color: var(--border); }
 
 /* ---------- marcar / revisar / feito ---------- */
 .booking { display: flex; flex-direction: column; gap: 10px; border-radius: var(--r-md); padding: 12px; background: var(--surface); }
@@ -224,7 +224,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
    A folha do dia é uma régua de horários. Consulta marcada = canhoto com a hora + corpo picotado,
    como o cartão do painel; horário livre = vaga tracejada, vazia, que convida a marcar. */
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.link { border: 0; background: none; padding: 0; color: var(--brand); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; }
+.link { border: 0; background: none; min-height: 24px; padding: 4px 2px; color: var(--brand); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; }
 .btn--icon { width: 32px; padding: 5px 0; font-size: 16px; line-height: 1; }
 
 .page-agenda { font-size: 14px; }
@@ -235,7 +235,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 
 .lookup { display: flex; gap: 6px; flex: 0 1 380px; margin-left: auto; }
 .lookup[hidden] { display: none; }
-.lookup input { flex: 1; min-width: 0; padding: 7px 11px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+.lookup input { flex: 1; min-width: 0; padding: 7px 11px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
 .lookup input:focus-visible { outline: 2px solid var(--brand); outline-offset: -1px; background: var(--bg); }
 .lookup .btn { margin-top: 0; }
 
@@ -301,7 +301,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .slot--off .slot__btn { background: none; }
 .slot--off .slot__who, .slot--off .slot__time { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
 
-.slot--free .slot__btn { min-height: 40px; border-style: dashed; border-color: var(--perf); background: none; }
+.slot--free .slot__btn { min-height: 40px; border-style: dashed; border-color: var(--line); background: none; }
 .slot--free .slot__time { background: none; font-size: 14px; font-weight: 600; color: var(--muted); border-right-color: transparent; }
 .slot--free .slot__body { color: var(--muted); font-size: 13px; padding-top: 6px; padding-bottom: 6px; }
 .slot__cta { margin-right: 14px; color: var(--brand); font-size: 12.5px; font-weight: 600; opacity: 0; }
@@ -318,14 +318,16 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .sheet--compact .now { margin: 2px 0; }
 
 /* ---------- visão: dia, semana, lado a lado ---------- */
-.seg { display: inline-flex; align-self: flex-end; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
+.seg { display: inline-flex; align-self: flex-end; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; }
 .seg__btn { padding: 7px 12px; border: 0; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
-.seg__btn + .seg__btn { border-left: 1px solid var(--border); }
+.seg__btn + .seg__btn { border-left: 1px solid var(--line); }
+/* O grupo corta o que passa da borda (overflow): o contorno de foco fica por dentro do botão. */
+.seg__btn:focus-visible { outline-offset: -4px; }
+.seg__btn[aria-pressed="true"]:focus-visible { outline-color: var(--brand-ink); }
 .seg__btn:hover { color: var(--brand); }
 .seg__btn[aria-pressed="true"] { background: var(--brand); color: var(--brand-ink); font-weight: 600; }
-.field[hidden] { display: none; }
 
-.grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(148px, 1fr); gap: 10px; align-items: start; }
+.grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(112px, 1fr); gap: 10px; align-items: start; }
 .grid[hidden], .sheet[hidden] { display: none; }
 .col { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .col__hd { position: sticky; top: -16px; z-index: 1; padding: 6px 0; background: var(--bg); border-bottom: 2px solid var(--border); }
@@ -367,6 +369,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .side .booking--review .facts, .side .booking--done .facts { padding: 0; }
 .side #sp-close, .side #sd-close { align-self: flex-start; }
 
+@media (max-width: 1440px) and (min-width: 901px) { .split { grid-template-columns: minmax(0, 1fr) 320px; } }
 @media (max-width: 900px) {
   .page-agenda .app { height: auto; min-height: 100vh; }
   .split { grid-template-columns: 1fr; }
@@ -391,7 +394,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .param { display: grid; grid-template-columns: 46px minmax(150px, 1fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; padding-right: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); overflow: hidden; }
 .param:has(input) { grid-template-columns: 46px minmax(150px, 1fr) minmax(120px, 1fr) minmax(0, .8fr) auto; }
 .param__n { align-self: stretch; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; border-right: 1.5px dashed var(--perf); }
-.param select, .param input { min-width: 0; margin: 5px 0; padding: 6px 8px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
+.param select, .param input { min-width: 0; margin: 5px 0; padding: 6px 8px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
 .param select:focus-visible, .param input:focus-visible { outline: 2px solid var(--brand); outline-offset: -1px; border-color: transparent; }
 .param__ex { min-width: 0; color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .param__ex:not(:empty)::before { content: "ex.: "; }
@@ -402,9 +405,6 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .preview { margin-top: -4px; padding: 8px 11px; border-radius: 4px var(--r-md) var(--r-md) var(--r-md); background: var(--brand-soft); color: var(--text); font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 .preview:empty { display: none; }
 
-.savebar { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 10px 0 2px; background: var(--bg); border-top: 1px solid var(--border); }
-.savebar .conn { flex: 1; font-size: 12.5px; }
-.savebar .btn { margin-top: 0; }
 @media (max-width: 560px) {
   .param, .param:has(input) { grid-template-columns: 40px 1fr auto; }
   .param input, .param__ex { grid-column: 2 / 3; }
@@ -430,10 +430,8 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .next[hidden] { display: none; }
 .next:hover { background: rgba(255, 255, 255, .11); }
 .next:focus-visible { outline-color: var(--deep-mint); }
-.next__label { color: var(--deep-warn); font-size: 11.5px; font-weight: 600; }
-.next__label { flex: none; }
+.next__label { flex: none; color: var(--deep-warn); font-size: 11.5px; font-weight: 600; }
 .next__when { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--display); font-size: 13.5px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.next__who { color: var(--on-deep-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .next__who { display: none; } /* fica no rótulo do botão e na aba Consultas */
 
 /* Ficha do paciente em blocos. */
@@ -493,6 +491,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 .seg--dark .seg__btn + .seg__btn { border-left-color: var(--on-deep-line); }
 .seg--dark .seg__btn:hover { color: var(--on-deep); background: rgba(255, 255, 255, .08); }
 .seg--dark .seg__btn[aria-pressed="true"] { background: var(--on-deep); color: var(--deep); }
+.seg--dark .seg__btn[aria-pressed="true"]:focus-visible { outline-color: var(--deep); }
 
 /* ================= Painel da clínica ================= */
 .page-dash { font-size: 14px; }
@@ -544,11 +543,12 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 /* Colunas por dia: barras finas com a ponta arredondada, rótulos só de alguns dias. */
 .cols { display: grid; grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); gap: 2px; height: 140px; margin-bottom: 30px; border-bottom: 1px solid var(--border); }
 .cols--empty { display: block; height: auto; margin-bottom: 0; border: 0; }
-.cols__col { position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; min-width: 0; outline-offset: 2px; }
+.cols__col { position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; min-width: 0; }
+.cols:focus-visible, .hbars:focus-visible { outline-offset: 4px; border-radius: var(--r-sm); }
 .cols__bar { display: flex; flex-direction: column; justify-content: flex-end; max-width: 28px; width: 100%; margin: 0 auto; border-radius: 4px 4px 0 0; background: var(--brand); overflow: hidden; }
 .cols--stacked .cols__bar { background: var(--brand-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 22%, transparent); }
 .cols__part { display: block; width: 100%; background: var(--brand); }
-.cols__col:hover .cols__bar, .cols__col:focus-visible .cols__bar { filter: brightness(.9); }
+.cols__col:hover .cols__bar { filter: brightness(.9); }
 .cols__val { order: -1; margin-bottom: 3px; text-align: center; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .cols__lbl { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 5px; color: var(--muted); font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
@@ -655,12 +655,13 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 13
 /* ---------- aviso fixo (resultado de cancelar, confirmar e agendar) ---------- */
 .toast { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 20; display: flex; align-items: flex-start; gap: 8px; padding: 10px 8px 10px 12px; border-radius: var(--r-md); background: var(--deep); color: var(--on-deep); box-shadow: 0 6px 24px rgba(0, 0, 0, .22); font-size: 12.5px; }
 .toast[hidden] { display: none; }
+:root[data-theme="dark"] .toast { background: #1d4a43; box-shadow: 0 0 0 1px var(--brand), 0 6px 24px rgba(0, 0, 0, .5); }
 .toast::before { content: ""; flex: none; width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--deep-ok); }
 .toast[data-tone="err"]::before { background: var(--deep-err); }
 .toast__text { flex: 1; min-width: 0; }
 .toast__close { flex: none; width: 28px; height: 28px; margin: -5px 0; border: 0; border-radius: var(--r-sm); background: none; color: var(--on-deep-muted); font: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
 .toast__close:hover { background: var(--on-deep-line); color: var(--on-deep); }
-body:has(.toast:not([hidden])) .body { padding-bottom: 72px; }
+body.com-toast .body { padding-bottom: 72px; }
 
 /* ---------- agendar: o botão Revisar fica sempre à vista ---------- */
 .booking__bar { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 4px; margin: 4px -12px -12px; padding: 10px 12px 12px; border-top: 1px solid var(--border); border-radius: 0 0 var(--r-md) var(--r-md); background: var(--surface); }
@@ -697,7 +698,7 @@ body:has(.toast:not([hidden])) .body { padding-bottom: 72px; }
 
 .adjust { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; width: 100%; }
 .adjust__field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
-.adjust select, .adjust input { padding: 6px 8px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
+.adjust select, .adjust input { padding: 6px 8px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
 .adjust .btn { margin-top: 0; }
 
 /* ---------- Painel: tempo de espera ---------- */

@@ -6,30 +6,12 @@
 
   var C = root.AsaCore;
 
-  function el(tag, cls, text) {
-    var n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text != null) n.textContent = text;
-    return n;
-  }
-  function option(value, text) { var o = el('option', null, text); o.value = value; return o; }
-  function button(text, cls, onClick) {
-    var b = el('button', 'btn' + (cls ? ' ' + cls : ''), text);
-    b.type = 'button';
-    b.addEventListener('click', onClick);
-    return b;
-  }
+  var el = C.el, option = C.option, button = C.button, fact = C.fact;
   function field(label, input) {
     var l = el('label', 'field');
     l.appendChild(el('span', null, label));
     l.appendChild(input);
     return l;
-  }
-  function fact(dl, label, value) {
-    var d = el('div');
-    d.appendChild(el('dt', null, label));
-    d.appendChild(el('dd', null, value || '—'));
-    dl.appendChild(d);
   }
   function msg(p, text, tone) {
     if (tone) p.setAttribute('data-tone', tone); else p.removeAttribute('data-tone');

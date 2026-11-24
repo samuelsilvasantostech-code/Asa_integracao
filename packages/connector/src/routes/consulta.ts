@@ -7,6 +7,7 @@ import { Limite } from "../limite.js";
 import { Cache, chaveDaClinica, guardavel } from "../cache.js";
 import { marcarErroErp } from "../contagem.js";
 import { atendimentosDe } from "./atendimento.js";
+import { lembrarAgendados } from "../atendimento.js";
 import { erpDaRequisicao, tenantComErp } from "../tenant-auth.js";
 
 // Rotas de LEITURA do ERP da clínica para o painel. Nada aqui grava no ERP.
@@ -133,6 +134,7 @@ export async function consultaRoutes(app: FastifyInstance) {
     // Horários livres indisponíveis não derrubam a agenda: as consultas marcadas ainda servem.
     const livres = rl && rl.ok ? rl.dados : [];
     const ids = agendados.map((x) => x.id);
+    if (ra.ok && data === hojeEm(new Date())) lembrarAgendados(ctx.tenant.id, prestador_id, data, ids);
     // Tempo de espera (chegada, chamada, fim) só existe para hoje.
     const [conf, atend] = await Promise.all([confirmacoesDe(ctx.tenant.id, ids), data === hojeEm(new Date()) ? atendimentosDe(ctx.tenant.id, ids) : null]);
     return {

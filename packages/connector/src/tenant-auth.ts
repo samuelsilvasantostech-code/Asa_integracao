@@ -74,6 +74,16 @@ async function adaptadorDe(req: FastifyRequest, reply: FastifyReply, erp: string
   }
 }
 
+// Adaptador do ERP sem responder à requisição: para conferências que, se o ERP falhar, seguem sem ele.
+export async function erpOpcional(req: FastifyRequest, tenant: Tenant): Promise<ErpAdapter | null> {
+  if (!tenant.credencial) return null;
+  try {
+    return await adaptadorPara(tenant.erp, JSON.parse(decifrar(tenant.credencial)), req.log);
+  } catch {
+    return null;
+  }
+}
+
 // Clínica + adaptador do ERP dela, para as rotas que falam com o ERP.
 export async function tenantComErp(req: FastifyRequest, reply: FastifyReply): Promise<{ tenant: Tenant; erp: ErpAdapter } | null> {
   const tenant = await tenantDaRequisicao(req, reply);

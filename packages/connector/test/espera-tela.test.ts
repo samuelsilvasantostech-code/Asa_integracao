@@ -20,8 +20,10 @@ test("aguardando: verde até 15 min, âmbar até 30, vermelho depois", () => {
   assert.equal(st(5).tone, "wait");
   assert.equal(st(5).label, "Aguardando · 5 min");
   assert.equal(st(15).tone, "warn");
+  assert.equal(st(18).label, "Espera longa · 18 min");
   assert.equal(st(30).tone, "err");
-  assert.equal(st(75).label, "Aguardando · 1 h 15");
+  assert.equal(st(32).label, "Atrasado · 32 min");
+  assert.equal(st(75).label, "Atrasado · 1 h 15");
   assert.equal(st(-1).label, "Aguardando · 0 min"); // relógio um pouco atrás não mostra negativo
   assert.deepEqual(C.attendanceNext(st(5)), { acao: "chamada", label: "Chamar para consulta" });
 });

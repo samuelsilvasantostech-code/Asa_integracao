@@ -26,29 +26,11 @@
   // Na tela única (clinfy.html), os ids repetidos entre telas têm prefixo: o mapa vem de hub.js.
   var IDS = (root.ClinFyIds && root.ClinFyIds.agenda) || {};
   function $(id) { return document.getElementById(IDS[id] || id); }
-  function el(tag, cls, text) {
-    var n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text != null) n.textContent = text;
-    return n;
-  }
-  function option(value, text) { var o = el('option', null, text); o.value = value; return o; }
+  var el = C.el, option = C.option, button = C.button, fact = C.fact;
   function pill(tone, text) { $('pill').setAttribute('data-tone', tone); $('pill-text').textContent = text; }
   function status(id, text, tone) {
     if (tone) $(id).setAttribute('data-tone', tone); else $(id).removeAttribute('data-tone');
     $(id).textContent = text || '';
-  }
-  function button(text, cls, onClick) {
-    var b = el('button', 'btn' + (cls ? ' ' + cls : ''), text);
-    b.type = 'button';
-    b.addEventListener('click', onClick);
-    return b;
-  }
-  function fact(dl, label, value) {
-    var d = el('div');
-    d.appendChild(el('dt', null, label));
-    d.appendChild(el('dd', null, value || '—'));
-    dl.appendChild(d);
   }
   function find(list, id) { return list.filter(function (x) { return x.id === id; })[0]; }
 
@@ -259,6 +241,7 @@
     if (sel.view === 'semana' && c.day < today) n.classList.add('col--past');
     var hd = el('header', 'col__hd');
     var t = el('button', 'col__title', sel.view === 'semana' ? C.formatDay(c.day) : providerName(c.prest));
+    t.title = t.textContent;
     t.type = 'button';
     t.title = 'Abrir este dia';
     t.addEventListener('click', function () { openDay(c.prest, c.day); });
@@ -399,6 +382,7 @@
     b.appendChild(el('span', 'avatar avatar--sm', C.initials(a.paciente.nome)));
     var body = el('span', 'slot__body');
     var who = el('span', 'slot__who', a.paciente.nome || 'Paciente sem nome');
+    who.title = who.textContent;
     if (a.paciente.idade != null) who.appendChild(el('span', 'slot__age', a.paciente.idade + ' anos'));
     body.appendChild(who);
     if (a.procedimentos.length) body.appendChild(el('span', 'slot__proc', a.procedimentos.join(', ')));
@@ -628,10 +612,13 @@
     box.hidden = !items.length;
     $('sw-count').textContent = waiting ? String(waiting) : '';
     $('sw-count').hidden = !waiting;
+    var foco = list.contains(document.activeElement) ? document.activeElement.getAttribute('data-appt') : null;
     list.textContent = '';
     items.forEach(function (x) {
       var li = el('li'), b = el('button', 'wroom__item');
       b.type = 'button';
+      b.setAttribute('data-appt', String(x.a.id));
+      b.title = (x.a.paciente.nome || 'Paciente sem nome') + ' · ' + x.st.label;
       b.appendChild(el('span', 'wroom__time', x.a.hora || '--:--'));
       var who = el('span', 'wroom__who', x.a.paciente.nome || 'Paciente sem nome');
       if (sel.view === 'lado') who.appendChild(el('span', 'wroom__prof', providerName(x.c.prest)));
@@ -647,6 +634,10 @@
       li.appendChild(b);
       list.appendChild(li);
     });
+    if (foco !== null) {
+      var volta = list.querySelector('[data-appt="' + foco.replace(/"/g, '') + '"]') || list.querySelector('.wroom__item');
+      if (volta) volta.focus(); else if (!box.hidden) $('sw-title').focus();
+    }
   }
 
   // A cada 30 s: os cronômetros andam sem pedir nada ao Conector (o relógio dele já está guardado).

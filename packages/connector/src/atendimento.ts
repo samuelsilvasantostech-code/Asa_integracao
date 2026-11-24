@@ -178,3 +178,20 @@ export function resumoEspera(linhas: LinhaEspera[], hoje: string) {
     descartadas,
   };
 }
+
+// Consultas de hoje que a agenda do dia já devolveu, por clínica, profissional e dia. A chegada de um id que
+// nunca apareceu na agenda (inventado, ou de outro profissional) é conferida no ERP antes de gravar.
+const VISTOS_MAX = 5000;
+const vistos = new Map<string, Set<string>>();
+const chaveVisto = (tenantId: string, prestadorId: string, data: string) => `${tenantId}|${prestadorId}|${data}`;
+
+export function lembrarAgendados(tenantId: string, prestadorId: string, data: string, ids: string[]) {
+  const k = chaveVisto(tenantId, prestadorId, data);
+  vistos.delete(k); // reinsere no fim: o mais antigo sai primeiro
+  vistos.set(k, new Set(ids));
+  while (vistos.size > VISTOS_MAX) vistos.delete(vistos.keys().next().value as string);
+}
+
+export function agendadoVisto(tenantId: string, prestadorId: string, data: string, id: string): boolean {
+  return vistos.get(chaveVisto(tenantId, prestadorId, data))?.has(id) ?? false;
+}
