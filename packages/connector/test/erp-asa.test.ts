@@ -164,3 +164,15 @@ test("conta: id_externo e vencimento com os nomes da Asa; sem status 0/1", async
   assert.equal(p.get("id_externo"), "chave-1234567890abcd");
   assert.equal(p.has("status"), false);
 });
+
+test("agenda: recusa com mensagem vazia é dia sem expediente, e não falha; com mensagem segue recusa", async () => {
+  simular({ status: 403, corpo: { status: "error", msg: "" } });
+  const dia = await asa().agendaDoDia("12", "2026-11-29");
+  assert.equal(dia.ok, false);
+  if (!dia.ok) assert.equal(dia.naoEncontrado && dia.semExpediente, true);
+  const livres = await asa().horariosLivres("12", "2026-11-29");
+  if (!livres.ok) assert.equal(livres.semExpediente, true);
+  simular({ status: 403, corpo: { status: "error", msg: "Prestador inativo" } });
+  const outra = await asa().agendaDoDia("12", "2026-11-29");
+  if (!outra.ok) assert.equal(!!outra.semExpediente, false);
+});

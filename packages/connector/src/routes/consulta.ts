@@ -144,6 +144,8 @@ export async function consultaRoutes(app: FastifyInstance) {
       }),
       livres,
       livres_ok: !rl || rl.ok || naoEncontrado(rl),
+      // O profissional não atende neste dia: a tela diz isso em vez de "nenhuma consulta".
+      ...(!ra.ok && ra.semExpediente && !agendados.length ? { sem_atendimento: true } : {}),
     };
   });
 

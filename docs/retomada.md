@@ -1,15 +1,27 @@
 # Retomada: Asa Saúde × Kentro
 
-Situação em **30/10/2026**, quando o trabalho parou. A visão geral do projeto está em [`visao-geral.md`](visao-geral.md), e o que a API não entrega e o que falta validar está em [`pendencias.md`](pendencias.md) (P1 a P40). A implantação em vários clientes, ainda em aberto, está em [`implantacao-clientes.md`](implantacao-clientes.md).
+Situação em **23/11/2026**. A visão geral do projeto está em [`visao-geral.md`](visao-geral.md), e o que a API não entrega e o que falta validar está em [`pendencias.md`](pendencias.md) (P1 a P42). A implantação em vários clientes, ainda em aberto, está em [`implantacao-clientes.md`](implantacao-clientes.md).
 
 ## Onde paramos
 
 | Item | Situação |
 |---|---|
-| Último commit | **0.16.0**: confirmação configurável e revisão de segurança, no GitHub |
-| Conector no Doca | **0.19.0** (deploy em 03/11) |
-| Instalação 29 (`apresentacao`) | **0.19.0**, ativa. O filtro inclui os usuários 508 e 509 e, desde 29/10, o perfil 0 (mudança feita fora daqui; confirmar se foi intencional) |
-| Fila 19 (WhatsApp oficial) | Ligada pelo usuário em 29/10 |
+| Último commit | **0.33.2**: "Não atende neste dia" no lugar do erro HTTP 502 da Asa; aviso da chegada; documentação revista |
+| Conector no Doca | **0.33.0** (deploy em 23/11; `/health` com banco ok) |
+| Testes | 151 no Conector, todos passando |
+| Falta validar | Tempo de espera (P41) e os itens de teste P32 a P36 e P42 em [`pendencias.md`](pendencias.md) |
+
+## 23/11: da 0.25.0 à 0.33.0 (no ar)
+
+- **0.25.0 e 0.27.0, cadastro de paciente:** `POST /v1/pacientes` cadastra no ERP (Luna/padrão e Feegow), com idempotência, limite por clínica e aviso de "já existia". A capacidade `cadastro_paciente` sai desligada na Asa. A busca sem resultado, no painel e na Agenda, oferece "Cadastrar paciente".
+- **0.26.0:** o título mostra o sistema da clínica ao lado da marca (ClinFy + Asa, ClinFy + Luna). O conector da Avelar passa a se chamar Luna; o slug continua `avelar`.
+- **0.28.0, concorrência:** respostas atrasadas não caem sobre outra conversa ou outra consulta; a atualização automática não roda com formulário aberto nem com a aba escondida.
+- **0.29.0 e 0.30.0, design e acessibilidade:** contraste do âmbar, botões de 32px, Cancelar afastado e com foco no "Não", só mensagens de status anunciadas, topo do painel compacto, "Atualizado às HH:MM" na Agenda e tema do sistema.
+- **0.31.0, desempenho:** pedidos iguais unificados e cache curto na página; a tela única abre Painel e Configurar só quando a aba é aberta; no Conector, cache por clínica e estáticos comprimidos.
+- **0.32.0, tempo de espera na Agenda:** Confirmar chegada → Chamar para consulta → Finalizar consulta, só nas consultas de hoje, com Desfazer e Ajustar hora. Cronômetro na linha (verde, âmbar aos 15 min, vermelho aos 30) e Sala de espera na lateral. Os tempos ficam só no Conector (migração 019, tabela `atendimentos`); o ERP não muda.
+- **0.33.0, relatório de espera no Painel:** espera média e mediana, % acima de 30 min, atraso da clínica, duração da consulta, faixas, por dia e por profissional.
+- **0.33.1:** nas consultas de outros dias, a lateral avisa "A chegada é marcada no dia da consulta".
+- **0.33.2:** a Asa recusa com mensagem vazia a agenda de um profissional num dia em que ele não atende (domingo, folga, dia fora da escala). Antes, isso aparecia como "A Asa não respondeu agora (HTTP 502)"; visto na Medular, no Lado a lado. Agora a coluna mostra "Não atende neste dia".
 
 ## 16/11: conector da Avelar, o sistema Luna (sem commit e sem deploy; falta testar com credencial real)
 

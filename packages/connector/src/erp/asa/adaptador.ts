@@ -31,6 +31,12 @@ export function falhaDaAsa(r: Extract<RespostaAsa<unknown>, { ok: false }>): Fal
   };
 }
 
+// Profissional sem expediente no dia (domingo, folga, dia fora da escala): nas rotas de agenda a Asa recusa
+// com a mensagem vazia, e não com uma lista vazia. É "não há nada neste dia", e não uma falha.
+export function semExpediente<T>(r: Resultado<T>): Resultado<T> {
+  return !r.ok && r.erro === "ASA_RECUSOU" && !r.msg ? { ...r, naoEncontrado: true, semExpediente: true } : r;
+}
+
 const chavesDe = (o: unknown) => (o && typeof o === "object" ? Object.keys(o) : typeof o);
 
 // Parâmetros de vaga como a Asa pede (data em DD/MM/AAAA).
@@ -101,7 +107,7 @@ export class AsaAdapter implements ErpAdapter {
 
   // A Asa pede a data com hora zerada e recusa dias passados.
   horariosLivres(prestadorId: string, data: string) {
-    return this.pedir("api-agendamento-horarios-atendimento", { prestador_id: prestadorId, data: `${data} 00:00:00` }, N.horarios);
+    return this.pedir("api-agendamento-horarios-atendimento", { prestador_id: prestadorId, data: `${data} 00:00:00` }, N.horarios).then(semExpediente);
   }
 
   agendaDoDia(prestadorId: string, data: string) {
@@ -112,7 +118,7 @@ export class AsaAdapter implements ErpAdapter {
         this.log.info({ chaves: Object.keys(d), item: primeiro && typeof primeiro === "object" ? Object.keys(primeiro) : typeof primeiro }, "agenda do dia sem consultas reconhecidas");
       }
       return agendados;
-    });
+    }).then(semExpediente);
   }
 
   conveniosDaVaga(vaga: Vaga) {

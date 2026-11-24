@@ -1,6 +1,6 @@
 # Pendências e pontos de observação
 
-Situação em **29/10/2026**, na versão **0.12.0**. Esta lista existe para voltarmos ponto a ponto quando a construção terminar.
+Criada em 29/10/2026 (versão 0.12.0) e revista em **23/11/2026**, na versão **0.33.1**. Os itens resolvidos ficam riscados, com a versão que os resolveu. Esta lista existe para voltarmos ponto a ponto quando a construção terminar.
 Cada item tem um código (P1, P2…) para ser citado nas conversas.
 
 Legenda: **API** = a Asa não entrega · **Asa** = a Asa entrega, mas com comportamento diferente do documentado · **Kentro** = limitação do SDK ou da plataforma · **Nosso** = decisão ou dívida nossa · **Teste** = falta validar com dados reais.
@@ -55,7 +55,7 @@ Legenda: **API** = a Asa não entrega · **Asa** = a Asa entrega, mas com compor
 | P28 | Nosso | ~~O `/health` sempre informa `versao: 0.1.0`.~~ | **Resolvido na 0.13.0**: a versão vem do `manifest.json`. |
 | P29 | Nosso | O push no GitHub não faz deploy no Doca: alguém clica em "Fazer deploy". | Avaliar o deploy automático no Doca. |
 | P30 | Nosso | Não há roteiro escrito de **implantação de clínica real**: tenant, chave, instalação, token, filas e template. | Escrever antes do primeiro cliente. |
-| P31 | Nosso | Não há testes automáticos da extensão (só do Conector). | Testar `core.js` e `cobranca.js`. |
+| P31 | Nosso | ~~Não há testes automáticos da extensão (só do Conector).~~ | **Em parte**: as regras do `core.js` são testadas pelo Conector (só as do tempo de espera, em `test/espera-tela.test.ts`), e `test/clinfy.test.ts` confere a tela única montada. As telas (`agenda.js`, `app.js`, `cobranca.js`) seguem sem teste automático. |
 
 ## 5. Falta validar com dados reais
 
@@ -65,7 +65,9 @@ Legenda: **API** = a Asa não entrega · **Asa** = a Asa entrega, mas com compor
 | P33 | Teste | Tela cheia: marcar, confirmar presença, remarcar, marcar falta, cancelar e buscar paciente | 0.11.x |
 | P34 | Teste | Financeiro: ligar em Configurar, lançar cobrança e ver como fica na Asa (fecha P3 e P22) | 0.12.0 |
 | P35 | Teste | Confirmação D-1: criar os fluxos na fila 19 e testar só com o número do usuário | 0.10.0 |
-| P38 | Nosso | Sem limite de chamadas por clínica: quem tem a chave da instalação (todo atendente) pode disparar chamadas à Asa sem teto. | Proposto: limite por clínica no Conector. Aguarda aprovação. |
-| P39 | Nosso | `confirmacoes` guarda o telefone do paciente sem prazo. | Proposto: apagar depois de 90 dias (LGPD). Aguarda aprovação. |
+| P38 | Nosso | ~~Sem limite de chamadas por clínica.~~ | **Resolvido na 0.19.0** (`src/limite.ts`): 300 buscas de paciente por minuto por clínica (429 `MUITAS_BUSCAS`), limite no cadastro de paciente (0.25.0) e 20 falhas da chave de administrador em 10 min por IP. As demais leituras não têm teto, mas passam pelo cache por clínica (0.31.0). |
+| P39 | Nosso | ~~`confirmacoes` guarda o telefone do paciente sem prazo.~~ | **Resolvido na 0.19.0** (`src/retencao.ts`): depois de 90 dias, os dados pessoais de `confirmacoes`, `agendamentos`, `cobrancas` e `atendimentos` são apagados, e as linhas ficam para o painel. |
 | P40 | Nosso | Qualquer atendente altera a confirmação (inclusive ligar para todos os pacientes), e o nome gravado na trilha vem do navegador. | Decisão do usuário em 30/10. Reavaliar se houver incidente. |
+| P41 | Teste | Tempo de espera: chegada, chamada, fim, Desfazer, Ajustar hora, dois computadores ao mesmo tempo e o relatório no Painel. O primeiro clique confirma que a migração 019 rodou em produção | 0.32.0 / 0.33.0 |
+| P42 | Teste | Cadastro de paciente pelo painel e pela Agenda, num ERP com `cadastro_paciente` (Luna ou Feegow) | 0.25.0 / 0.27.0 |
 | P36 | Teste | Agendar por exame: o procedimento buscado já deve vir escolhido no formulário. A Asa pode não trazer o id do procedimento no horário; nesse caso, ele é casado pelo nome | 0.13.0 |

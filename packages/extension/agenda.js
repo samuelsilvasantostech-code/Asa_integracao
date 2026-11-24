@@ -205,6 +205,7 @@
 
   function summaryParts(c, short) {
     var t = C.daySummary(c.data.agendados, c.data.livres), past = c.day < C.todayIso();
+    if (c.data.sem_atendimento && !t.consultas && !t.livres) return [short ? 'Não atende' : 'Não atende neste dia'];
     var parts = [t.consultas === 1 ? '1 consulta' : t.consultas + ' consultas'];
     if (!short) {
       if (t.confirmadas) parts.push(t.confirmadas + (t.confirmadas === 1 ? ' confirmada' : ' confirmadas'));
@@ -225,6 +226,7 @@
       var c = cols[0];
       if (c.erro) { status('day-status', c.erro, 'err'); return; }
       if (!C.dayRows(c.data.agendados, c.data.livres).length) {
+        if (c.data.sem_atendimento) { status('day-status', providerName(c.prest) + ' não atende neste dia.'); return; }
         status('day-status', c.day < C.todayIso() ? 'Nenhuma consulta neste dia.' : 'Nenhuma consulta e nenhum horário livre neste dia.');
         return;
       }
@@ -263,7 +265,7 @@
     if (c.erro) { c.sumNode.textContent = c.erro; c.sumNode.setAttribute('data-tone', 'err'); return; }
     c.sumNode.removeAttribute('data-tone');
     var rows = C.dayRows(c.data.agendados, c.data.livres);
-    c.sumNode.textContent = rows.length ? summaryParts(c, true).join(' · ') : 'Sem agenda';
+    c.sumNode.textContent = rows.length ? summaryParts(c, true).join(' · ') : (c.data.sem_atendimento ? 'Não atende neste dia' : 'Sem agenda');
     c.list.appendChild(rowsFragment(rows, c));
     placeNow(c.list, c.day);
     renderTally();
@@ -494,6 +496,8 @@
     var st = c.day === today ? C.attendanceState(a.atendimento, nowMs()) : null;
     var next = c.day === today && info.key !== 'ausente' && (st || info.key !== 'atendido') ? C.attendanceNext(st) : null;
     if (next) box.appendChild(button(next.label, 'btn--primary', function (ev) { attend(a, { acao: next.acao }, ev.currentTarget, c); }));
+    // Sem o botão, a recepção estranharia: avisa que a chegada só é marcada no dia.
+    if (c.day > today && info.key !== 'atendido') status('sa-status', 'A chegada é marcada no dia da consulta.');
     if (!st && info.key !== 'confirmado' && info.key !== 'atendido' && c.day >= today) {
       box.appendChild(button('Confirmar presença', next ? null : 'btn--primary', function (ev) { setStatus(a, 'confirmado', ev.currentTarget, c); }));
     }

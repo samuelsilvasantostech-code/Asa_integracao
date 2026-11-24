@@ -18,6 +18,7 @@ export interface FalhaErp {
   semResposta: boolean; // tempo esgotado ou conexão caída: numa gravação, o ERP PODE ter gravado
   recusa: boolean; // recusa de negócio (validação, regra): a mensagem ajuda o atendente
   codigoErp?: string; // o código de erro do próprio ERP (ex.: HORARIO_OCUPADO), quando ele manda um
+  semExpediente?: boolean; // agenda: o profissional não atende neste dia (vem junto com naoEncontrado)
 }
 
 export type Resultado<T> = { ok: true; dados: T } | FalhaErp;
