@@ -20,7 +20,7 @@ Legenda: **API** = a Asa não entrega · **Asa** = a Asa entrega, mas com compor
 | P9 | API | Não há **busca de paciente por nome**. | A busca é só por CPF ou telefone. | Pedir a busca por nome. |
 | P10 | API | `paciente-instituicao` não devolve o CPF (ele vem só de `agendamentos-futuros`). | Paciente sem consulta futura aparece sem CPF. | Pedir o CPF na rota de paciente. |
 | P11 | API | Não há texto de **preparo do exame** (item C3 do escopo). | A mensagem da D-1 não leva o preparo. | Pedir o campo, ou cadastrar o preparo por procedimento no Conector. |
-| P12 | API | `paciente-create-edit` **sobrescreve** o cadastro quando o CPF já existe. | Não usamos essa rota, e por isso "Atualizar cadastro" (A3) não foi feito. | Pedir uma edição parcial (só os campos enviados), ou montar uma tela que mostre o cadastro atual antes de gravar. |
+| P12 | API | `paciente-create-edit` **sobrescreve** o cadastro quando o CPF já existe. | Desde a 0.33.5 ela é usada só no cadastro de paciente novo, depois de confirmar pela busca que o CPF não tem ficha. "Atualizar cadastro" (A3) continua sem fazer. | Pedir uma edição parcial (só os campos enviados), ou montar uma tela que mostre o cadastro atual antes de gravar. |
 | P13 | API | `agendamento-disparados` não tem volta. | Só marcamos depois que a mensagem saiu. | Nada, só cuidado. |
 | P14 | API | `horarios-atendimento` recusa datas passadas. | A Agenda de dias passados mostra só as consultas, sem os horários livres. | Nada. |
 

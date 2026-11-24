@@ -17,8 +17,9 @@ export async function tenantRoutes(app: FastifyInstance) {
     if (!tenant) return;
     const p = await perfilErp(tenant.id);
     if (!p) return reply.code(401).send({ erro: "CHAVE_INVALIDA" });
-    // Cadastro avulso de paciente: todo ERP menos a Asa (a rota dela sobrescreve um cadastro existente).
-    return { ...p, capacidades: { ...p.capacidades, cadastro_paciente: p.erp !== "asa" } };
+    // Cadastro avulso de paciente: todos os ERPs. Na Asa, o adaptador busca o CPF antes de gravar (a rota de
+    // cadastro dela sobrescreve uma ficha existente).
+    return { ...p, capacidades: { ...p.capacidades, cadastro_paciente: true } };
   });
 
   // Confirma a clínica e, se houver credencial, testa de verdade no ERP. `conexao` é o estado; `asa` repete

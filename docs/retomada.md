@@ -6,9 +6,9 @@ Situação em **23/11/2026**. A visão geral do projeto está em [`visao-geral.m
 
 | Item | Situação |
 |---|---|
-| Último commit | **0.33.4**: agenda sem dia liberado na Asa mostra "Sem agenda online neste dia"; diagnóstico da Asa na implantação |
+| Último commit | **0.33.5**: cadastro de paciente ligado também na Asa (busca o CPF antes de gravar) |
 | Conector no Doca | **0.33.0** (deploy em 23/11; `/health` com banco ok) |
-| Testes | 154 no Conector, todos passando |
+| Testes | 157 no Conector, todos passando |
 | Falta validar | Tempo de espera (P41) e os itens de teste P32 a P36 e P42 em [`pendencias.md`](pendencias.md) |
 
 ## 23/11: da 0.25.0 à 0.33.0 (no ar)
@@ -24,6 +24,7 @@ Situação em **23/11/2026**. A visão geral do projeto está em [`visao-geral.m
 - **0.33.2:** a Asa recusa com mensagem vazia a agenda de um profissional num dia em que ele não atende (domingo, folga, dia fora da escala). Antes, isso aparecia como "A Asa não respondeu agora (HTTP 502)"; visto na Medular, no Lado a lado. Agora a coluna mostra "Sem agenda online neste dia".
 - **0.33.3:** HTTP 429 da Asa (limite de chamadas) vira `ASA_LIMITE`, com mensagem própria. Diagnóstico na implantação: `GET /admin/tenants/:id/diagnostico/asa?prestador_id=&data=` mostra a resposta crua da Asa (sem `prestador_id`, lista os profissionais).
 - **0.33.4:** o diagnóstico mostrou a recusa real: HTTP 403 `{"status":"error","0":"Dia selecionado sem atendimento ou não liberado para agendamento online"}`. O texto vem na chave `"0"`, que o Conector não lia. Na Medular, em 24/11, 7 dos 8 profissionais não tinham **nenhum** dia em `dias-atendimento`: a agenda deles não está liberada para o agendamento online na Asa (ver P20). A coluna agora diz "Sem agenda online neste dia".
+- **0.33.5:** "Cadastrar paciente" também na Asa (pedido do usuário). `paciente-create-edit` sobrescreve a ficha de um CPF existente (P12), por isso o adaptador busca o CPF antes: com ficha, devolve a ficha como está (`ja_existia`) e não grava. Resposta diferente de `tipo: criado` vai ao log.
 
 ## 16/11: conector da Avelar, o sistema Luna (sem commit e sem deploy; falta testar com credencial real)
 

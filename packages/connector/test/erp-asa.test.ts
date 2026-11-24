@@ -198,3 +198,40 @@ test("agenda: a recusa real da Asa (texto na chave \"0\") é dia sem agenda", as
   const livres = await asa().horariosLivres("545", "2026-11-24");
   if (!livres.ok) assert.equal(livres.semExpediente, true);
 });
+
+const NOVO = { nome: "Maria Teste", cpf: "70024088609", nascimento: "1980-05-02", telefone: "38991541816" };
+
+test("cadastro: CPF que já tem ficha devolve a ficha como está e não chama o create-edit (que sobrescreveria)", async () => {
+  simular({ corpo: { paciente: { id: 77, nome: "Maria Antiga", telefone: "38999990000" } } });
+  const r = await asa().cadastrarPaciente(NOVO, { timeoutMs: 1000 });
+  assert.equal(r.ok, true);
+  if (!r.ok) return;
+  assert.equal(r.dados.jaExistia, true);
+  assert.equal(r.dados.paciente.nome, "Maria Antiga");
+  assert.deepEqual(chamadas.map((c) => c.rota), ["api-agendamento-paciente-instituicao"]);
+});
+
+test("cadastro: CPF sem ficha é cadastrado pelo create-edit com nome, CPF, nascimento e telefone", async () => {
+  simular(
+    { status: 403, corpo: { status: "error", msg: "Paciente não localizado" } },
+    { corpo: { tipo: "criado", paciente: { id: 901, nome: "Maria Teste" } } },
+  );
+  const r = await asa().cadastrarPaciente(NOVO, { timeoutMs: 1000 });
+  assert.equal(r.ok, true);
+  if (!r.ok) return;
+  assert.equal(r.dados.jaExistia, false);
+  assert.equal(r.dados.paciente.id, "901");
+  assert.equal(r.dados.paciente.cpf, "70024088609");
+  const grava = chamadas[1];
+  assert.equal(grava.rota, "api-agendamento-paciente-create-edit");
+  assert.equal(grava.params.get("cpf"), "70024088609");
+  assert.equal(grava.params.get("nascimento"), "1980-05-02");
+  assert.equal(grava.params.get("telefone"), "38991541816");
+});
+
+test("cadastro: busca do CPF com a Asa fora do ar não grava nada", async () => {
+  simular({ status: 500, corpo: {} });
+  const r = await asa().cadastrarPaciente(NOVO, { timeoutMs: 1000 });
+  assert.equal(r.ok, false);
+  assert.equal(chamadas.length, 1);
+});

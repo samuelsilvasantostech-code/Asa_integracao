@@ -1,6 +1,6 @@
 // Adaptador da Asa Saúde: traduz a API da Asa (rotas POST com query string, formatos misturados) para o
 // contrato de erp/adaptador.ts. Tudo o que é particular da Asa fica aqui e em cliente.ts / normalizar.ts.
-import type { BuscaPaciente, ErpAdapter, FalhaErp, PedidoConta, PedidoMarcacao, Resultado, StatusConsulta, Vaga } from "../adaptador.js";
+import type { BuscaPaciente, ErpAdapter, FalhaErp, NovoPaciente, PacienteCadastrado, PedidoConta, PedidoMarcacao, Resultado, StatusConsulta, Vaga } from "../adaptador.js";
 import { chamarAsa, type CredencialAsa, type RespostaAsa } from "./cliente.js";
 import * as N from "./normalizar.js";
 
@@ -195,6 +195,28 @@ export class AsaAdapter implements ErpAdapter {
       }),
       timeoutMs,
     );
+  }
+
+  // Cadastro avulso. `paciente-create-edit` EDITA (sobrescreve) a ficha quando o CPF já existe, então o CPF
+  // é procurado antes: com ficha, ela é devolvida como está (jaExistia) e nada é gravado. Só um cadastro feito
+  // por outra pessoa entre a busca e a gravação (segundos) seria editado; a resposta "editado" vai ao log.
+  async cadastrarPaciente(novo: NovoPaciente, opcoes: { timeoutMs: number }): Promise<Resultado<PacienteCadastrado>> {
+    const antes = await this.buscarPaciente({ cpf: novo.cpf });
+    if (antes.ok && antes.dados) return { ok: true, dados: { paciente: { ...antes.dados, cpf: antes.dados.cpf ?? novo.cpf }, jaExistia: true } };
+    if (!antes.ok && !antes.naoEncontrado) return antes;
+    const r = await this.pedir(
+      "api-agendamento-paciente-create-edit",
+      { nome: novo.nome, cpf: novo.cpf, nascimento: novo.nascimento, telefone: novo.telefone },
+      (d) => ({ tipo: String(d?.tipo ?? ""), paciente: N.paciente(d), chaves: chavesDe(d) }),
+      opcoes.timeoutMs,
+    );
+    if (!r.ok) return r;
+    if (r.dados.tipo !== "criado") this.log.warn({ tipo: r.dados.tipo, chaves: r.dados.chaves }, "cadastro de paciente na Asa não veio como criado");
+    if (r.dados.paciente?.id) return { ok: true, dados: { paciente: { ...r.dados.paciente, cpf: r.dados.paciente.cpf ?? novo.cpf }, jaExistia: false } };
+    // Resposta sem o id: procura a ficha recém-criada pelo CPF.
+    const depois = await this.buscarPaciente({ cpf: novo.cpf });
+    if (depois.ok && depois.dados?.id) return { ok: true, dados: { paciente: { ...depois.dados, cpf: depois.dados.cpf ?? novo.cpf }, jaExistia: false } };
+    return { ok: false, erro: "ASA_RESPOSTA_INVALIDA", status: 200, msg: "cadastro sem id", naoEncontrado: false, credencialInvalida: false, semResposta: false, recusa: false };
   }
 
   // Sempre pelo id explícito: o modo "por telefone" da Asa escolhe a consulta sozinho.
