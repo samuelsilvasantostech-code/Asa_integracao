@@ -186,3 +186,15 @@ test("limite de chamadas (429) não vira 'não atende neste dia'", async () => {
   assert.equal(!!dia.semExpediente, false);
   assert.equal(dia.naoEncontrado, false);
 });
+
+test("agenda: a recusa real da Asa (texto na chave \"0\") é dia sem agenda", async () => {
+  simular({ status: 403, corpo: { status: "error", "0": "Dia selecionado sem atendimento ou não liberado para agendamento online" } });
+  const dia = await asa().agendaDoDia("545", "2026-11-24");
+  assert.equal(dia.ok, false);
+  if (dia.ok) return;
+  assert.equal(dia.semExpediente, true);
+  assert.match(dia.msg ?? "", /liberado para agendamento online/);
+  simular({ status: 403, corpo: { status: "error", "0": "Dia sem atendimento selecionado" } });
+  const livres = await asa().horariosLivres("545", "2026-11-24");
+  if (!livres.ok) assert.equal(livres.semExpediente, true);
+});

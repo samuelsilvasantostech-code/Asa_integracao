@@ -31,10 +31,13 @@ export function falhaDaAsa(r: Extract<RespostaAsa<unknown>, { ok: false }>): Fal
   };
 }
 
-// Profissional sem expediente no dia (domingo, folga, dia fora da escala): nas rotas de agenda a Asa recusa
-// com a mensagem vazia, e não com uma lista vazia. É "não há nada neste dia", e não uma falha.
+// Dia sem agenda: o profissional não atende, ou a agenda dele não está liberada para o agendamento online
+// (a Asa só mostra pela API o que é liberado para online). A Asa recusa com 403 e "Dia selecionado sem
+// atendimento ou não liberado para agendamento online" (agenda) ou "Dia sem atendimento selecionado"
+// (horários livres), e não com uma lista vazia. É "não há agenda neste dia", e não uma falha.
+const DIA_SEM_AGENDA = /sem atendimento|n[ãa]o liberad/i;
 export function semExpediente<T>(r: Resultado<T>): Resultado<T> {
-  return !r.ok && r.erro === "ASA_RECUSOU" && !r.msg ? { ...r, naoEncontrado: true, semExpediente: true } : r;
+  return !r.ok && r.erro === "ASA_RECUSOU" && (!r.msg || DIA_SEM_AGENDA.test(r.msg)) ? { ...r, naoEncontrado: true, semExpediente: true } : r;
 }
 
 const chavesDe = (o: unknown) => (o && typeof o === "object" ? Object.keys(o) : typeof o);

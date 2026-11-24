@@ -115,7 +115,8 @@ export async function chamarAsa<T>(
   const invalida = validacaoDa(corpo);
   if (invalida) return { ok: false, erro: "ASA_RECUSOU", status: resp.status, msg: invalida };
   if (resp.status === 403 || corpo?.status === "error" || (resp.status >= 400 && resp.status < 500 && resp.status !== 404)) {
-    return { ok: false, erro: "ASA_RECUSOU", status: resp.status, msg: String(corpo?.msg ?? corpo?.message ?? "") };
+    // Algumas recusas trazem o texto na chave "0" ({"status":"error","0":"Dia sem atendimento selecionado"}).
+    return { ok: false, erro: "ASA_RECUSOU", status: resp.status, msg: String(corpo?.msg ?? corpo?.message ?? corpo?.["0"] ?? "") };
   }
   if (resp.status === 404) return { ok: false, erro: "ASA_ROTA_INEXISTENTE", status: 404 };
   if (resp.status >= 500) return { ok: false, erro: "ASA_FORA_DO_AR", status: resp.status };

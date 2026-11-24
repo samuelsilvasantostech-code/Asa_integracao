@@ -205,7 +205,7 @@
 
   function summaryParts(c, short) {
     var t = C.daySummary(c.data.agendados, c.data.livres), past = c.day < C.todayIso();
-    if (c.data.sem_atendimento && !t.consultas && !t.livres) return [short ? 'Não atende' : 'Não atende neste dia'];
+    if (c.data.sem_atendimento && !t.consultas && !t.livres) return [short ? 'Sem agenda online' : 'Sem agenda online neste dia'];
     var parts = [t.consultas === 1 ? '1 consulta' : t.consultas + ' consultas'];
     if (!short) {
       if (t.confirmadas) parts.push(t.confirmadas + (t.confirmadas === 1 ? ' confirmada' : ' confirmadas'));
@@ -226,7 +226,7 @@
       var c = cols[0];
       if (c.erro) { status('day-status', c.erro, 'err'); return; }
       if (!C.dayRows(c.data.agendados, c.data.livres).length) {
-        if (c.data.sem_atendimento) { status('day-status', providerName(c.prest) + ' não atende neste dia.'); return; }
+        if (c.data.sem_atendimento) { status('day-status', providerName(c.prest) + ': sem agenda neste dia ' + C.sis('na') + '. Ou não atende, ou a agenda não está liberada para agendamento online ' + C.sis('na') + '.'); return; }
         status('day-status', c.day < C.todayIso() ? 'Nenhuma consulta neste dia.' : 'Nenhuma consulta e nenhum horário livre neste dia.');
         return;
       }
@@ -265,7 +265,7 @@
     if (c.erro) { c.sumNode.textContent = c.erro; c.sumNode.setAttribute('data-tone', 'err'); return; }
     c.sumNode.removeAttribute('data-tone');
     var rows = C.dayRows(c.data.agendados, c.data.livres);
-    c.sumNode.textContent = rows.length ? summaryParts(c, true).join(' · ') : (c.data.sem_atendimento ? 'Não atende neste dia' : 'Sem agenda');
+    c.sumNode.textContent = rows.length ? summaryParts(c, true).join(' · ') : (c.data.sem_atendimento ? 'Sem agenda online neste dia' : 'Sem agenda');
     c.list.appendChild(rowsFragment(rows, c));
     placeNow(c.list, c.day);
     renderTally();

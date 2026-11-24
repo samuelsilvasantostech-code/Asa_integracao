@@ -6,9 +6,9 @@ Situação em **23/11/2026**. A visão geral do projeto está em [`visao-geral.m
 
 | Item | Situação |
 |---|---|
-| Último commit | **0.33.2**: "Não atende neste dia" no lugar do erro HTTP 502 da Asa; aviso da chegada; documentação revista |
+| Último commit | **0.33.4**: agenda sem dia liberado na Asa mostra "Sem agenda online neste dia"; diagnóstico da Asa na implantação |
 | Conector no Doca | **0.33.0** (deploy em 23/11; `/health` com banco ok) |
-| Testes | 151 no Conector, todos passando |
+| Testes | 154 no Conector, todos passando |
 | Falta validar | Tempo de espera (P41) e os itens de teste P32 a P36 e P42 em [`pendencias.md`](pendencias.md) |
 
 ## 23/11: da 0.25.0 à 0.33.0 (no ar)
@@ -21,7 +21,9 @@ Situação em **23/11/2026**. A visão geral do projeto está em [`visao-geral.m
 - **0.32.0, tempo de espera na Agenda:** Confirmar chegada → Chamar para consulta → Finalizar consulta, só nas consultas de hoje, com Desfazer e Ajustar hora. Cronômetro na linha (verde, âmbar aos 15 min, vermelho aos 30) e Sala de espera na lateral. Os tempos ficam só no Conector (migração 019, tabela `atendimentos`); o ERP não muda.
 - **0.33.0, relatório de espera no Painel:** espera média e mediana, % acima de 30 min, atraso da clínica, duração da consulta, faixas, por dia e por profissional.
 - **0.33.1:** nas consultas de outros dias, a lateral avisa "A chegada é marcada no dia da consulta".
-- **0.33.2:** a Asa recusa com mensagem vazia a agenda de um profissional num dia em que ele não atende (domingo, folga, dia fora da escala). Antes, isso aparecia como "A Asa não respondeu agora (HTTP 502)"; visto na Medular, no Lado a lado. Agora a coluna mostra "Não atende neste dia".
+- **0.33.2:** a Asa recusa com mensagem vazia a agenda de um profissional num dia em que ele não atende (domingo, folga, dia fora da escala). Antes, isso aparecia como "A Asa não respondeu agora (HTTP 502)"; visto na Medular, no Lado a lado. Agora a coluna mostra "Sem agenda online neste dia".
+- **0.33.3:** HTTP 429 da Asa (limite de chamadas) vira `ASA_LIMITE`, com mensagem própria. Diagnóstico na implantação: `GET /admin/tenants/:id/diagnostico/asa?prestador_id=&data=` mostra a resposta crua da Asa (sem `prestador_id`, lista os profissionais).
+- **0.33.4:** o diagnóstico mostrou a recusa real: HTTP 403 `{"status":"error","0":"Dia selecionado sem atendimento ou não liberado para agendamento online"}`. O texto vem na chave `"0"`, que o Conector não lia. Na Medular, em 24/11, 7 dos 8 profissionais não tinham **nenhum** dia em `dias-atendimento`: a agenda deles não está liberada para o agendamento online na Asa (ver P20). A coluna agora diz "Sem agenda online neste dia".
 
 ## 16/11: conector da Avelar, o sistema Luna (sem commit e sem deploy; falta testar com credencial real)
 
