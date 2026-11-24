@@ -80,7 +80,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, .btn:focus-vi
 .roteiro { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
 code { background: var(--pinho-claro); padding: 1px 5px; border-radius: 4px; font-size: .88em; }
 
-.tabela-rolagem { overflow-x: auto; margin-top: 12px; }
+.tabela-rolagem { position: relative; overflow-x: auto; margin-top: 12px; }
 .tabela { width: 100%; border-collapse: collapse; font-size: .92rem; }
 .tabela th, .tabela td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--borda); vertical-align: top; }
 .tabela th { color: var(--suave); font-weight: 600; white-space: nowrap; }
@@ -142,3 +142,33 @@ code { background: var(--pinho-claro); padding: 1px 5px; border-radius: 4px; fon
   .topo__aba { padding: 8px 10px; }
   .cartao { padding: 14px; }
 }
+
+/* Aba Uso */
+.selo--idle { background: #e8ecea; color: var(--suave); }
+.seg { display: inline-flex; border: 1px solid var(--borda); border-radius: 6px; overflow: hidden; }
+.seg__btn { font: inherit; border: 0; background: #fff; color: var(--texto); padding: 7px 12px; cursor: pointer; }
+.seg__btn + .seg__btn { border-left: 1px solid var(--borda); }
+.seg__btn:hover { background: var(--pinho-claro); }
+.seg__btn[aria-pressed="true"] { background: var(--pinho); color: #fff; font-weight: 600; }
+.seg__btn:focus-visible { outline: 3px solid var(--foco); outline-offset: -3px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 12px 0 0; }
+.kpi { border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; }
+.kpi dt { color: var(--suave); font-size: .85rem; font-weight: 600; }
+.kpi dd { margin: 2px 0 0; font-size: 1.35rem; font-weight: 700; color: var(--pinho); }
+.kpi__sub { display: block; font-size: .82rem; font-weight: 400; color: var(--suave); }
+.tabela--uso td { white-space: nowrap; }
+.tabela--uso td:first-child { white-space: normal; min-width: 220px; }
+.alertas { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 3px; }
+.alerta { font-size: .85rem; padding-left: 14px; position: relative; color: var(--aviso); }
+.alerta::before { content: ""; position: absolute; left: 0; top: .45em; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.alerta--critico { color: var(--erro); font-weight: 600; }
+.tend { font-size: .82rem; color: var(--suave); }
+.tend[data-tom="ok"] { color: var(--ok); }
+.tend[data-tom="warn"] { color: var(--aviso); }
+.tend[data-tom="err"] { color: var(--erro); }
+.uso-detalhe > td { background: var(--fundo); white-space: normal; padding: 12px 14px; }
+.uso-detalhe h3 { margin: 0 0 8px; font-size: .95rem; }
+.barras { display: flex; align-items: flex-end; gap: 2px; height: 72px; padding: 4px 0; border-bottom: 1px solid var(--borda); }
+.barras__b { flex: 1 1 0; min-width: 2px; background: var(--pinho); border-radius: 2px 2px 0 0; }
+/* Itens de grid encolhem: a tabela larga rola dentro da caixa, não a página inteira. */
+#area, .vista, .vista > .cartao { min-width: 0; }

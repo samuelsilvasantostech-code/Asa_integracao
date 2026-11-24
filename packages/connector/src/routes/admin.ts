@@ -10,6 +10,7 @@ import { Limite } from "../limite.js";
 import { perfilErp } from "../tenant-auth.js";
 import { usuariosAdmin } from "./acesso.js";
 import { conectoresAdmin } from "./conectores.js";
+import { usoAdmin } from "./uso.js";
 import { gravarCredencial } from "./tenant.js";
 import { decifrar } from "../crypto.js";
 import { chamarAsaBruto, type CredencialAsa } from "../erp/asa/cliente.js";
@@ -125,6 +126,7 @@ export async function adminRoutes(app: FastifyInstance) {
   // mesma chave de administrador deste plugin.
   await conectoresAdmin(app);
   usuariosAdmin(app);
+  await usoAdmin(app);
 
   // Configuração da confirmação de véspera. Só a implantação grava (a extensão só lê, desde a 0.19.0).
   // O que vier fora do formato volta ao padrão (lerConfig, a mesma validação de sempre).

@@ -15,6 +15,7 @@
   </div>
   <nav class="topo__nav" id="nav" role="tablist" aria-label="Áreas da implantação" hidden>
     <button type="button" class="topo__aba" role="tab" id="nav-clientes" aria-controls="v-clientes" aria-selected="true">Clientes</button>
+    <button type="button" class="topo__aba" role="tab" id="nav-uso" aria-controls="v-uso" aria-selected="false" tabindex="-1">Uso</button>
     <button type="button" class="topo__aba" role="tab" id="nav-sistemas" aria-controls="v-sistemas" aria-selected="false" tabindex="-1">Sistemas (ERP)</button>
     <button type="button" class="topo__aba" role="tab" id="nav-pedidos" aria-controls="v-pedidos" aria-selected="false" tabindex="-1">Pedidos <span class="contador" id="nav-pedidos-n" hidden></span></button>
     <button type="button" class="topo__aba" role="tab" id="nav-usuarios" aria-controls="v-usuarios" aria-selected="false" tabindex="-1">Usuários</button>
@@ -447,6 +448,35 @@
             <tbody id="cx-pedidos"></tbody>
           </table>
         </div>
+      </section>
+    </section>
+
+    <!-- ==================== USO ==================== -->
+    <section id="v-uso" class="vista" role="tabpanel" aria-labelledby="nav-uso" hidden>
+      <section class="cartao" aria-labelledby="h-uso">
+        <div class="cabeca">
+          <h2 id="h-uso">Uso das clínicas</h2>
+          <div class="acoes">
+            <div class="seg" role="group" aria-label="Período">
+              <button type="button" class="seg__btn" data-dias="7" aria-pressed="false">7 dias</button>
+              <button type="button" class="seg__btn" data-dias="30" aria-pressed="true">30 dias</button>
+              <button type="button" class="seg__btn" data-dias="90" aria-pressed="false">90 dias</button>
+            </div>
+            <button type="button" class="btn" id="uso-atualizar">Atualizar</button>
+          </div>
+        </div>
+        <p class="dica">O que cada clínica fez pelo ClinFy: marcações, presença, tempo de espera, cobranças e confirmações. O "uso no período" soma as ações na agenda, as cobranças e os atendimentos com tempo de espera. Mede só o que passou pela extensão, não a agenda inteira da clínica. Atendentes distintos valem só para os últimos 90 dias (a retenção apaga os nomes depois disso).</p>
+        <dl class="kpis" id="uso-kpis" aria-live="polite"></dl>
+        <div class="tabela-rolagem">
+          <table class="tabela tabela--uso">
+            <caption class="sr">Uso do ClinFy por clínica no período</caption>
+            <thead>
+              <tr><th scope="col">Clínica</th><th scope="col">Uso no período</th><th scope="col">Agenda</th><th scope="col">Presença e espera</th><th scope="col">Cobranças</th><th scope="col">Confirmação D-1</th><th scope="col">Atendentes</th><th scope="col">Última ação</th><th scope="col"><span class="sr">Detalhe</span></th></tr>
+            </thead>
+            <tbody id="uso-lista"></tbody>
+          </table>
+        </div>
+        <p class="msg" id="m-uso" role="status"></p>
       </section>
     </section>
 

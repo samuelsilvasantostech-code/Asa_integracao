@@ -159,7 +159,10 @@
     });
     return ativar;
   }
-  var irPara = ligarAbas(['nav-clientes', 'nav-sistemas', 'nav-pedidos', 'nav-usuarios'], function (id) { if (id === 'nav-usuarios') carregarUsuarios(); });
+  var irPara = ligarAbas(['nav-clientes', 'nav-uso', 'nav-sistemas', 'nav-pedidos', 'nav-usuarios'], function (id) {
+    if (id === 'nav-usuarios') carregarUsuarios();
+    if (id === 'nav-uso') carregarUso();
+  });
   var abaDoCliente = ligarAbas(['da-sistema', 'da-instalacao', 'da-financeiro', 'da-confirmacao', 'da-avancado']);
 
   function urlManifest() { return location.origin + '/extensao/manifest.json'; }
@@ -1387,5 +1390,175 @@
   $('b-automacao').addEventListener('click', chaveAutomacao);
   $('f-desligar').addEventListener('submit', desligar);
   $('f-historico').addEventListener('submit', apagarHistorico);
+  /* ---------- uso das clínicas ---------- */
+  // Uma linha por clínica, alertas primeiro (a ordem vem do Conector). "Ver" abre os números do período
+  // numa linha logo abaixo. Nada de paciente: só contagens.
+  var usoDias = 30, usoSeq = 0, usoAberto = null, usoDados = null;
+  var NOMES_FUNCAO = { agenda: 'Marcar', presenca: 'Presença', espera: 'Tempo de espera', cobranca: 'Cobrança', confirmacao: 'Confirmação D-1', confirmacao_manual: 'Confirmação manual' };
+
+  function num(n) { return Number(n || 0).toLocaleString('pt-BR'); }
+  function reais(v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+  function pctDe(n, d) { return d ? Math.round((n / d) * 100) + '%' : '—'; }
+  function celula(texto, detalhe) {
+    var td = el('td', null, texto);
+    if (detalhe) td.appendChild(el('div', 'sub', detalhe));
+    return td;
+  }
+
+  function carregarUso() {
+    var s = ++usoSeq;
+    msg('m-uso', null, 'Carregando…');
+    $('uso-lista').setAttribute('aria-busy', 'true');
+    return chamar('GET', '/admin/uso?dias=' + usoDias).then(function (r) {
+      if (s !== usoSeq) return;
+      $('uso-lista').removeAttribute('aria-busy');
+      if (r.status !== 200 || !r.body) {
+        usoDados = null;
+        $('uso-lista').textContent = '';
+        $('uso-kpis').textContent = '';
+        msg('m-uso', 'err', erroDe(r));
+        return;
+      }
+      usoDados = r.body;
+      desenharUso();
+      msg('m-uso', null, r.body.clinicas.length ? '' : 'Nenhuma clínica cadastrada.');
+    });
+  }
+
+  function kpi(dl, rotulo, valor, detalhe) {
+    var d = el('div', 'kpi');
+    d.appendChild(el('dt', null, rotulo));
+    var dd = el('dd', null, valor);
+    if (detalhe) dd.appendChild(el('span', 'kpi__sub', detalhe));
+    d.appendChild(dd);
+    dl.appendChild(d);
+  }
+
+  function tendencia(c) {
+    var span = el('span', 'tend');
+    if (!c.volume_anterior) { span.textContent = c.volume ? 'sem uso no período anterior' : ''; return span; }
+    var v = Math.round(((c.volume - c.volume_anterior) / c.volume_anterior) * 100);
+    span.textContent = (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '= ') + Math.abs(v) + '% vs. período anterior';
+    span.setAttribute('data-tom', v >= 0 ? 'ok' : v <= -50 ? 'err' : 'warn');
+    return span;
+  }
+
+  function desenharUso() {
+    var d = usoDados;
+    if (!d) return;
+    var t = d.totais, k = $('uso-kpis');
+    k.textContent = '';
+    kpi(k, 'Clínicas em uso', num(t.usaram_7d) + ' de ' + num(t.ativas), 'usaram nos últimos 7 dias');
+    kpi(k, 'Ações na agenda', num(t.acoes), 'marcar, remarcar, cancelar, presença e falta');
+    kpi(k, 'Cobranças', num(t.cobrancas.n), reais(t.cobrancas.valor));
+    kpi(k, 'Confirmações enviadas', num(t.confirmacoes));
+    kpi(k, 'Com alerta', num(t.com_alerta), t.com_alerta ? 'no topo da lista' : 'nenhuma');
+
+    var tb = $('uso-lista');
+    tb.textContent = '';
+    d.clinicas.forEach(function (c) {
+      var tr = el('tr');
+      var nome = el('td');
+      nome.appendChild(el('strong', null, c.nome));
+      nome.appendChild(document.createTextNode(' '));
+      nome.appendChild(selo(c.situacao.tom, c.situacao.texto));
+      if (c.alertas.length) {
+        var ul = el('ul', 'alertas');
+        c.alertas.forEach(function (a) {
+          var li = el('li', 'alerta alerta--' + a.nivel);
+          li.appendChild(el('span', 'sr', a.nivel === 'critico' ? 'Crítico: ' : 'Aviso: '));
+          li.appendChild(document.createTextNode(a.texto));
+          ul.appendChild(li);
+        });
+        nome.appendChild(ul);
+      }
+      tr.appendChild(nome);
+
+      var uso = el('td');
+      uso.appendChild(el('strong', null, num(c.volume)));
+      var tend = tendencia(c);
+      if (tend.textContent) { var dv = el('div'); dv.appendChild(tend); uso.appendChild(dv); }
+      tr.appendChild(uso);
+
+      var a = c.acoes;
+      tr.appendChild(celula(num(a.criar) + ' marcadas', num(a.remarcar) + ' remarcadas · ' + num(a.cancelar) + ' canceladas' + (c.incertos ? ' · ' + num(c.incertos) + ' a conferir' : '')));
+      tr.appendChild(celula(num(a.confirmar) + ' presenças · ' + num(a.ausente) + ' faltas', num(c.espera.atendimentos) + ' com tempo de espera'));
+      tr.appendChild(celula(num(c.cobrancas.n), c.cobrancas.n ? reais(c.cobrancas.valor) : (!c.ativo ? '' : c.configuradas.indexOf('cobranca') >= 0 ? 'ligada, sem uso' : 'desligada')));
+      var cf = c.confirmacoes;
+      tr.appendChild(celula(num(cf.enviadas) + ' enviadas', cf.enviadas
+        ? pctDe(cf.respondidas, cf.enviadas) + ' responderam' + (cf.falharam ? ' · ' + num(cf.falharam) + ' falharam' : '')
+        : (!c.ativo ? '' : c.configuradas.indexOf('confirmacao') >= 0 ? 'ligada, sem envio' : 'desligada')));
+      tr.appendChild(celula(num(c.usuarios)));
+      tr.appendChild(celula(dataHora(c.ultima_acao_em), 'Acesso: ' + dataHora(c.ultimo_uso_em)));
+
+      var acao = el('td');
+      var aberto = usoAberto === c.id;
+      var ver = botao(aberto ? 'Fechar' : 'Ver', (aberto ? 'Fechar o detalhe de ' : 'Ver o detalhe de ') + c.nome, function () {
+        usoAberto = aberto ? null : c.id;
+        desenharUso();
+        var volta = document.querySelector('#uso-lista [data-uso="' + c.id + '"]');
+        if (volta) volta.focus();
+      });
+      ver.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+      ver.setAttribute('data-uso', c.id);
+      acao.appendChild(ver);
+      tr.appendChild(acao);
+      tb.appendChild(tr);
+      if (aberto) tb.appendChild(detalheUso(c, d.periodo));
+    });
+  }
+
+  // Linha de detalhe: ações por dia (barras), funções usadas e as ligadas sem uso.
+  function detalheUso(c, p) {
+    var tr = el('tr', 'uso-detalhe'), td = el('td');
+    td.colSpan = 9;
+    td.appendChild(el('h3', null, 'Ações de agenda por dia · ' + p.dias + ' dias'));
+    var porDia = {};
+    c.por_dia.forEach(function (x) { porDia[x.dia] = x.n; });
+    var dias = [], max = 0;
+    for (var t = Date.parse(p.inicio + 'T12:00:00Z'); t <= Date.parse(p.fim + 'T12:00:00Z'); t += 86400000) {
+      var iso = new Date(t).toISOString().slice(0, 10);
+      dias.push({ dia: iso, n: porDia[iso] || 0 });
+      max = Math.max(max, porDia[iso] || 0);
+    }
+    var total = dias.reduce(function (s, x) { return s + x.n; }, 0);
+    var comUso = dias.filter(function (x) { return x.n; }).length;
+    var barras = el('div', 'barras');
+    barras.setAttribute('role', 'img');
+    barras.setAttribute('aria-label', num(total) + ' ações em ' + comUso + ' de ' + dias.length + ' dias' + (max ? '; no máximo ' + num(max) + ' num dia' : ''));
+    dias.forEach(function (x) {
+      var b = el('span', 'barras__b');
+      b.style.height = max && x.n ? Math.max(4, Math.round((x.n / max) * 100)) + '%' : '0';
+      b.title = x.dia.split('-').reverse().join('/') + ': ' + num(x.n);
+      barras.appendChild(b);
+    });
+    td.appendChild(barras);
+    td.appendChild(el('p', 'dica', total ? num(total) + ' ações em ' + comUso + ' de ' + dias.length + ' dias.' : 'Nenhuma ação de agenda gravada no período.'));
+
+    var dl = el('dl', 'resumo');
+    function linha(r, v) { dl.appendChild(el('dt', null, r)); dl.appendChild(el('dd', null, v)); }
+    function nomes(lista) { return lista.map(function (f) { return NOMES_FUNCAO[f] || f; }).join(', '); }
+    linha('Funções usadas', c.funcoes.length ? nomes(c.funcoes) : 'nenhuma no período');
+    var paradas = c.configuradas.filter(function (f) { return c.funcoes.indexOf(f) < 0; });
+    if (paradas.length) linha('Ligadas sem uso', nomes(paradas));
+    var cf = c.confirmacoes;
+    linha('Confirmação D-1', num(cf.enviadas) + ' enviadas (' + num(cf.manuais) + ' pelo botão) · ' + num(cf.confirmadas) + ' confirmaram · ' + num(cf.falharam) + ' não entregues');
+    if (c.cobrancas.incertas) linha('Cobranças a conferir', num(c.cobrancas.incertas));
+    linha('Sistema (ERP)', nomeConector(c.erp));
+    linha('Cliente desde', dataHora(c.criado_em));
+    td.appendChild(dl);
+    tr.appendChild(td);
+    return tr;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('#v-uso .seg__btn'), function (b) {
+    b.addEventListener('click', function () {
+      usoDias = Number(b.getAttribute('data-dias'));
+      Array.prototype.forEach.call(document.querySelectorAll('#v-uso .seg__btn'), function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+      carregarUso();
+    });
+  });
+  $('uso-atualizar').addEventListener('click', carregarUso);
+
   conferirSessao();
 })();
