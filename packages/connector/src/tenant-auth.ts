@@ -5,9 +5,15 @@ import { pool } from "./db.js";
 import { lerCapacidades, sistemaDe, type Capacidades, type Sistema } from "./erp/capacidades.js";
 import { adaptadorPara } from "./erp/catalogo.js";
 import type { ErpAdapter } from "./erp/index.js";
+import { marcarTenant } from "./contagem.js";
 import { precisaMarcarUso } from "./implantacao.js";
 
 const hash = (valor: string) => createHash("sha256").update(valor).digest("hex");
+
+// Versão da extensão que fez a chamada (header x-clinfy-versao). Só "1.2.3"; qualquer outra coisa é ignorada.
+export function versaoDoHeader(v: unknown): string | null {
+  return typeof v === "string" && /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v) ? v : null;
+}
 
 export interface Tenant {
   id: string;
@@ -27,8 +33,8 @@ export async function tenantDaRequisicao(req: FastifyRequest, reply: FastifyRepl
     reply.code(503).send({ erro: "BANCO_NAO_CONFIGURADO" });
     return null;
   }
-  const { rows } = await pool.query<{ id: string; nome: string; ativo: boolean; erp: string; asa_credencial_cifrada: Buffer | null; ultimo_uso_em: Date | null }>(
-    "SELECT id, nome, ativo, erp, asa_credencial_cifrada, ultimo_uso_em FROM tenants WHERE chave_instalacao_hash = $1",
+  const { rows } = await pool.query<{ id: string; nome: string; ativo: boolean; erp: string; asa_credencial_cifrada: Buffer | null; ultimo_uso_em: Date | null; extensao_versao: string | null }>(
+    "SELECT id, nome, ativo, erp, asa_credencial_cifrada, ultimo_uso_em, extensao_versao FROM tenants WHERE chave_instalacao_hash = $1",
     [hash(chave)],
   );
   const t = rows[0];
@@ -36,9 +42,17 @@ export async function tenantDaRequisicao(req: FastifyRequest, reply: FastifyRepl
     reply.code(401).send({ erro: "CHAVE_INVALIDA" });
     return null;
   }
-  // Último uso, para a página de implantação. Sem esperar: uma falha aqui não derruba a chamada.
-  if (precisaMarcarUso(t.ultimo_uso_em, new Date())) {
-    pool.query("UPDATE tenants SET ultimo_uso_em = now() WHERE id = $1", [t.id]).catch((err) => {
+  marcarTenant(req, t.id);
+  // Último uso e versão da extensão, para a página de implantação: no máximo uma vez por hora, ou logo
+  // que a versão muda. Sem esperar: uma falha aqui não derruba a chamada.
+  const versao = versaoDoHeader(req.headers["x-clinfy-versao"]);
+  if (precisaMarcarUso(t.ultimo_uso_em, new Date()) || (versao && versao !== t.extensao_versao)) {
+    pool.query(
+      `UPDATE tenants SET ultimo_uso_em = now(), extensao_versao = coalesce($2, extensao_versao),
+         extensao_versao_em = CASE WHEN $2::text IS NULL THEN extensao_versao_em ELSE now() END
+       WHERE id = $1`,
+      [t.id, versao],
+    ).catch((err) => {
       req.log.warn({ err, tenant: t.id }, "falha ao marcar o último uso");
     });
   }
@@ -100,6 +114,7 @@ export async function tenantDaAutomacao(req: FastifyRequest, reply: FastifyReply
     reply.code(401).send({ erro: "CHAVE_INVALIDA" });
     return null;
   }
+  marcarTenant(req, t.id);
   const erp = await adaptadorDe(req, reply, t.erp, t.asa_credencial_cifrada);
   if (!erp) return null;
   return { id: t.id, nome: t.nome, confirmacao: t.confirmacao, erp };

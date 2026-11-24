@@ -1394,7 +1394,7 @@
   // Uma linha por clínica, alertas primeiro (a ordem vem do Conector). "Ver" abre os números do período
   // numa linha logo abaixo. Nada de paciente: só contagens.
   var usoDias = 30, usoSeq = 0, usoAberto = null, usoDados = null;
-  var NOMES_FUNCAO = { agenda: 'Marcar', presenca: 'Presença', espera: 'Tempo de espera', cobranca: 'Cobrança', confirmacao: 'Confirmação D-1', confirmacao_manual: 'Confirmação manual' };
+  var NOMES_FUNCAO = { agenda: 'Marcar', presenca: 'Presença', espera: 'Tempo de espera', cobranca: 'Cobrança', confirmacao: 'Confirmação D-1', confirmacao_manual: 'Confirmação manual', busca: 'Busca de paciente', cadastro: 'Cadastro de paciente' };
 
   function num(n) { return Number(n || 0).toLocaleString('pt-BR'); }
   function reais(v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
@@ -1449,6 +1449,7 @@
     var t = d.totais, k = $('uso-kpis');
     k.textContent = '';
     kpi(k, 'Clínicas em uso', num(t.usaram_7d) + ' de ' + num(t.ativas), 'usaram nos últimos 7 dias');
+    kpi(k, 'Buscas de paciente', num(t.buscas), 'por CPF ou telefone');
     kpi(k, 'Ações na agenda', num(t.acoes), 'marcar, remarcar, cancelar, presença e falta');
     kpi(k, 'Cobranças', num(t.cobrancas.n), reais(t.cobrancas.valor));
     kpi(k, 'Confirmações enviadas', num(t.confirmacoes));
@@ -1480,6 +1481,10 @@
       if (tend.textContent) { var dv = el('div'); dv.appendChild(tend); uso.appendChild(dv); }
       tr.appendChild(uso);
 
+      var ev = c.eventos || {};
+      tr.appendChild(celula(num(ev.busca_paciente) + ' buscas', num(ev.agenda_dia) + ' aberturas da agenda · ' + num(ev.cadastro_paciente) + ' cadastros'
+        + (c.erros_erp && c.erros_erp.total ? ' · ' + num(c.erros_erp.total) + ' falhas do sistema' : '')));
+
       var a = c.acoes;
       tr.appendChild(celula(num(a.criar) + ' marcadas', num(a.remarcar) + ' remarcadas · ' + num(a.cancelar) + ' canceladas' + (c.incertos ? ' · ' + num(c.incertos) + ' a conferir' : '')));
       tr.appendChild(celula(num(a.confirmar) + ' presenças · ' + num(a.ausente) + ' faltas', num(c.espera.atendimentos) + ' com tempo de espera'));
@@ -1489,7 +1494,7 @@
         ? pctDe(cf.respondidas, cf.enviadas) + ' responderam' + (cf.falharam ? ' · ' + num(cf.falharam) + ' falharam' : '')
         : (!c.ativo ? '' : c.configuradas.indexOf('confirmacao') >= 0 ? 'ligada, sem envio' : 'desligada')));
       tr.appendChild(celula(num(c.usuarios)));
-      tr.appendChild(celula(dataHora(c.ultima_acao_em), 'Acesso: ' + dataHora(c.ultimo_uso_em)));
+      tr.appendChild(celula(dataHora(c.ultima_acao_em), 'Acesso: ' + dataHora(c.ultimo_uso_em) + (c.versao && c.versao.extensao ? ' · v' + c.versao.extensao : '')));
 
       var acao = el('td');
       var aberto = usoAberto === c.id;
@@ -1511,7 +1516,7 @@
   // Linha de detalhe: ações por dia (barras), funções usadas e as ligadas sem uso.
   function detalheUso(c, p) {
     var tr = el('tr', 'uso-detalhe'), td = el('td');
-    td.colSpan = 9;
+    td.colSpan = 10;
     td.appendChild(el('h3', null, 'Ações de agenda por dia · ' + p.dias + ' dias'));
     var porDia = {};
     c.por_dia.forEach(function (x) { porDia[x.dia] = x.n; });
@@ -1544,6 +1549,16 @@
     var cf = c.confirmacoes;
     linha('Confirmação D-1', num(cf.enviadas) + ' enviadas (' + num(cf.manuais) + ' pelo botão) · ' + num(cf.confirmadas) + ' confirmaram · ' + num(cf.falharam) + ' não entregues');
     if (c.cobrancas.incertas) linha('Cobranças a conferir', num(c.cobrancas.incertas));
+    var ev = c.eventos || {};
+    linha('Telas e buscas', num(ev.abertura) + ' aberturas do ClinFy · ' + num(ev.busca_paciente) + ' buscas de paciente · ' + num(ev.agenda_dia) + ' dias da agenda · ' + num(ev.horarios) + ' consultas de horários · ' + num(ev.painel) + ' painéis');
+    var ee = c.erros_erp;
+    if (ee && ee.chamadas) {
+      linha('Falhas do sistema (ERP)', ee.total
+        ? num(ee.total) + ' em ' + num(ee.chamadas) + ' chamadas (' + pctDe(ee.total, ee.chamadas) + '): ' + ee.principais.map(function (x) { return x.erro + ' ' + num(x.n); }).join(', ')
+        : 'nenhuma em ' + num(ee.chamadas) + ' chamadas');
+    }
+    var vs = c.versao || {};
+    linha('Versão da extensão', vs.extensao ? vs.extensao + (vs.atual && vs.atual !== vs.extensao ? ' (atual: ' + vs.atual + ')' : ' (atual)') + (vs.em ? ' · vista em ' + dataHora(vs.em) : '') : 'ainda não informada');
     linha('Sistema (ERP)', nomeConector(c.erp));
     linha('Cliente desde', dataHora(c.criado_em));
     td.appendChild(dl);

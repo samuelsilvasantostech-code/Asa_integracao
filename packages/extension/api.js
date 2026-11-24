@@ -3,6 +3,12 @@
   'use strict';
 
   var DEFAULT_URL = 'https://asa-integracao-samuels.kentro.com.br';
+  // Versão da extensão (o ?v= deste script): vai em cada chamada, para a implantação ver quem está desatualizado.
+  var VERSAO = (function () {
+    var s = root.document && root.document.currentScript;
+    var m = s && /[?&]v=(\d+\.\d+\.\d+)/.exec(s.src || '');
+    return m ? m[1] : '';
+  })();
 
   // O host pode entregar o segredo mascarado ("********") a quem não deve vê-lo.
   function usable(v) { return typeof v === 'string' && v.trim() !== '' && !/^\*+$/.test(v); }
@@ -39,7 +45,9 @@
         url: base + path,
         method: method,
         timeout: timeout || 15000,
-        headers: { 'content-type': 'application/json', 'x-install-key': key.trim() },
+        headers: VERSAO
+          ? { 'content-type': 'application/json', 'x-install-key': key.trim(), 'x-clinfy-versao': VERSAO }
+          : { 'content-type': 'application/json', 'x-install-key': key.trim() },
         body: body ? JSON.stringify(body) : undefined
       }).then(function (r) {
         var data = null;

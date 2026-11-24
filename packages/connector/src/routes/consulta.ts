@@ -5,6 +5,7 @@ import type { FalhaErp, Resultado } from "../erp/index.js";
 import { telefoneNacional, type Consulta } from "../erp/modelo.js";
 import { Limite } from "../limite.js";
 import { Cache, chaveDaClinica, guardavel } from "../cache.js";
+import { marcarErroErp } from "../contagem.js";
 import { atendimentosDe } from "./atendimento.js";
 import { erpDaRequisicao, tenantComErp } from "../tenant-auth.js";
 
@@ -16,6 +17,8 @@ export const idValido = (s: unknown): s is string => typeof s === "string" && /^
 
 export function falha(reply: FastifyReply, r: FalhaErp) {
   const status = r.credencialInvalida ? 422 : 502;
+  // Falha do sistema (fora do ar, credencial, resposta estranha) entra na contagem de uso; recusa de negócio não.
+  if (!r.recusa) marcarErroErp(reply.request, r.erro);
   // A mensagem do ERP numa recusa é texto de erro de negócio, sem dados do paciente: ajuda o atendente.
   return reply.code(status).send({ erro: r.erro, msg: r.recusa ? r.msg : undefined });
 }

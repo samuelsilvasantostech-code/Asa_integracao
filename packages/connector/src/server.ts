@@ -2,6 +2,7 @@ import { gzip } from "node:zlib";
 import { promisify } from "node:util";
 import Fastify from "fastify";
 import { config, problemaDeConfig } from "./config.js";
+import { contarResposta, iniciarGravacaoUso } from "./contagem.js";
 import { migrate, pool } from "./db.js";
 import { iniciarRetencao } from "./retencao.js";
 import { acessoRoutes } from "./routes/acesso.js";
@@ -66,6 +67,11 @@ app.addHook("onSend", async (req, reply, payload) => {
   return gzipAsync(payload);
 });
 
+// Contagem de uso por clínica (só rotas da lista fechada em contagem.ts, só o molde da rota).
+app.addHook("onResponse", async (req, reply) => {
+  contarResposta(req, reply.statusCode);
+});
+
 await app.register(healthRoutes);
 await app.register(tenantRoutes);
 await app.register(consultaRoutes);
@@ -86,11 +92,13 @@ try {
   app.log.error({ err }, "falha ao aplicar migrações");
 }
 iniciarRetencao(pool, app.log);
+const gravarUso = iniciarGravacaoUso(pool, app.log);
 if (!config.trustProxy) app.log.warn("TRUST_PROXY não definido: o limite de tentativas de chave por IP está desligado");
 
 for (const sinal of ["SIGINT", "SIGTERM"] as const) {
   process.on(sinal, async () => {
     await app.close();
+    await gravarUso();
     await pool?.end();
     process.exit(0);
   });

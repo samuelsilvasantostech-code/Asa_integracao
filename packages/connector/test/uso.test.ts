@@ -7,7 +7,7 @@ process.env.ADMIN_KEY = CHAVE;
 delete process.env.DATABASE_URL;
 delete process.env.POSTGRES_URL;
 const { adminRoutes } = await import("../src/routes/admin.js");
-const { alertasDe, montarUso, periodoUso, situacaoDe } = await import("../src/uso.js");
+const { alertasDe, montarUso, periodoUso, situacaoDe, versaoAtrasada } = await import("../src/uso.js");
 
 const AGORA = new Date("2026-11-24T15:00:00Z");
 const diasAtras = (n: number) => new Date(AGORA.getTime() - n * 86400000).toISOString();
@@ -93,6 +93,50 @@ test("montagem: soma por período, separa o anterior, lista funções e ordena a
   assert.deepEqual(a.por_dia, [{ dia: "2026-11-20", n: 4 }, { dia: "2026-11-21", n: 2 }]);
   assert.equal(r.totais.usaram_7d, 1);
   assert.equal(r.totais.acoes, 6);
+});
+
+test("contagem diária: buscas, chamadas e falhas do ERP por código; versão atrasada", () => {
+  const p = periodoUso("2026-11-24", 30);
+  const r = montarUso({
+    tenants: [{
+      id: "a", nome: "Alfa", ativo: true, erp: "asa", criado_em: diasAtras(60), ultimo_uso_em: diasAtras(0), desligado_em: null,
+      tem_credencial: true, confirmacao: {}, financeiro: {}, extensao_versao: "0.33.6", extensao_versao_em: diasAtras(1),
+    }],
+    agendamentos: [], cobrancas: [], confirmacoes: [], atendimentos: [], usuarios: [], ultimas: [],
+    eventos: [
+      { tenant_id: "a", evento: "chamada", n: 100 },
+      { tenant_id: "a", evento: "busca_paciente", n: 40 },
+      { tenant_id: "a", evento: "busca_paciente:erro", n: 3 },
+      { tenant_id: "a", evento: "erp:ASA_FORA_DO_AR", n: 9 },
+      { tenant_id: "a", evento: "erp:ASA_LIMITE", n: 3 },
+    ],
+  }, p, AGORA, "0.35.0");
+  const a = r.clinicas[0];
+  assert.equal(a.eventos.busca_paciente, 40);
+  assert.deepEqual(a.erros_erp, { total: 12, chamadas: 100, principais: [{ erro: "ASA_FORA_DO_AR", n: 9 }, { erro: "ASA_LIMITE", n: 3 }] });
+  assert.ok(a.funcoes.includes("busca"));
+  assert.equal(a.versao.antiga, true);
+  assert.deepEqual(a.alertas.map((x) => `${x.tipo}:${x.nivel}`), ["erp_erro_alto:aviso", "versao_antiga:aviso"]);
+  assert.equal(r.totais.buscas, 40);
+});
+
+test("alertas novos: falha do ERP só com volume, crítica acima de 30%; versão só por versão menor e recente", () => {
+  const ee = (total: number, chamadas: number) => ({ ...base, erros_erp: { total, chamadas, principais: [] } });
+  assert.deepEqual(tipos(ee(9, 20)), []);
+  assert.deepEqual(tipos(ee(10, 200)), []);
+  assert.deepEqual(tipos(ee(31, 100)), ["erp_erro_alto:critico"]);
+  assert.equal(versaoAtrasada("0.34.9", "0.35.0"), true);
+  assert.equal(versaoAtrasada("0.35.0", "0.35.2"), false);
+  assert.equal(versaoAtrasada("1.0.0", "0.35.0"), false);
+  assert.equal(versaoAtrasada(null, "0.35.0"), false);
+  // Versão vista há mais de 7 dias: a clínica parou (o alerta de parada já cobre), não é versão antiga.
+  const p = periodoUso("2026-11-24", 30);
+  const r = montarUso({
+    tenants: [{ id: "a", nome: "A", ativo: true, erp: "asa", criado_em: diasAtras(60), ultimo_uso_em: diasAtras(0), desligado_em: null,
+      tem_credencial: true, confirmacao: {}, financeiro: {}, extensao_versao: "0.30.0", extensao_versao_em: diasAtras(8) }],
+    agendamentos: [], cobrancas: [], confirmacoes: [], atendimentos: [], usuarios: [], ultimas: [],
+  }, p, AGORA, "0.35.0");
+  assert.equal(r.clinicas[0].versao.antiga, false);
 });
 
 test("rota /admin/uso exige a chave e para no banco ausente", async () => {

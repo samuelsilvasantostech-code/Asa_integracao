@@ -5,6 +5,7 @@ import { lerFinanceiro } from "./financeiro.js";
 // Uso do ClinFy por todas as clínicas (aba "Uso" da implantação). Lê só as trilhas do Conector:
 // mede o que passou pelo ClinFy, não a agenda inteira da clínica. Nenhum dado de paciente sai daqui.
 // Atendentes distintos dependem do campo usuario, que a retenção apaga depois de 90 dias.
+// Buscas, aberturas e falhas do ERP vêm da contagem diária (uso_diario, contagem.ts), que só existe desde a 0.35.0.
 
 const FUSO = "America/Sao_Paulo";
 export const DIAS_USO = [7, 30, 90];
@@ -29,6 +30,7 @@ export type TenantUso = {
   id: string; nome: string; ativo: boolean; erp: string | null; criado_em: Date | string;
   ultimo_uso_em: Date | string | null; desligado_em: Date | string | null; tem_credencial: boolean;
   confirmacao: unknown; financeiro: unknown;
+  extensao_versao?: string | null; extensao_versao_em?: Date | string | null;
 };
 export type EntradaUso = {
   tenants: TenantUso[];
@@ -38,6 +40,7 @@ export type EntradaUso = {
   atendimentos: { tenant_id: string; dia: string; n: number }[];
   usuarios: { tenant_id: string; n: number }[];
   ultimas: { tenant_id: string; ultima: Date | string | null }[];
+  eventos?: { tenant_id: string; evento: string; n: number }[];
 };
 
 export type Alerta = { tipo: string; nivel: "aviso" | "critico"; texto: string };
@@ -52,7 +55,28 @@ function diasDesde(v: Date | string | null | undefined, agora: number) {
   return Number.isNaN(t) ? NaN : Math.floor((agora - t) / DIA_MS);
 }
 
-export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date) {
+// "0.33.6" < "0.34.0": a clínica está uma versão menor (ou maior) atrás. Diferença só de correção não conta.
+export function versaoAtrasada(v: string | null | undefined, atual: string | null | undefined): boolean {
+  const a = /^(\d+)\.(\d+)\./.exec(v ?? ""), b = /^(\d+)\.(\d+)\./.exec(atual ?? "");
+  if (!a || !b) return false;
+  return Number(a[1]) < Number(b[1]) || (Number(a[1]) === Number(b[1]) && Number(a[2]) < Number(b[2]));
+}
+
+// Contagem diária de uma clínica: telas e buscas, chamadas ao Conector e falhas do ERP por código.
+function lerEventos(linhas: { evento: string; n: number }[]) {
+  const eventos: Record<string, number> = {};
+  const erros = new Map<string, number>();
+  let chamadas = 0, falhas = 0;
+  for (const r of linhas) {
+    if (r.evento === "chamada") chamadas += r.n;
+    else if (r.evento.startsWith("erp:")) { falhas += r.n; erros.set(r.evento.slice(4), (erros.get(r.evento.slice(4)) ?? 0) + r.n); }
+    else eventos[r.evento] = (eventos[r.evento] ?? 0) + r.n;
+  }
+  const principais = [...erros].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1)).slice(0, 3).map(([erro, n]) => ({ erro, n }));
+  return { eventos, erros_erp: { total: falhas, chamadas, principais } };
+}
+
+export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date, versaoAtual?: string) {
   const agoraMs = agora.getTime();
   const noPeriodo = (dia: string) => dia >= p.inicio && dia <= p.fim;
   const noAnterior = (dia: string) => dia >= p.anterior_inicio && dia < p.inicio;
@@ -61,7 +85,7 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date) {
     for (const l of linhas) (m.get(l.tenant_id) ?? m.set(l.tenant_id, []).get(l.tenant_id)!).push(l);
     return (id: string) => m.get(id) ?? [];
   };
-  const ag = por(e.agendamentos), cob = por(e.cobrancas), conf = por(e.confirmacoes), esp = por(e.atendimentos);
+  const ag = por(e.agendamentos), cob = por(e.cobrancas), conf = por(e.confirmacoes), esp = por(e.atendimentos), evs = por(e.eventos ?? []);
   const usr = new Map(e.usuarios.map((u) => [u.tenant_id, u.n]));
   const ult = new Map(e.ultimas.map((u) => [u.tenant_id, u.ultima]));
 
@@ -98,6 +122,7 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date) {
       else if (noAnterior(r.dia)) esperaAnterior += r.n;
     }
 
+    const { eventos, erros_erp } = lerEventos(evs(t.id));
     const totalAcoes = Object.values(acoes).reduce((s, n) => s + n, 0);
     const volume = totalAcoes + cobrancas.n + espera;
     const volumeAnterior = anterior + cobAnterior + esperaAnterior;
@@ -108,6 +133,8 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date) {
     if (cobrancas.n) funcoes.push("cobranca");
     if (confirmacoes.enviadas - confirmacoes.manuais > 0) funcoes.push("confirmacao");
     if (confirmacoes.manuais) funcoes.push("confirmacao_manual");
+    if (eventos.busca_paciente) funcoes.push("busca");
+    if (eventos.cadastro_paciente) funcoes.push("cadastro");
 
     const cfgConf = lerConfig(t.confirmacao), cfgFin = lerFinanceiro(t.financeiro);
     const configuradas: string[] = [];
@@ -119,7 +146,11 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date) {
       ultimo_uso_em: t.ultimo_uso_em, ultima_acao_em: ult.get(t.id) ?? null, desligado_em: t.desligado_em,
       acoes, incertos, cobrancas, confirmacoes, espera: { atendimentos: espera },
       usuarios: usr.get(t.id) ?? 0, volume, volume_anterior: volumeAnterior,
-      funcoes, configuradas,
+      funcoes, configuradas, eventos, erros_erp,
+      versao: {
+        extensao: t.extensao_versao ?? null, em: t.extensao_versao_em ?? null, atual: versaoAtual ?? null,
+        antiga: versaoAtrasada(t.extensao_versao, versaoAtual) && diasDesde(t.extensao_versao_em, agoraMs) < 7,
+      },
       por_dia: [...porDia.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([dia, n]) => ({ dia, n })),
     };
     return {
@@ -144,6 +175,7 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date) {
       cobrancas: { n: clinicas.reduce((s, c) => s + c.cobrancas.n, 0), valor: clinicas.reduce((s, c) => s + c.cobrancas.valor, 0) },
       confirmacoes: clinicas.reduce((s, c) => s + c.confirmacoes.enviadas, 0),
       com_alerta: clinicas.filter((c) => c.alertas.length).length,
+      buscas: clinicas.reduce((s, c) => s + (c.eventos.busca_paciente ?? 0), 0),
     },
     clinicas,
   };
@@ -161,6 +193,8 @@ type BaseAlerta = {
   ativo: boolean; criado_em: Date | string; ultimo_uso_em: Date | string | null; tem_credencial: boolean;
   acoes: Record<string, number>; incertos: number; confirmacoes: { enviadas: number; falharam: number };
   volume: number; volume_anterior: number; confirmacao_ligada: boolean;
+  erros_erp?: { total: number; chamadas: number; principais: { erro: string; n: number }[] };
+  versao?: { extensao: string | null; atual: string | null; antiga: boolean };
 };
 
 // Regras dos alertas. Volume mínimo nas taxas, para uma clínica pequena não acender por um caso só.
@@ -188,6 +222,14 @@ export function alertasDe(c: BaseAlerta, p: PeriodoUso, agora: number): Alerta[]
   if (c.volume_anterior >= 20 && c.volume < c.volume_anterior * 0.5) {
     a.push({ tipo: "queda_uso", nivel: "aviso", texto: `Uso caiu ${pct(c.volume_anterior - c.volume, c.volume_anterior)} em relação ao período anterior.` });
   }
+  const ee = c.erros_erp;
+  if (ee && ee.total >= 10 && ee.chamadas && ee.total / ee.chamadas > 0.1) {
+    const mais = ee.principais[0] ? ` Mais comum: ${ee.principais[0].erro}.` : "";
+    a.push({ tipo: "erp_erro_alto", nivel: ee.total / ee.chamadas > 0.3 ? "critico" : "aviso", texto: `${ee.total} falhas do sistema (ERP) em ${ee.chamadas} chamadas (${pct(ee.total, ee.chamadas)}).${mais}` });
+  }
+  if (c.versao?.antiga) {
+    a.push({ tipo: "versao_antiga", nivel: "aviso", texto: `Extensão na versão ${c.versao.extensao}; a atual é ${c.versao.atual}. Recarregue o ClinFy na Kentro.` });
+  }
   return a;
 }
 
@@ -200,10 +242,11 @@ export async function lerUso(pool: Pool, p: PeriodoUso): Promise<EntradaUso> {
   const entre = (col: string) => `${col} >= ($1::date::timestamp AT TIME ZONE '${FUSO}') AND ${col} < (($2::date + 1)::timestamp AT TIME ZONE '${FUSO}')`;
   const desde = [p.anterior_inicio, p.fim];
   const atual = [p.inicio, p.fim];
-  const [tenants, agendamentos, cobrancas, confirmacoes, atendimentos, usuarios, ultimas] = await Promise.all([
+  const [tenants, agendamentos, cobrancas, confirmacoes, atendimentos, usuarios, ultimas, eventos] = await Promise.all([
     pool.query<TenantUso>(
       `SELECT id, nome, ativo, erp, criado_em, ultimo_uso_em, desligado_em,
-              asa_credencial_cifrada IS NOT NULL AS tem_credencial, confirmacao, financeiro
+              asa_credencial_cifrada IS NOT NULL AS tem_credencial, confirmacao, financeiro,
+              extensao_versao, extensao_versao_em
        FROM tenants`),
     pool.query(
       `SELECT tenant_id, to_char(${dia("criado_em")}, 'YYYY-MM-DD') AS dia, tipo, situacao, count(*)::int AS n
@@ -234,9 +277,12 @@ export async function lerUso(pool: Pool, p: PeriodoUso): Promise<EntradaUso> {
          UNION ALL SELECT tenant_id, max(criado_em) FROM cobrancas GROUP BY 1
          UNION ALL SELECT tenant_id, max(coalesce(fim, chamada, chegada)) FROM atendimentos GROUP BY 1
        ) x GROUP BY 1`),
+    pool.query(
+      `SELECT tenant_id, evento, sum(n)::int AS n FROM uso_diario WHERE dia BETWEEN $1 AND $2 GROUP BY 1, 2`, atual),
   ]);
   return {
     tenants: tenants.rows, agendamentos: agendamentos.rows, cobrancas: cobrancas.rows,
     confirmacoes: confirmacoes.rows, atendimentos: atendimentos.rows, usuarios: usuarios.rows, ultimas: ultimas.rows,
+    eventos: eventos.rows,
   };
 }

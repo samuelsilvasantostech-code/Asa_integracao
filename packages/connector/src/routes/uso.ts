@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { config } from "../config.js";
 import { hojeEm } from "../confirmacao.js";
 import { pool } from "../db.js";
 import { lerUso, montarUso, periodoUso } from "../uso.js";
@@ -9,6 +10,6 @@ export async function usoAdmin(app: FastifyInstance) {
   app.get<{ Querystring: { dias?: string } }>("/admin/uso", async (req) => {
     const agora = new Date();
     const p = periodoUso(hojeEm(agora), req.query.dias);
-    return montarUso(await lerUso(pool!, p), p, agora);
+    return montarUso(await lerUso(pool!, p), p, agora, config.version);
   });
 }
