@@ -176,7 +176,9 @@
   var irPara = ligarAbas(['nav-clientes', 'nav-uso', 'nav-sistemas', 'nav-usuarios'], function (id) {
     window.scrollTo(0, 0);
     if (id === 'nav-usuarios') carregarUsuarios();
-    if (id === 'nav-uso') carregarUso();
+    // A aba Uso usa a largura toda da tela e sempre abre na visão geral.
+    document.body.classList.toggle('tela-larga', id === 'nav-uso');
+    if (id === 'nav-uso') { usoClinica = null; carregarUso(); }
   });
   // Sistemas (ERP) tem duas sub-abas: conectores e pedidos. Ir a um conector sempre mostra a primeira.
   var abaDeSistemas = ligarAbas(['sx-conectores', 'sx-pedidos']);
@@ -1632,19 +1634,13 @@
   $('f-desligar').addEventListener('submit', desligar);
   $('f-historico').addEventListener('submit', apagarHistorico);
   /* ---------- uso das clínicas ---------- */
-  // Uma linha por clínica, alertas primeiro (a ordem vem do Conector). "Ver" abre os números do período
-  // numa linha logo abaixo. Nada de paciente: só contagens.
-  var usoDias = 30, usoSeq = 0, usoAberto = null, usoDados = null;
+  // Visão geral (totais, gráfico, alertas e cartões das clínicas) e painel de cada clínica. Nada de paciente: só contagens.
+  var usoDias = 30, usoSeq = 0, usoDados = null;
   var NOMES_FUNCAO = { agenda: 'Marcar', presenca: 'Presença', espera: 'Tempo de espera', cobranca: 'Cobrança', confirmacao: 'Confirmação D-1', confirmacao_manual: 'Confirmação manual', busca: 'Busca de paciente', cadastro: 'Cadastro de paciente' };
 
   function num(n) { return Number(n || 0).toLocaleString('pt-BR'); }
   function reais(v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
   function pctDe(n, d) { return d ? Math.round((n / d) * 100) + '%' : '—'; }
-  function celula(texto, detalhe) {
-    var td = el('td', null, texto);
-    if (detalhe) td.appendChild(el('div', 'sub', detalhe));
-    return td;
-  }
 
   function carregarUso() {
     var s = ++usoSeq;
@@ -1666,25 +1662,29 @@
     });
   }
 
-  function kpi(dl, rotulo, valor, detalhe, tend) {
-    var d = el('div', 'kpi');
-    d.appendChild(el('dt', null, rotulo));
-    var dd = el('dd', null, valor);
-    if (detalhe) dd.appendChild(el('span', 'kpi__sub', detalhe));
-    if (tend && tend.textContent) { tend.className = 'tend kpi__tend'; dd.appendChild(tend); }
-    d.appendChild(dd);
-    dl.appendChild(d);
-  }
+  // ----- painel de uso: visão geral e painel de cada clínica -----
+  var usoClinica = null;                 // clínica aberta no painel; null mostra a visão geral
+  var usoFiltro = 'todas', usoOrdem = 'atencao', usoBusca = '';
+  var TITULO_ALERTA = {
+    parada: 'Parada', nunca_usou: 'Nunca usou', sem_credencial: 'Sem credencial do sistema',
+    incertos_altos: 'Muitas ações a conferir', confirmacao_falhando: 'Confirmação D-1 falhando',
+    confirmacao_parada: 'Confirmação D-1 sem envio', queda_uso: 'Uso em queda',
+    erp_erro_alto: 'Falhas do sistema (ERP)', versao_antiga: 'Extensão desatualizada'
+  };
+  var NOMES_EVENTO = { abertura: 'Aberturas do ClinFy', busca_paciente: 'Buscas de paciente', agenda_dia: 'Dias da agenda', horarios: 'Consultas de horários', painel: 'Painéis', cadastro_paciente: 'Cadastros de paciente' };
 
-  // Seta e porcentagem contra o período anterior de mesmo tamanho. A cor reforça; a seta e o texto dizem.
-  function comparar(atual, anterior, curto) {
-    var span = el('span', 'tend');
-    var sufixo = curto ? '' : ' vs. período anterior';
-    if (!anterior) { span.textContent = atual ? (curto ? 'novo' : 'sem uso no período anterior') : ''; return span; }
+  // Variação contra o período anterior de mesmo tamanho. Seta e texto dizem; a cor só reforça.
+  function delta(atual, anterior) {
+    var s = el('span', 'delta');
+    if (!anterior) {
+      if (atual) { s.textContent = 'novo'; s.title = 'Sem uso no período anterior'; }
+      return s;
+    }
     var v = Math.round(((atual - anterior) / anterior) * 100);
-    span.textContent = (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '= ') + Math.abs(v) + '%' + sufixo;
-    span.setAttribute('data-tom', v >= 0 ? 'ok' : v <= -50 ? 'err' : 'warn');
-    return span;
+    s.textContent = (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '= ') + Math.abs(v) + '%';
+    s.setAttribute('data-tom', v >= 0 ? 'ok' : v <= -50 ? 'err' : 'warn');
+    s.title = 'Período anterior: ' + num(anterior);
+    return s;
   }
 
   function dataCurta(iso) { return iso.slice(8, 10) + '/' + iso.slice(5, 7); }
@@ -1708,170 +1708,416 @@
       + (pico && pico.n ? '; pico de ' + num(pico.n) + ' em ' + dataCurta(pico.dia) : '');
   }
 
-  // Minigráfico de linha (série única, na cor da marca): área suave, linha de 2px e ponto no último dia.
   var SVG = 'http://www.w3.org/2000/svg';
   function svg(tag, attrs) {
     var n = document.createElementNS(SVG, tag);
     for (var k in attrs) n.setAttribute(k, attrs[k]);
     return n;
   }
-  function sparkline(s) {
-    var L = 128, A = 32, pad = 3, max = 0;
-    s.forEach(function (x) { if (x.n > max) max = x.n; });
-    var passo = s.length > 1 ? L / (s.length - 1) : 0;
-    var pts = s.map(function (x, i) {
-      var y = max ? A - pad - (x.n / max) * (A - 2 * pad) : A - pad;
-      return [Math.round(i * passo * 10) / 10, Math.round(y * 10) / 10];
-    });
-    var resumo = 'Uso por dia: ' + resumoSerie(s, 'usos');
-    var g = svg('svg', { class: 'spark', viewBox: '0 0 ' + L + ' ' + A, role: 'img', 'aria-label': resumo });
-    var t = svg('title', {});
-    t.textContent = resumo;
-    g.appendChild(t);
-    g.appendChild(svg('line', { class: 'spark__base', x1: 0, y1: A - pad, x2: L, y2: A - pad }));
+  function texto(x, y, t, cls, ancora) {
+    var n = svg('text', { x: x, y: y, class: cls, 'text-anchor': ancora || 'middle' });
+    n.textContent = t;
+    return n;
+  }
+
+  // Gráfico de área (série única, cor da marca) com eixo, cursor e dica. Mouse ou setas do teclado.
+  // Mede a largura da caixa para que o texto do eixo saia no tamanho certo; redesenha ao redimensionar.
+  function grafArea(caixa, serie, unidade, titulo) {
+    caixa.textContent = '';
+    var W = Math.max(280, Math.round(caixa.clientWidth || 640)), H = 230;
+    var m = { t: 14, r: 14, b: 28, l: 40 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var max = 0;
+    serie.forEach(function (x) { if (x.n > max) max = x.n; });
+    var topo = 1;
     if (max) {
-      var linha = pts.map(function (p) { return p.join(','); }).join(' ');
-      g.appendChild(svg('polygon', { class: 'spark__area', points: '0,' + (A - pad) + ' ' + linha + ' ' + L + ',' + (A - pad) }));
-      g.appendChild(svg('polyline', { class: 'spark__linha', points: linha }));
-      var u = pts[pts.length - 1];
-      g.appendChild(svg('circle', { class: 'spark__ponto', cx: u[0], cy: u[1], r: 3 }));
+      var p10 = Math.pow(10, Math.floor(Math.log(max) / Math.LN10));
+      topo = [1, 2, 4, 5, 10].map(function (f) { return f * p10; }).filter(function (v) { return v >= max; })[0];
     }
+    var n = serie.length, passo = n > 1 ? iw / (n - 1) : 0;
+    function X(i) { return m.l + i * passo; }
+    function Y(v) { return m.t + ih - (v / topo) * ih; }
+    var resumo = titulo + ': ' + resumoSerie(serie, unidade);
+    var g = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': resumo + '. Use as setas para ver cada dia.', tabindex: '0' });
+    var marcas = topo % 2 === 0 ? [0, topo / 2, topo] : [0, topo];
+    marcas.forEach(function (v) {
+      g.appendChild(svg('line', { class: 'graf__grade', x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }));
+      g.appendChild(texto(m.l - 8, Y(v) + 4, num(v), 'graf__eixo', 'end'));
+    });
+    var qtd = Math.min(n, W < 520 ? 3 : 6);
+    for (var k = 0; k < qtd; k++) {
+      var i = qtd > 1 ? Math.round((k * (n - 1)) / (qtd - 1)) : 0;
+      g.appendChild(texto(X(i), H - 8, dataCurta(serie[i].dia), 'graf__eixo', k === 0 ? 'start' : k === qtd - 1 ? 'end' : 'middle'));
+    }
+    if (max) {
+      var pts = serie.map(function (x, j) { return X(j).toFixed(1) + ',' + Y(x.n).toFixed(1); }).join(' ');
+      g.appendChild(svg('polygon', { class: 'graf__area', points: m.l + ',' + Y(0) + ' ' + pts + ' ' + X(n - 1) + ',' + Y(0) }));
+      g.appendChild(svg('polyline', { class: 'graf__linha', points: pts }));
+    } else {
+      g.appendChild(texto(m.l + iw / 2, m.t + ih / 2, 'Nenhum uso nos últimos ' + n + ' dias', 'graf__vazio'));
+    }
+    var cursor = svg('line', { class: 'graf__cursor', y1: m.t, y2: m.t + ih, visibility: 'hidden' });
+    var ponto = svg('circle', { class: 'graf__ponto', r: 4, visibility: 'hidden' });
+    g.appendChild(cursor);
+    g.appendChild(ponto);
+    var dica = el('div', 'graf-tip');
+    dica.hidden = true;
+    dica.setAttribute('aria-hidden', 'true');
+    var atual = -1;
+    function mostrar(j) {
+      atual = Math.max(0, Math.min(n - 1, j));
+      var x = X(atual), y = Y(serie[atual].n), esc = caixa.clientWidth / W || 1;
+      cursor.setAttribute('x1', x); cursor.setAttribute('x2', x); cursor.setAttribute('visibility', 'visible');
+      ponto.setAttribute('cx', x); ponto.setAttribute('cy', y); ponto.setAttribute('visibility', 'visible');
+      dica.textContent = dataCurta(serie[atual].dia) + ' · ' + num(serie[atual].n) + ' ' + unidade;
+      dica.hidden = false;
+      dica.style.left = Math.min(Math.max(x * esc, 60), caixa.clientWidth - 60) + 'px';
+      dica.style.top = Math.max(0, y * esc - 10) + 'px';
+    }
+    function esconder() { atual = -1; cursor.setAttribute('visibility', 'hidden'); ponto.setAttribute('visibility', 'hidden'); dica.hidden = true; }
+    g.addEventListener('mousemove', function (e) {
+      var r = g.getBoundingClientRect();
+      if (!r.width || !passo) return;
+      mostrar(Math.round(((e.clientX - r.left) * (W / r.width) - m.l) / passo));
+    });
+    g.addEventListener('mouseleave', esconder);
+    g.addEventListener('blur', esconder);
+    g.addEventListener('keydown', function (e) {
+      var j = atual < 0 ? n - 1 : atual;
+      if (e.key === 'ArrowLeft') j--;
+      else if (e.key === 'ArrowRight') j++;
+      else if (e.key === 'Home') j = 0;
+      else if (e.key === 'End') j = n - 1;
+      else if (e.key === 'Escape') { esconder(); return; }
+      else return;
+      e.preventDefault();
+      mostrar(j);
+    });
+    caixa.appendChild(g);
+    caixa.appendChild(dica);
+    var vivo = el('p', 'sr');
+    vivo.setAttribute('aria-live', 'polite');
+    caixa.appendChild(vivo);
+    g.addEventListener('keyup', function () { vivo.textContent = atual >= 0 ? dica.textContent : ''; });
+  }
+
+  // Barrinhas de um dia cada (decorativas: o texto ao lado já diz o número).
+  function miniBarras(serie, cls) {
+    var n = serie.length, max = 0;
+    serie.forEach(function (x) { if (x.n > max) max = x.n; });
+    var g = svg('svg', { class: 'mini-barras' + (cls ? ' ' + cls : ''), viewBox: '0 0 ' + n * 3 + ' 36', preserveAspectRatio: 'none', 'aria-hidden': 'true', focusable: 'false' });
+    serie.forEach(function (x, i) {
+      var h = max && x.n ? Math.max(3, (x.n / max) * 36) : 1;
+      g.appendChild(svg('rect', { x: i * 3, y: 36 - h, width: 2, height: h, class: x.n ? '' : 'mini-barras__zero' }));
+    });
     return g;
   }
+
+  // Barras horizontais de uma cor, com rótulo e valor escritos.
+  function barrasH(itens, max) {
+    if (max == null) max = itens.reduce(function (s, x) { return Math.max(s, x.n); }, 0);
+    var ul = el('ul', 'barras-h');
+    itens.forEach(function (x) {
+      var li = el('li', 'barras-h__linha');
+      li.appendChild(el('span', 'barras-h__rot', x.rot));
+      var trilho = el('span', 'barras-h__trilho'), b = el('span', 'barras-h__barra');
+      b.style.width = max && x.n ? Math.max(2, (x.n / max) * 100) + '%' : '0';
+      trilho.appendChild(b);
+      li.appendChild(trilho);
+      var v = el('span', 'barras-h__val', num(x.n));
+      if (x.extra) v.appendChild(el('span', 'barras-h__extra', ' ' + x.extra));
+      li.appendChild(v);
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+
+  function kpi2(pai, rotulo, valor, sub, d, serie) {
+    var c = el('div', 'kpi2');
+    c.appendChild(el('div', 'kpi2__rot', rotulo));
+    var linha = el('div', 'kpi2__linha');
+    linha.appendChild(el('span', 'kpi2__num', valor));
+    if (d && d.textContent) linha.appendChild(d);
+    c.appendChild(linha);
+    if (sub) c.appendChild(el('div', 'kpi2__sub', sub));
+    if (serie) c.appendChild(miniBarras(serie, 'kpi2__graf'));
+    pai.appendChild(c);
+  }
+
+  function painel(titulo, sub, cls) {
+    var s = el('section', 'cartao painel-uso' + (cls ? ' ' + cls : ''));
+    s.appendChild(el('h3', null, titulo));
+    if (sub) s.appendChild(el('p', 'painel-uso__sub', sub));
+    return s;
+  }
+  function vazio(t) { return el('p', 'uso-vazio', t); }
 
   function desenharUso() {
     var d = usoDados;
     if (!d) return;
-    var t = d.totais, k = $('uso-kpis');
+    var c = usoClinica && d.clinicas.filter(function (x) { return x.id === usoClinica; })[0];
+    if (!c) usoClinica = null;
+    $('uso-geral').hidden = !!c;
+    $('uso-clinica').hidden = !c;
+    $('uso-voltar').hidden = !c;
+    $('uso-como').hidden = !!c;
+    $('uso-selo').textContent = '';
+    if (c) desenharClinica(c, d);
+    else desenharGeral(d);
+  }
+
+  function abrirClinicaUso(id) {
+    usoClinica = id;
+    desenharUso();
+    window.scrollTo(0, 0);
+    $('h-uso').focus();
+  }
+  function voltarUso() {
+    var id = usoClinica;
+    usoClinica = null;
+    desenharUso();
+    var volta = document.querySelector('#uso-lista [data-clinica="' + id + '"]');
+    if (volta) volta.focus();
+  }
+
+  // ----- visão geral -----
+  function desenharGeral(d) {
+    var t = d.totais, ta = d.totais_anterior || null, serie = d.serie || [];
+    $('h-uso').textContent = 'Uso das clínicas';
+    $('uso-sub').textContent = 'O que cada clínica fez pelo ClinFy nos últimos ' + d.periodo.dias + ' dias. Clique numa clínica para ver o painel dela.';
+
+    var k = $('uso-kpis');
     k.textContent = '';
-    var ta = d.totais_anterior;
-    var volume = (d.serie || []).reduce(function (s, x) { return s + x.n; }, 0);
-    kpi(k, 'Clínicas em uso', num(t.usaram_7d) + ' de ' + num(t.ativas), 'usaram nos últimos 7 dias');
-    if (ta) kpi(k, 'Uso total', num(volume), 'agenda, cobranças e espera', comparar(volume, ta.volume));
-    kpi(k, 'Buscas de paciente', num(t.buscas), 'por CPF ou telefone');
-    kpi(k, 'Ações na agenda', num(t.acoes), 'marcar, remarcar, cancelar, presença e falta', ta && comparar(t.acoes, ta.acoes));
-    kpi(k, 'Cobranças', num(t.cobrancas.n), reais(t.cobrancas.valor), ta && comparar(t.cobrancas.n, ta.cobrancas));
-    kpi(k, 'Confirmações enviadas', num(t.confirmacoes));
-    kpi(k, 'Com alerta', num(t.com_alerta), t.com_alerta ? 'no topo da lista' : 'nenhuma');
+    var volume = serie.reduce(function (s, x) { return s + x.n; }, 0);
+    kpi2(k, 'Uso total', num(volume), 'ações na agenda, cobranças e espera', ta && delta(volume, ta.volume), serie.length ? serie : null);
+    kpi2(k, 'Clínicas em uso', num(t.usaram_7d) + ' de ' + num(t.ativas), 'ativas que usaram nos últimos 7 dias');
+    kpi2(k, 'Ações na agenda', num(t.acoes), 'marcar, remarcar, cancelar, presença e falta', ta && delta(t.acoes, ta.acoes));
+    kpi2(k, 'Cobranças', num(t.cobrancas.n), reais(t.cobrancas.valor), ta && delta(t.cobrancas.n, ta.cobrancas));
+    kpi2(k, 'Confirmações D-1', num(t.confirmacoes), 'enviadas no período');
+    kpi2(k, 'Buscas de paciente', num(t.buscas), 'por CPF ou telefone');
 
-    var tb = $('uso-lista');
-    tb.textContent = '';
+    $('uso-serie-sub').textContent = resumoSerie(serie, 'usos') + '.';
+    grafArea($('uso-serie'), serie, 'usos', 'Uso por dia, todas as clínicas');
+    desenharAtencao(d);
+    desenharClinicas(d);
+  }
+
+  function desenharAtencao(d) {
+    var box = $('uso-atencao');
+    box.textContent = '';
+    var grupos = {}, lista = [];
     d.clinicas.forEach(function (c) {
-      var tr = el('tr');
-      var nome = el('td');
-      nome.appendChild(el('strong', null, c.nome));
-      nome.appendChild(document.createTextNode(' '));
-      var saude = c.saude || c.situacao;
-      nome.appendChild(selo(saude.tom, saude.texto));
-      if (c.saude && c.situacao.tom === 'warn') nome.appendChild(el('div', 'sub', c.situacao.texto));
-      if (c.alertas.length) {
-        var ul = el('ul', 'alertas');
-        c.alertas.forEach(function (a) {
-          var li = el('li', 'alerta alerta--' + a.nivel);
-          li.appendChild(el('span', 'sr', a.nivel === 'critico' ? 'Crítico: ' : 'Aviso: '));
-          li.appendChild(document.createTextNode(a.texto));
-          ul.appendChild(li);
-        });
-        nome.appendChild(ul);
-      }
-      tr.appendChild(nome);
-
-      var uso = el('td'), caixa = el('div', 'uso-tend');
-      caixa.appendChild(sparkline(serieDe(c, d.periodo)));
-      var nums = el('div', 'uso-tend__n');
-      nums.appendChild(el('strong', null, num(c.volume)));
-      var tend = comparar(c.volume, c.volume_anterior, true);
-      if (tend.textContent) { tend.title = 'Comparado com o período anterior (' + num(c.volume_anterior) + ')'; nums.appendChild(tend); }
-      caixa.appendChild(nums);
-      uso.appendChild(caixa);
-      tr.appendChild(uso);
-
-      var fn = el('td', 'uso-funcoes');
-      var paradas = c.ativo ? c.configuradas.filter(function (f) { return c.funcoes.indexOf(f) < 0; }) : [];
-      if (c.funcoes.length || paradas.length) {
-        var chips = el('ul', 'chips');
-        c.funcoes.forEach(function (f) { chips.appendChild(el('li', 'chip', NOMES_FUNCAO[f] || f)); });
-        paradas.forEach(function (f) {
-          var li = el('li', 'chip chip--parada', (NOMES_FUNCAO[f] || f) + ' (sem uso)');
-          li.title = 'Ligada, mas sem uso no período';
-          chips.appendChild(li);
-        });
-        fn.appendChild(chips);
-      } else fn.appendChild(el('span', 'sub', 'nenhuma no período'));
-      tr.appendChild(fn);
-
-      tr.appendChild(celula(dataHora(c.ultima_acao_em), 'Acesso: ' + dataHora(c.ultimo_uso_em) + (c.versao && c.versao.extensao ? ' · v' + c.versao.extensao : '')));
-
-      var acao = el('td');
-      var aberto = usoAberto === c.id;
-      var ver = botao(aberto ? 'Fechar' : 'Ver', (aberto ? 'Fechar o detalhe de ' : 'Ver o detalhe de ') + c.nome, function () {
-        usoAberto = aberto ? null : c.id;
-        desenharUso();
-        var volta = document.querySelector('#uso-lista [data-uso="' + c.id + '"]');
-        if (volta) volta.focus();
+      c.alertas.forEach(function (a) {
+        var g = grupos[a.tipo];
+        if (!g) { g = grupos[a.tipo] = { tipo: a.tipo, nivel: a.nivel, itens: [] }; lista.push(g); }
+        if (a.nivel === 'critico') g.nivel = 'critico';
+        g.itens.push({ c: c, texto: a.texto });
       });
-      ver.setAttribute('aria-expanded', aberto ? 'true' : 'false');
-      ver.setAttribute('data-uso', c.id);
-      acao.appendChild(ver);
-      tr.appendChild(acao);
-      tb.appendChild(tr);
-      if (aberto) tb.appendChild(detalheUso(c, d.periodo));
     });
+    if (!lista.length) { box.appendChild(el('p', 'pendencias__ok', 'Nada precisa de atenção agora.')); return; }
+    lista.sort(function (a, b) { return (b.nivel === 'critico') - (a.nivel === 'critico') || b.itens.length - a.itens.length; });
+    var ul = el('ul', 'pendencias atencao');
+    lista.forEach(function (g) {
+      var li = el('li', 'pendencias__item atencao__item' + (g.nivel === 'critico' ? ' pendencias__item--grave' : ''));
+      li.appendChild(el('span', 'sr', g.nivel === 'critico' ? 'Crítico: ' : 'Aviso: '));
+      li.appendChild(el('strong', null, TITULO_ALERTA[g.tipo] || 'Alerta'));
+      li.appendChild(document.createTextNode(' · ' + g.itens.length + (g.itens.length === 1 ? ' clínica' : ' clínicas')));
+      var nomes = el('div', 'atencao__nomes');
+      g.itens.forEach(function (x) {
+        var b = el('button', 'link-clinica', x.c.nome);
+        b.type = 'button';
+        b.title = x.texto;
+        b.setAttribute('aria-label', x.c.nome + ': ' + x.texto);
+        b.addEventListener('click', function () { abrirClinicaUso(x.c.id); });
+        nomes.appendChild(b);
+      });
+      li.appendChild(nomes);
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
   }
 
-  // Linha de detalhe: uso por dia (barras), os números de cada função e os dados técnicos.
-  function detalheUso(c, p) {
-    var tr = el('tr', 'uso-detalhe'), td = el('td');
-    td.colSpan = 5;
-    td.appendChild(el('h3', null, 'Uso por dia · ' + p.dias + ' dias'));
-    var dias = serieDe(c, p), max = 0;
-    dias.forEach(function (x) { if (x.n > max) max = x.n; });
-    var barras = el('div', 'barras');
-    barras.setAttribute('role', 'img');
-    barras.setAttribute('aria-label', 'Uso por dia: ' + resumoSerie(dias, 'usos'));
-    dias.forEach(function (x) {
-      var b = el('span', 'barras__b');
-      b.style.height = max && x.n ? Math.max(4, Math.round((x.n / max) * 100)) + '%' : '0';
-      b.title = dataCurta(x.dia) + ': ' + num(x.n);
-      barras.appendChild(b);
-    });
-    td.appendChild(barras);
-    var total = dias.reduce(function (s, x) { return s + x.n; }, 0);
-    td.appendChild(el('p', 'dica', total ? resumoSerie(dias, 'usos') + ' (ações na agenda, cobranças e atendimentos com espera).' : 'Nenhum uso gravado no período.'));
+  var FILTROS_USO = {
+    todas: function () { return true; },
+    alerta: function (c) { return c.alertas.length > 0; },
+    sem_uso: function (c) { return c.ativo && !c.volume; },
+    desligadas: function (c) { return !c.ativo; }
+  };
 
-    var dl = el('dl', 'resumo');
-    function linha(r, v) { dl.appendChild(el('dt', null, r)); dl.appendChild(el('dd', null, v)); }
-    var a = c.acoes;
-    linha('Agenda', num(a.criar) + ' marcadas · ' + num(a.remarcar) + ' remarcadas · ' + num(a.cancelar) + ' canceladas' + (c.incertos ? ' · ' + num(c.incertos) + ' a conferir' : ''));
-    linha('Presença e espera', num(a.confirmar) + ' presenças · ' + num(a.ausente) + ' faltas · ' + num(c.espera.atendimentos) + ' com tempo de espera');
-    linha('Cobranças', c.cobrancas.n ? num(c.cobrancas.n) + ' · ' + reais(c.cobrancas.valor) + (c.cobrancas.incertas ? ' · ' + num(c.cobrancas.incertas) + ' a conferir' : '')
-      : (c.configuradas.indexOf('cobranca') >= 0 ? 'ligada, sem uso no período' : 'desligada'));
-    var cf = c.confirmacoes;
-    linha('Confirmação D-1', cf.enviadas || cf.falharam
-      ? num(cf.enviadas) + ' enviadas (' + num(cf.manuais) + ' pelo botão) · ' + pctDe(cf.respondidas, cf.enviadas) + ' responderam · ' + num(cf.confirmadas) + ' confirmaram · ' + num(cf.falharam) + ' não entregues'
-      : (c.configuradas.indexOf('confirmacao') >= 0 ? 'ligada, sem envio no período' : 'desligada'));
-    linha('Atendentes', num(c.usuarios) + ' com ação gravada');
-    var ev = c.eventos || {};
-    linha('Telas e buscas', num(ev.abertura) + ' aberturas do ClinFy · ' + num(ev.busca_paciente) + ' buscas de paciente · ' + num(ev.agenda_dia) + ' dias da agenda · ' + num(ev.horarios) + ' consultas de horários · ' + num(ev.painel) + ' painéis');
-    var ee = c.erros_erp;
-    if (ee && ee.chamadas) {
-      linha('Falhas do sistema (ERP)', ee.total
-        ? num(ee.total) + ' em ' + num(ee.chamadas) + ' chamadas (' + pctDe(ee.total, ee.chamadas) + '): ' + ee.principais.map(function (x) { return x.erro + ' ' + num(x.n); }).join(', ')
-        : 'nenhuma em ' + num(ee.chamadas) + ' chamadas');
+  function desenharClinicas(d) {
+    Object.keys(FILTROS_USO).forEach(function (f) {
+      var n = d.clinicas.filter(FILTROS_USO[f]).length, s = document.querySelector('#uso-filtros [data-n="' + f + '"]');
+      if (s) s.textContent = n;
+    });
+    var busca = dobrado(usoBusca.trim());
+    var lista = d.clinicas.filter(FILTROS_USO[usoFiltro]).filter(function (c) { return !busca || dobrado(c.nome).indexOf(busca) >= 0; });
+    if (usoOrdem === 'uso') lista = lista.slice().sort(function (a, b) { return b.volume - a.volume || a.nome.localeCompare(b.nome); });
+    if (usoOrdem === 'nome') lista = lista.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); });
+    $('uso-contagem').textContent = lista.length === d.clinicas.length ? num(lista.length) + (lista.length === 1 ? ' clínica' : ' clínicas') : num(lista.length) + ' de ' + num(d.clinicas.length);
+    var grade = $('uso-lista');
+    grade.textContent = '';
+    if (!lista.length) { grade.appendChild(vazio(d.clinicas.length ? 'Nenhuma clínica com esse filtro.' : 'Nenhuma clínica cadastrada.')); return; }
+    lista.forEach(function (c) { grade.appendChild(cartaoClinica(c, d.periodo)); });
+  }
+
+  function cartaoClinica(c, p) {
+    var grave = c.alertas.some(function (a) { return a.nivel === 'critico'; });
+    var b = el('button', 'cartao-clinica' + (grave ? ' cartao-clinica--critico' : c.alertas.length ? ' cartao-clinica--aviso' : ''));
+    b.type = 'button';
+    b.setAttribute('data-clinica', c.id);
+    var topo = el('div', 'cartao-clinica__topo');
+    topo.appendChild(el('span', 'cartao-clinica__nome', c.nome));
+    topo.appendChild(selo(c.saude.tom, c.saude.texto));
+    b.appendChild(topo);
+    var linha = el('div', 'cartao-clinica__linha');
+    linha.appendChild(el('span', 'cartao-clinica__num', num(c.volume)));
+    linha.appendChild(el('span', 'cartao-clinica__un', c.volume === 1 ? 'uso' : 'usos'));
+    var dl = delta(c.volume, c.volume_anterior);
+    if (dl.textContent) linha.appendChild(dl);
+    b.appendChild(linha);
+    if (c.volume) b.appendChild(miniBarras(serieDe(c, p)));
+    else b.appendChild(el('div', 'cartao-clinica__vazio', c.ativo ? 'Sem uso no período' : 'Desligada'));
+    if (c.alertas.length) {
+      var a = c.alertas[0];
+      b.appendChild(el('div', 'cartao-clinica__motivo' + (a.nivel === 'critico' ? ' cartao-clinica__motivo--critico' : ''),
+        (TITULO_ALERTA[a.tipo] || 'Alerta') + (c.alertas.length > 1 ? ' e mais ' + (c.alertas.length - 1) : '')));
     }
-    var vs = c.versao || {};
-    linha('Versão da extensão', vs.extensao ? vs.extensao + (vs.atual && vs.atual !== vs.extensao ? ' (atual: ' + vs.atual + ')' : ' (atual)') + (vs.em ? ' · vista em ' + dataHora(vs.em) : '') : 'ainda não informada');
-    linha('Sistema (ERP)', nomeConector(c.erp));
-    linha('Cliente desde', dataHora(c.criado_em));
-    td.appendChild(dl);
-    tr.appendChild(td);
-    return tr;
+    var pe = el('div', 'cartao-clinica__pe');
+    var fns = c.funcoes.map(function (f) { return NOMES_FUNCAO[f] || f; });
+    pe.appendChild(el('span', null, fns.length ? fns.slice(0, 2).join(' · ') + (fns.length > 2 ? ' +' + (fns.length - 2) : '') : 'Nenhuma função usada'));
+    pe.appendChild(el('span', null, c.ultima_acao_em ? 'Última ação ' + dataHora(c.ultima_acao_em).split(',')[0] : 'Sem ação gravada'));
+    b.appendChild(pe);
+    b.setAttribute('aria-label', c.nome + ', ' + c.saude.texto + ', ' + num(c.volume) + ' usos no período'
+      + (c.alertas.length ? '. ' + c.alertas.map(function (x) { return x.texto; }).join(' ') : '') + '. Abrir painel da clínica.');
+    b.addEventListener('click', function () { abrirClinicaUso(c.id); });
+    return b;
   }
 
-  Array.prototype.forEach.call(document.querySelectorAll('#v-uso .seg__btn'), function (b) {
+  // ----- painel de uma clínica -----
+  function desenharClinica(c, d) {
+    var p = d.periodo, a = c.acoes, cf = c.confirmacoes, ant = c.anterior || {};
+    $('h-uso').textContent = c.nome;
+    $('uso-selo').appendChild(selo(c.saude.tom, c.saude.texto));
+    var vs = c.versao || {};
+    $('uso-sub').textContent = 'Sistema: ' + nomeConector(c.erp)
+      + ' · Extensão ' + (vs.extensao ? 'v' + vs.extensao : 'sem versão informada')
+      + ' · Último acesso ' + dataHora(c.ultimo_uso_em) + ' · Últimos ' + p.dias + ' dias';
+
+    var box = $('uso-clinica');
+    box.textContent = '';
+
+    if (c.alertas.length) {
+      var ul = el('ul', 'pendencias');
+      c.alertas.slice().sort(function (x, y) { return (y.nivel === 'critico') - (x.nivel === 'critico'); }).forEach(function (x) {
+        var li = el('li', 'pendencias__item' + (x.nivel === 'critico' ? ' pendencias__item--grave' : ''));
+        var s = el('span');
+        s.appendChild(el('strong', null, (x.nivel === 'critico' ? 'Crítico' : 'Aviso') + ': '));
+        s.appendChild(document.createTextNode(x.texto));
+        li.appendChild(s);
+        ul.appendChild(li);
+      });
+      box.appendChild(ul);
+    }
+
+    var k = el('div', 'kpis2');
+    var totalAcoes = a.criar + a.remarcar + a.cancelar + a.confirmar + a.ausente;
+    var serie = serieDe(c, p);
+    kpi2(k, 'Uso total', num(c.volume), 'agenda, cobranças e espera', delta(c.volume, c.volume_anterior), serie);
+    kpi2(k, 'Ações na agenda', num(totalAcoes), c.incertos ? num(c.incertos) + ' a conferir' : 'marcar, remarcar, cancelar, presença e falta', ant.acoes != null ? delta(totalAcoes, ant.acoes) : null);
+    kpi2(k, 'Cobranças', num(c.cobrancas.n), c.cobrancas.n ? reais(c.cobrancas.valor) : (c.configuradas.indexOf('cobranca') >= 0 ? 'ligada, sem uso' : 'desligada'), ant.cobrancas != null ? delta(c.cobrancas.n, ant.cobrancas) : null);
+    kpi2(k, 'Tempo de espera', num(c.espera.atendimentos), 'atendimentos medidos', ant.espera != null ? delta(c.espera.atendimentos, ant.espera) : null);
+    kpi2(k, 'Confirmações D-1', num(cf.enviadas), cf.enviadas ? pctDe(cf.respondidas, cf.enviadas) + ' responderam' : (c.configuradas.indexOf('confirmacao') >= 0 ? 'ligada, sem envio' : 'desligada'));
+    kpi2(k, 'Atendentes', num(c.usuarios), 'com ação gravada');
+    box.appendChild(k);
+
+    var l1 = el('div', 'uso-linha uso-linha--8-4');
+    var pDia = painel('Uso por dia', 'Ações na agenda, cobranças e atendimentos com espera.');
+    var caixa = el('div', 'graf-area');
+    pDia.appendChild(caixa);
+    l1.appendChild(pDia);
+    var pTipo = painel('Ações na agenda por tipo');
+    var tipos = [
+      { rot: 'Marcadas', n: a.criar }, { rot: 'Remarcadas', n: a.remarcar }, { rot: 'Canceladas', n: a.cancelar },
+      { rot: 'Presenças', n: a.confirmar }, { rot: 'Faltas', n: a.ausente }
+    ].sort(function (x, y) { return y.n - x.n; });
+    pTipo.appendChild(totalAcoes ? barrasH(tipos) : vazio('Nenhuma ação na agenda no período.'));
+    if (c.incertos) pTipo.appendChild(el('p', 'painel-uso__sub', num(c.incertos) + ' ações ficaram a conferir (o sistema não confirmou se gravou).'));
+    l1.appendChild(pTipo);
+    box.appendChild(l1);
+
+    var l2 = el('div', 'uso-linha uso-linha--3');
+    var pConf = painel('Confirmação D-1', 'Do envio à resposta do paciente.');
+    if (cf.enviadas) {
+      pConf.appendChild(barrasH([
+        { rot: 'Enviadas', n: cf.enviadas },
+        { rot: 'Responderam', n: cf.respondidas, extra: pctDe(cf.respondidas, cf.enviadas) },
+        { rot: 'Confirmaram', n: cf.confirmadas, extra: pctDe(cf.confirmadas, cf.enviadas) }
+      ], cf.enviadas));
+      pConf.appendChild(el('p', 'painel-uso__sub', num(cf.manuais) + ' pelo botão · ' + num(cf.falharam) + ' não entregues'));
+    } else {
+      pConf.appendChild(vazio(cf.falharam ? num(cf.falharam) + ' não entregues e nenhuma enviada.' : c.configuradas.indexOf('confirmacao') >= 0 ? 'Ligada, mas sem envio no período.' : 'Confirmação D-1 desligada.'));
+    }
+    l2.appendChild(pConf);
+
+    var pPres = painel('Presença e falta');
+    var marcadas = a.confirmar + a.ausente;
+    if (marcadas) {
+      pPres.appendChild(el('p', 'uso-destaque', pctDe(a.ausente, marcadas) + ' de faltas'));
+      pPres.appendChild(barrasH([{ rot: 'Presenças', n: a.confirmar }, { rot: 'Faltas', n: a.ausente }], marcadas));
+      pPres.appendChild(el('p', 'painel-uso__sub', num(c.espera.atendimentos) + ' atendimentos com tempo de espera medido.'));
+    } else pPres.appendChild(vazio('Nenhuma presença ou falta marcada no período.'));
+    l2.appendChild(pPres);
+
+    var pTelas = painel('Telas e buscas');
+    var ev = c.eventos || {};
+    var telas = Object.keys(NOMES_EVENTO).map(function (e) { return { rot: NOMES_EVENTO[e], n: ev[e] || 0 }; })
+      .filter(function (x) { return x.n; }).sort(function (x, y) { return y.n - x.n; });
+    pTelas.appendChild(telas.length ? barrasH(telas) : vazio('Nenhuma tela registrada no período (contadas desde a versão 0.35.0).'));
+    l2.appendChild(pTelas);
+    box.appendChild(l2);
+
+    var pTec = painel('Saúde técnica');
+    var dl = el('dl', 'resumo');
+    function linha(r, v) { dl.appendChild(el('dt', null, r)); var dd = el('dd'); if (typeof v === 'string') dd.textContent = v; else dd.appendChild(v); dl.appendChild(dd); }
+    var ee = c.erros_erp;
+    linha('Falhas do sistema (ERP)', ee && ee.chamadas
+      ? (ee.total ? num(ee.total) + ' em ' + num(ee.chamadas) + ' chamadas (' + pctDe(ee.total, ee.chamadas) + ')' + (ee.principais.length ? ': ' + ee.principais.map(function (x) { return x.erro + ' ' + num(x.n); }).join(', ') : '') : 'nenhuma em ' + num(ee.chamadas) + ' chamadas')
+      : 'sem chamadas registradas');
+    var ver = el('span');
+    ver.appendChild(document.createTextNode(vs.extensao ? 'v' + vs.extensao + (vs.atual ? ' (atual: v' + vs.atual + ')' : '') + (vs.em ? ' · vista em ' + dataHora(vs.em) : '') + ' ' : 'ainda não informada'));
+    if (vs.antiga) ver.appendChild(selo('warn', 'Desatualizada'));
+    linha('Versão da extensão', ver);
+    if (c.incertos || c.cobrancas.incertas) linha('A conferir', num(c.incertos) + ' ações na agenda · ' + num(c.cobrancas.incertas) + ' cobranças');
+    var paradas = c.configuradas.filter(function (f) { return c.funcoes.indexOf(f) < 0; });
+    linha('Funções usadas', c.funcoes.length ? c.funcoes.map(function (f) { return NOMES_FUNCAO[f] || f; }).join(', ') : 'nenhuma no período');
+    if (paradas.length) linha('Ligadas sem uso', paradas.map(function (f) { return NOMES_FUNCAO[f] || f; }).join(', '));
+    linha('Cliente desde', dataHora(c.criado_em));
+    pTec.appendChild(dl);
+    box.appendChild(pTec);
+
+    grafArea(caixa, serie, 'usos', 'Uso por dia de ' + c.nome);
+  }
+
+  $('uso-voltar').addEventListener('click', voltarUso);
+  $('uso-busca').addEventListener('input', function () { usoBusca = this.value; if (usoDados) desenharClinicas(usoDados); });
+  $('uso-ordem').addEventListener('change', function () { usoOrdem = this.value; if (usoDados) desenharClinicas(usoDados); });
+  Array.prototype.forEach.call(document.querySelectorAll('#uso-filtros .seg__btn'), function (b) {
+    b.addEventListener('click', function () {
+      usoFiltro = b.getAttribute('data-filtro');
+      Array.prototype.forEach.call(document.querySelectorAll('#uso-filtros .seg__btn'), function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+      if (usoDados) desenharClinicas(usoDados);
+    });
+  });
+  // Os gráficos medem a largura: ao redimensionar a janela, desenha de novo (só com a aba Uso aberta).
+  var usoRedim = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(usoRedim);
+    usoRedim = setTimeout(function () { if (!$('v-uso').hidden && usoDados) desenharUso(); }, 150);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('#uso-periodo .seg__btn'), function (b) {
     b.addEventListener('click', function () {
       usoDias = Number(b.getAttribute('data-dias'));
-      Array.prototype.forEach.call(document.querySelectorAll('#v-uso .seg__btn'), function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+      Array.prototype.forEach.call(document.querySelectorAll('#uso-periodo .seg__btn'), function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
       carregarUso();
     });
   });

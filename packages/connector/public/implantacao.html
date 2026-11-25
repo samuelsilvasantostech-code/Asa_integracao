@@ -502,10 +502,14 @@
     <!-- ==================== USO ==================== -->
     <section id="v-uso" class="vista" role="tabpanel" aria-labelledby="nav-uso" hidden>
       <header class="pagina">
+        <button type="button" class="voltar" id="uso-voltar" hidden>← Uso das clínicas</button>
         <div class="cabeca">
-          <h2 id="h-uso">Uso das clínicas</h2>
+          <div class="cabeca cabeca--inicio">
+            <h2 id="h-uso" tabindex="-1">Uso das clínicas</h2>
+            <span id="uso-selo"></span>
+          </div>
           <div class="acoes">
-            <div class="seg" role="group" aria-label="Período">
+            <div class="seg" role="group" aria-label="Período" id="uso-periodo">
               <button type="button" class="seg__btn" data-dias="7" aria-pressed="false">7 dias</button>
               <button type="button" class="seg__btn" data-dias="30" aria-pressed="true">30 dias</button>
               <button type="button" class="seg__btn" data-dias="90" aria-pressed="false">90 dias</button>
@@ -513,25 +517,51 @@
             <button type="button" class="btn" id="uso-atualizar">Atualizar</button>
           </div>
         </div>
-        <p class="pagina__sub">O que cada clínica fez pelo ClinFy: marcações, presença, tempo de espera, cobranças e confirmações.</p>
-        <details class="como">
+        <p class="pagina__sub" id="uso-sub">O que cada clínica fez pelo ClinFy.</p>
+        <details class="como" id="uso-como">
           <summary>Como funciona</summary>
-          <p>O "uso" soma as ações na agenda, as cobranças e os atendimentos com tempo de espera; o gráfico de cada clínica mostra esse total dia a dia, e a seta compara com o período anterior de mesmo tamanho. O selo resume a saúde: <strong>Crítica</strong> quando há alerta crítico, <strong>Atenção</strong> quando há aviso. "Ver" abre os números completos. Mede só o que passou pela extensão, não a agenda inteira da clínica. Atendentes distintos valem só para os últimos 90 dias (a retenção apaga os nomes depois disso). Buscas de paciente, telas abertas, falhas do sistema (ERP) e a versão da extensão são contados desde a versão 0.35.0.</p>
+          <p>O "uso" soma as ações na agenda, as cobranças e os atendimentos com tempo de espera; as setas comparam com o período anterior de mesmo tamanho. O selo resume a saúde da clínica: <strong>Crítica</strong> quando há alerta crítico, <strong>Atenção</strong> quando há aviso. Clique numa clínica para ver o painel dela. Mede só o que passou pela extensão, não a agenda inteira da clínica. Atendentes distintos valem só para os últimos 90 dias (a retenção apaga os nomes depois disso). Buscas de paciente, telas abertas, falhas do sistema (ERP) e a versão da extensão são contados desde a versão 0.35.0.</p>
         </details>
       </header>
-      <section class="cartao" aria-label="Uso por clínica">
-        <dl class="kpis" id="uso-kpis" aria-live="polite"></dl>
-        <div class="tabela-rolagem">
-          <table class="tabela tabela--uso">
-            <caption class="sr">Uso do ClinFy por clínica no período</caption>
-            <thead>
-              <tr><th scope="col">Clínica</th><th scope="col">Uso por dia</th><th scope="col">Funções em uso</th><th scope="col">Última ação</th><th scope="col"><span class="sr">Detalhe</span></th></tr>
-            </thead>
-            <tbody id="uso-lista"></tbody>
-          </table>
+      <p class="msg" id="m-uso" role="status"></p>
+
+      <div class="uso-pagina" id="uso-geral">
+        <div class="kpis2" id="uso-kpis" aria-live="polite"></div>
+        <div class="uso-linha uso-linha--8-4">
+          <section class="cartao painel-uso" aria-labelledby="uso-h-serie">
+            <h3 id="uso-h-serie">Uso por dia, todas as clínicas</h3>
+            <p class="painel-uso__sub" id="uso-serie-sub"></p>
+            <div class="graf-area" id="uso-serie"></div>
+          </section>
+          <section class="cartao painel-uso" aria-labelledby="uso-h-atencao">
+            <h3 id="uso-h-atencao">Precisa de atenção</h3>
+            <div id="uso-atencao"></div>
+          </section>
         </div>
-        <p class="msg" id="m-uso" role="status"></p>
-      </section>
+        <section class="uso-clinicas" aria-labelledby="uso-h-clinicas">
+          <div class="uso-barra">
+            <h3 id="uso-h-clinicas">Clínicas</h3>
+            <label class="filtros__busca"><span class="sr">Buscar clínica</span><input id="uso-busca" type="search" placeholder="Buscar clínica" spellcheck="false" autocomplete="off"></label>
+            <div class="seg" role="group" aria-label="Mostrar" id="uso-filtros">
+              <button type="button" class="seg__btn" data-filtro="todas" aria-pressed="true">Todas <span class="seg__n" data-n="todas"></span></button>
+              <button type="button" class="seg__btn" data-filtro="alerta" aria-pressed="false">Com alerta <span class="seg__n" data-n="alerta"></span></button>
+              <button type="button" class="seg__btn" data-filtro="sem_uso" aria-pressed="false">Sem uso <span class="seg__n" data-n="sem_uso"></span></button>
+              <button type="button" class="seg__btn" data-filtro="desligadas" aria-pressed="false">Desligadas <span class="seg__n" data-n="desligadas"></span></button>
+            </div>
+            <label class="uso-ordem"><span>Ordenar</span>
+              <select id="uso-ordem">
+                <option value="atencao">Atenção primeiro</option>
+                <option value="uso">Mais uso</option>
+                <option value="nome">Nome</option>
+              </select>
+            </label>
+            <span class="filtros__n" id="uso-contagem" role="status"></span>
+          </div>
+          <div class="grade-clinicas" id="uso-lista"></div>
+        </section>
+      </div>
+
+      <div class="uso-pagina" id="uso-clinica" hidden></div>
     </section>
 
     <!-- ==================== USUÁRIOS ==================== -->
