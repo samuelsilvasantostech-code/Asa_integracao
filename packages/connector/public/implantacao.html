@@ -74,10 +74,22 @@
             <button type="button" class="btn btn--primario" id="b-novo">+ Novo cliente</button>
           </div>
         </div>
-        <p class="pagina__sub">Cada cliente é uma clínica: um sistema (ERP), uma chave de instalação única e as configurações dela.</p>
+        <p class="pagina__sub">Cada cliente é uma clínica: um sistema (ERP), uma chave de instalação única e as configurações dela. Clique num cliente para abrir a ficha.</p>
+      <details class="como">
+        <summary>Roteiro de implantação</summary>
+        <ol class="roteiro">
+          <li><strong>+ Novo cliente</strong>: o assistente cria a clínica, liga o sistema (ERP), testa o acesso e mostra a <strong>chave da instalação</strong> (ela aparece uma vez só).</li>
+          <li><strong>Instalar a extensão na Kentro</strong> da clínica pela URL do manifest. Na instalação, cole a chave em <code>apiKey</code>, preencha <code>queueIds</code> e <strong>restrinja o público</strong> a quem vai testar.</li>
+          <li>Anotar o <strong>id da instalação</strong> (último passo do assistente, ou aba Instalação do cliente).</li>
+          <li>Sistema fora da lista: anexe a documentação no assistente ou na aba Sistema. O conector é preparado em <strong>Sistemas (ERP)</strong> e, publicado, a clínica liga.</li>
+          <li>Configurar financeiro e confirmação, se a clínica for usar, e então <strong>abrir o público</strong> da instalação para toda a equipe.</li>
+        </ol>
+      </details>
       </header>
-      <section class="cartao" aria-label="Lista de clientes">
-        <div class="filtros">
+      <p class="msg" id="m-lista" role="status"></p>
+      <div class="kpis2" id="c-kpis"></div>
+      <section class="uso-clinicas" aria-label="Lista de clientes">
+        <div class="uso-barra">
           <label class="filtros__busca"><span class="sr">Buscar cliente</span><input id="c-busca" type="search" placeholder="Buscar por nome, sistema ou instância" spellcheck="false" autocomplete="off"></label>
           <div class="seg" role="group" aria-label="Mostrar" id="c-filtros">
             <button type="button" class="seg__btn" data-filtro="todos" aria-pressed="true">Todos <span class="seg__n" data-n="todos"></span></button>
@@ -87,27 +99,11 @@
           </div>
           <span class="filtros__n" id="c-contagem" role="status"></span>
         </div>
-        <div class="tabela-rolagem">
-          <table class="tabela">
-            <caption class="sr">Clínicas cadastradas no Conector</caption>
-            <thead>
-              <tr><th scope="col">Cliente</th><th scope="col">Sistema (ERP)</th><th scope="col">Pendências</th><th scope="col">Último uso</th><th scope="col"><span class="sr">Ações</span></th></tr>
-            </thead>
-            <tbody id="lista"></tbody>
-          </table>
-        </div>
-        <p class="msg" id="m-lista" role="status"></p>
-        <details class="roteiro-caixa">
-          <summary>Roteiro de implantação</summary>
-          <ol class="roteiro">
-            <li><strong>+ Novo cliente</strong>: o assistente cria a clínica, liga o sistema (ERP), testa o acesso e mostra a <strong>chave da instalação</strong> (ela aparece uma vez só).</li>
-            <li><strong>Instalar a extensão na Kentro</strong> da clínica pela URL do manifest. Na instalação, cole a chave em <code>apiKey</code>, preencha <code>queueIds</code> e <strong>restrinja o público</strong> a quem vai testar.</li>
-            <li>Anotar o <strong>id da instalação</strong> (último passo do assistente, ou aba Instalação do cliente).</li>
-            <li>Sistema fora da lista: anexe a documentação no assistente ou na aba Sistema. O conector é preparado em <strong>Sistemas (ERP)</strong> e, publicado, a clínica liga.</li>
-            <li>Configurar financeiro e confirmação, se a clínica for usar, e então <strong>abrir o público</strong> da instalação para toda a equipe.</li>
-          </ol>
-        </details>
+        <div class="grade-clinicas" id="lista"></div>
       </section>
+      </div>
+
+      <!-- Assistente de novo cliente -->      </section>
       </div>
 
       <!-- Assistente de novo cliente -->
@@ -186,7 +182,7 @@
           </div>
           <p class="pagina__sub" id="d-sub"></p>
         </header>
-        <dl class="resumo-cartoes" id="resumo"></dl>
+        <div class="kpis2" id="resumo"></div>
 
         <div class="cartao">
         <div class="abas abas--cartao" role="tablist" aria-label="Configurações do cliente" id="d-abas">
@@ -201,13 +197,22 @@
         <!-- Visão geral -->
         <div class="painel-aba" id="dp-geral" role="tabpanel" aria-labelledby="da-geral">
           <div class="geral">
-            <section aria-labelledby="g-h-pend">
-              <h3 id="g-h-pend">Pendências</h3>
-              <ul class="pendencias" id="g-pend"></ul>
-            </section>
+            <div class="uso-linha uso-linha--8-4">
+              <section aria-labelledby="g-h-uso">
+                <div class="cabeca">
+                  <h3 id="g-h-uso">Uso nos últimos 30 dias</h3>
+                  <button type="button" class="btn" id="g-uso-ver" hidden>Ver painel de uso</button>
+                </div>
+                <div id="g-uso" aria-live="polite"></div>
+              </section>
+              <section aria-labelledby="g-h-pend">
+                <h3 id="g-h-pend">Pendências</h3>
+                <ul class="pendencias" id="g-pend"></ul>
+              </section>
+            </div>
             <section aria-labelledby="g-h-rec">
               <h3 id="g-h-rec">Recursos</h3>
-              <dl class="recursos" id="g-recursos"></dl>
+              <dl class="recursos recursos--grade" id="g-recursos"></dl>
             </section>
           </div>
         </div>

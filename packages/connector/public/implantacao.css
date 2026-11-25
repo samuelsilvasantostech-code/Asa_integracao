@@ -118,15 +118,8 @@ body.com-sessao main { width: 100%; } /* item de grid com margin auto não estic
 .voltar { justify-self: start; display: inline-flex; align-items: center; gap: 4px; margin: 0 0 var(--s1) -6px; padding: 4px 6px; font: inherit; font-size: 13px; font-weight: 600; color: var(--brand); background: transparent; border: 0; border-radius: var(--r-sm); cursor: pointer; }
 .voltar:hover { background: var(--brand-soft); }
 .cabeca--inicio { justify-content: flex-start; }
-.resumo-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--s3); margin: 0; }
-.resumo-cartoes > div { min-width: 0; padding: var(--s3) var(--s4); background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--lift); }
-.resumo-cartoes dt { color: var(--muted); font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; }
-.resumo-cartoes dd { margin: var(--s1) 0 0; font-family: var(--display); font-size: 17px; font-weight: 650; overflow-wrap: anywhere; }
-.resumo-cartoes dd.falta { color: var(--warn); }
-.resumo-cartoes .sub { display: block; margin-top: 2px; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; font-size: 12.5px; font-weight: 400; color: var(--muted); }
 .abas.abas--cartao { margin: calc(-1 * var(--s2)) 0 0; }
 .aba--suja::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--warn); vertical-align: middle; }
-.geral { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--s4) var(--s6); padding-top: var(--s3); }
 .geral h3 { margin: 0 0 var(--s2); font-size: 15px; font-weight: 650; }
 .pendencias { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
 .pendencias__item { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s3); border: 1px solid var(--border); border-left: 3px solid var(--warn); border-radius: var(--r-sm); background: var(--warn-soft); color: var(--text); }
@@ -435,3 +428,19 @@ h3.cartao-clinica__nome { margin: 0; }
 #area, .vista, .subvista { grid-template-columns: minmax(0, 1fr); }
 .uso-barra .seg { max-width: 100%; overflow-x: auto; }
 .uso-barra .seg__btn { flex: none; white-space: nowrap; }
+
+/* Clientes: cartões, totais e ficha */
+.cartao-cliente__uso { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--s2); }
+.cartao-cliente__quando { font-family: var(--display); font-size: 18px; font-weight: 650; }
+.cartao-cliente__uso--parado .cartao-cliente__quando { color: var(--warn); }
+.cartao-clinica__motivo--ok { color: var(--ok); }
+.cartao-cliente .alertas { margin: 0; }
+.kpi2--falta .kpi2__num { color: var(--warn); }
+@media (min-width: 1280px) { #resumo { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.geral { display: grid; gap: var(--s5); padding-top: var(--s3); }
+.geral .cabeca { margin-bottom: var(--s2); }
+.geral .cabeca h3 { margin: 0; }
+.geral .kpi2__linha { align-items: center; }
+.graf-area--baixa { min-height: 180px; }
+.recursos--grade { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.como .roteiro { margin-top: var(--s2); color: var(--muted); font-size: 13px; }

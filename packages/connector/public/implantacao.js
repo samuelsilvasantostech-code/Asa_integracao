@@ -462,8 +462,9 @@
   }
 
   function desenharLista() {
-    var tb = $('lista');
-    tb.textContent = '';
+    var grade = $('lista');
+    grade.textContent = '';
+    desenharKpisClientes();
     Object.keys(FILTROS).forEach(function (k) {
       var n = tenants.filter(FILTROS[k]).length;
       document.querySelector('#c-filtros [data-n="' + k + '"]').textContent = String(n);
@@ -474,48 +475,63 @@
       return termos.every(function (w) { return txt.indexOf(w) >= 0; });
     });
     $('c-contagem').textContent = tenants.length ? (visiveis.length === tenants.length ? tenants.length + (tenants.length === 1 ? ' cliente' : ' clientes') : visiveis.length + ' de ' + tenants.length) : '';
-    if (tenants.length && !visiveis.length) {
-      var vazio = el('tr'), td0 = el('td', null, 'Nenhum cliente com essa busca ou filtro.');
-      td0.colSpan = 5;
-      vazio.appendChild(td0);
-      tb.appendChild(vazio);
+    if (tenants.length && !visiveis.length) grade.appendChild(vazio('Nenhum cliente com essa busca ou filtro.'));
+    visiveis.forEach(function (t) { grade.appendChild(cartaoCliente(t)); });
+  }
+
+  // Totais do topo da lista: quem está ativo, em uso e o que trava a implantação.
+  function desenharKpisClientes() {
+    var k = $('c-kpis');
+    k.textContent = '';
+    if (!tenants.length) return;
+    var ativos = tenants.filter(function (t) { return t.ativo; });
+    var conta = function (f) { return ativos.filter(f).length; };
+    var emUso = conta(function (t) { var d = diasDesde(t.ultimo_uso_em); return d != null && d < 7; });
+    kpi2(k, 'Clientes ativos', num(ativos.length), tenants.length - ativos.length ? num(tenants.length - ativos.length) + ' desligado(s)' : 'nenhum desligado');
+    kpi2(k, 'Em uso', num(emUso) + ' de ' + num(ativos.length), 'usaram nos últimos 7 dias');
+    kpi2(k, 'Com pendência', num(conta(function (t) { return pendencias(t).length > 0; })), 'algo falta para usar');
+    kpi2(k, 'Sem acesso ao sistema', num(conta(function (t) { return !t.tem_credencial && !pedidoDe(t); })), 'credencial do ERP não cadastrada');
+    kpi2(k, 'Aguardando conector', num(conta(function (t) { return !!pedidoDe(t); })), 'sistema ainda sem conector');
+    kpi2(k, 'Sem uso há 7+ dias', num(conta(function (t) { var d = diasDesde(t.ultimo_uso_em); return d == null || d >= 7; })), 'ou que nunca usaram');
+  }
+
+  function quandoUsou(t) {
+    var d = diasDesde(t.ultimo_uso_em);
+    return d == null ? 'Nunca usou' : d <= 0 ? 'Usou hoje' : d === 1 ? 'Usou ontem' : 'Usou há ' + d + ' dias';
+  }
+
+  // Cartão clicável do cliente: situação, sistema, último uso e o que falta.
+  function cartaoCliente(t) {
+    var st = situacao(t), lp = pendencias(t), ped = pedidoDe(t);
+    var grave = lp.some(function (p) { return p.grave; });
+    var b = el('button', 'cartao-clinica cartao-cliente' + (grave ? ' cartao-clinica--critico' : lp.length ? ' cartao-clinica--aviso' : ''));
+    b.type = 'button';
+    b.setAttribute('data-id', t.id);
+    var topo = el('div', 'cartao-clinica__topo');
+    topo.appendChild(el('span', 'cartao-clinica__nome', t.nome));
+    topo.appendChild(selo(st.tom, t.ativo ? st.texto : 'Desligado'));
+    b.appendChild(topo);
+    b.appendChild(el('div', 'cartao-conector__id', ped ? ped.sistema + ' · aguardando conector' : nomeConector(t.erp || 'asa') + (t.sistema_nome ? ' · nas telas: ' + t.sistema_nome : '')));
+    var d = diasDesde(t.ultimo_uso_em);
+    var uso = el('div', 'cartao-cliente__uso' + (t.ativo && (d == null || d >= 7) ? ' cartao-cliente__uso--parado' : ''));
+    uso.appendChild(el('span', 'cartao-cliente__quando', quandoUsou(t)));
+    if (t.ultimo_uso_em) uso.appendChild(el('span', 'cartao-clinica__un', dataHora(t.ultimo_uso_em)));
+    b.appendChild(uso);
+    if (!t.ativo) b.appendChild(el('div', 'cartao-clinica__motivo cartao-clinica__motivo--neutro', t.desligado_em ? 'Desligado em ' + dataHora(t.desligado_em).split(',')[0] : 'Inativo'));
+    else if (!lp.length) b.appendChild(el('div', 'cartao-clinica__motivo cartao-clinica__motivo--ok', 'Em dia'));
+    else {
+      var mostrar = lp.slice(0, 3);
+      if (lp.length > 3) mostrar = lp.slice(0, 2).concat([{ texto: 'e mais ' + (lp.length - 2) }]);
+      b.appendChild(listaDePendencias(mostrar));
     }
-    visiveis.forEach(function (t) {
-      var tr = el('tr');
-      var nome = el('td');
-      nome.appendChild(el('strong', null, t.nome));
-      var st = situacao(t);
-      nome.appendChild(document.createTextNode(' '));
-      nome.appendChild(el('span', 'selo selo--' + st.tom, st.texto));
-      nome.appendChild(el('div', 'sub', (t.kentro_instancia || 'Instância não informada') + (t.kentro_instalacao_id != null ? ' · instalação #' + t.kentro_instalacao_id : '')));
-      if (t.observacao) nome.appendChild(el('div', 'sub', t.observacao));
-      tr.appendChild(nome);
-
-      var sis = el('td');
-      var ped = pedidoDe(t);
-      if (ped) {
-        sis.appendChild(el('strong', null, ped.sistema));
-        sis.appendChild(el('div', 'sub falta', 'Aguardando conector'));
-      } else {
-        sis.appendChild(el('strong', null, nomeConector(t.erp || 'asa')));
-        if (t.sistema_nome) sis.appendChild(el('div', 'sub', 'Nas telas: ' + t.sistema_nome));
-      }
-      tr.appendChild(sis);
-
-      var pend = el('td'), lp = pendencias(t);
-      if (!t.ativo) pend.appendChild(el('span', 'sub', '—'));
-      else if (!lp.length) pend.appendChild(el('span', 'selo selo--ok', 'Em dia'));
-      else pend.appendChild(listaDePendencias(lp));
-      tr.appendChild(pend);
-
-      tr.appendChild(el('td', null, dataHora(t.ultimo_uso_em)));
-      var acao = el('td');
-      var b = botao('Abrir', 'Abrir ' + t.nome, function () { abrir(t, true); });
-      b.setAttribute('data-id', t.id);
-      acao.appendChild(b);
-      tr.appendChild(acao);
-      tb.appendChild(tr);
-    });
+    var pe = el('div', 'cartao-clinica__pe');
+    pe.appendChild(el('span', null, (t.kentro_instancia || 'Instância não informada') + (t.kentro_instalacao_id != null ? ' · #' + t.kentro_instalacao_id : '')));
+    pe.appendChild(el('span', null, 'Desde ' + dataHora(t.criado_em).split(',')[0]));
+    b.appendChild(pe);
+    if (t.observacao) b.title = t.observacao;
+    b.setAttribute('aria-label', t.nome + ', ' + (t.ativo ? st.texto : 'desligado') + ', ' + quandoUsou(t).toLowerCase() + (lp.length ? ', ' + lp.length + (lp.length === 1 ? ' pendência' : ' pendências') : t.ativo ? ', em dia' : '') + '. Abrir a ficha.');
+    b.addEventListener('click', function () { abrir(t, true); });
+    return b;
   }
 
   /* ---------- assistente de novo cliente ---------- */
@@ -733,32 +749,56 @@
     marcarAbas();
     $('detalhe').hidden = true;
     $('c-lista').hidden = false;
-    var b = id && document.querySelector('#lista button[data-id="' + id + '"]');
+    var b = id && document.querySelector('#lista [data-id="' + id + '"]');
     if (b) b.focus();
   }
 
   function resumo(t) {
-    var dl = $('resumo');
-    dl.textContent = '';
+    var k = $('resumo');
+    k.textContent = '';
     var ped = pedidoDe(t), st = situacao(t), d = diasDesde(t.ultimo_uso_em);
     $('d-situacao').textContent = '';
     $('d-situacao').appendChild(el('span', 'selo selo--' + st.tom, st.texto));
     $('d-sub').textContent = [t.kentro_instancia || 'Instância da Kentro não informada', t.implantado_por ? 'implantado por ' + t.implantado_por : ''].filter(Boolean).join(' · ');
     [
-      ['Sistema (ERP)', ped ? ped.sistema : nomeConector(t.erp || 'asa'), ped ? 'Aguardando conector' : t.sistema_nome ? 'Nas telas: ' + t.sistema_nome : '', !!ped],
+      ['Sistema (ERP)', ped ? ped.sistema : nomeConector(t.erp || 'asa'), ped ? 'Aguardando conector' : t.sistema_nome ? 'Nas telas: ' + t.sistema_nome : 'conector ' + (t.erp || 'asa'), !!ped],
       ['Acesso ao sistema', t.tem_credencial ? 'Ok' : 'Sem acesso', t.tem_credencial ? (t.erp_testado_em ? 'Testado em ' + dataHora(t.erp_testado_em) : 'Não testado') : 'Cadastre na aba Sistema', !t.tem_credencial],
-      ['Instalação na Kentro', t.kentro_instalacao_id != null ? '#' + t.kentro_instalacao_id : 'Id não anotado', t.kentro_instancia || '', t.kentro_instalacao_id == null],
-      ['Último uso', t.ultimo_uso_em ? (d === 0 ? 'Hoje' : d === 1 ? 'Ontem' : 'Há ' + d + ' dias') : 'Nunca', t.ultimo_uso_em ? dataHora(t.ultimo_uso_em) : '', !t.ultimo_uso_em && t.ativo],
-      ['Cliente desde', dataHora(t.criado_em).split(' ')[0], '', false]
+      ['Instalação na Kentro', t.kentro_instalacao_id != null ? '#' + t.kentro_instalacao_id : 'Não anotada', t.kentro_instancia || 'instância não informada', t.kentro_instalacao_id == null],
+      ['Último uso', t.ultimo_uso_em ? (d === 0 ? 'Hoje' : d === 1 ? 'Ontem' : 'Há ' + d + ' dias') : 'Nunca', t.ultimo_uso_em ? dataHora(t.ultimo_uso_em) : 'nenhuma ação gravada', t.ativo && (d == null || d >= 7)],
+      ['Cliente desde', dataHora(t.criado_em).split(',')[0], t.implantado_por ? 'por ' + t.implantado_por : '', false]
     ].forEach(function (p) {
-      var item = el('div');
-      item.appendChild(el('dt', null, p[0]));
-      var dd = el('dd', p[3] ? 'falta' : null, p[1]);
-      if (p[2]) dd.appendChild(el('span', 'sub', p[2]));
-      item.appendChild(dd);
-      dl.appendChild(item);
+      kpi2(k, p[0], p[1], p[2]);
+      if (p[3]) k.lastChild.classList.add('kpi2--falta');
     });
     visaoGeral(t);
+  }
+
+  // Uso da clínica na Visão geral: mesma fonte da aba Uso (30 dias), só a linha desta clínica.
+  var usoFichaSeq = 0;
+  function usoNaFicha(t) {
+    var s = ++usoFichaSeq, box = $('g-uso');
+    box.textContent = '';
+    box.appendChild(el('p', 'painel-uso__sub', 'Carregando…'));
+    $('g-uso-ver').hidden = true;
+    chamar('GET', '/admin/uso?dias=30').then(function (r) {
+      if (s !== usoFichaSeq || !atual || atual.id !== t.id) return;
+      box.textContent = '';
+      if (r.status !== 200 || !r.body) { box.appendChild(vazio('Não deu para carregar o uso agora.')); return; }
+      var c = (r.body.clinicas || []).filter(function (x) { return x.id === t.id; })[0];
+      if (!c) { box.appendChild(vazio('Sem dados de uso para este cliente.')); return; }
+      var linha = el('div', 'kpi2__linha');
+      linha.appendChild(el('span', 'kpi2__num', num(c.volume)));
+      linha.appendChild(el('span', 'cartao-clinica__un', c.volume === 1 ? 'uso' : 'usos'));
+      var dl = delta(c.volume, c.volume_anterior);
+      if (dl.textContent) linha.appendChild(dl);
+      linha.appendChild(selo(c.saude.tom, c.saude.texto));
+      box.appendChild(linha);
+      box.appendChild(el('p', 'painel-uso__sub', 'Ações na agenda, cobranças e atendimentos com espera, comparados com os 30 dias anteriores.'));
+      var caixa = el('div', 'graf-area graf-area--baixa');
+      box.appendChild(caixa);
+      grafArea(caixa, serieDe(c, r.body.periodo), 'usos', 'Uso por dia de ' + c.nome);
+      $('g-uso-ver').hidden = false;
+    });
   }
 
   function visaoGeral(t) {
@@ -842,6 +882,7 @@
       $('t-token').value = '';
       $('f-d-doc').reset();
       abaDoCliente('da-geral');
+      usoNaFicha(t);
     }
     FORMS_CLIENTE.forEach(function (f) { if (!manter(f)) fotografar(f); });
     marcarAbas();
@@ -1823,6 +1864,8 @@
   $('cx-n-nome').addEventListener('input', function () { if (!$('cx-n-slug').dataset.mexido) $('cx-n-slug').value = slugDe($('cx-n-nome').value); });
   $('cx-n-slug').addEventListener('input', function () { $('cx-n-slug').dataset.mexido = '1'; });
   $('cx-fechar').addEventListener('click', fecharConector);
+  // Da ficha para o painel da clínica na aba Uso (a carga da aba já desenha o painel dela).
+  $('g-uso-ver').addEventListener('click', function () { var id = atual && atual.id; if (!id) return; irPara('nav-uso'); usoClinica = id; });
   $('cx-novo-abrir').addEventListener('click', function () { abrirNovoSistema(null); });
   $('cx-novo-cancelar').addEventListener('click', function () { $('dlg-cx-novo').close(); });
   $('cx-n-nome').addEventListener('input', previaArtigo);
