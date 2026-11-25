@@ -7,7 +7,7 @@ process.env.ADMIN_KEY = CHAVE;
 delete process.env.DATABASE_URL;
 delete process.env.POSTGRES_URL;
 const { adminRoutes } = await import("../src/routes/admin.js");
-const { alertasDe, montarUso, periodoUso, situacaoDe, versaoAtrasada } = await import("../src/uso.js");
+const { alertasDe, montarUso, periodoUso, saudeDe, situacaoDe, versaoAtrasada } = await import("../src/uso.js");
 
 const AGORA = new Date("2026-11-24T15:00:00Z");
 const diasAtras = (n: number) => new Date(AGORA.getTime() - n * 86400000).toISOString();
@@ -93,6 +93,25 @@ test("montagem: soma por período, separa o anterior, lista funções e ordena a
   assert.deepEqual(a.por_dia, [{ dia: "2026-11-20", n: 4 }, { dia: "2026-11-21", n: 2 }]);
   assert.equal(r.totais.usaram_7d, 1);
   assert.equal(r.totais.acoes, 6);
+  // Série diária: um valor por dia do período (18 a 24), zeros incluídos; soma agenda, cobranças e espera.
+  assert.deepEqual(a.spark, [0, 0, 4, 2, 2, 0, 6]);
+  assert.equal(a.spark.reduce((x, y) => x + y, 0), a.volume);
+  assert.deepEqual(r.serie.map((d) => d.dia), ["2026-11-18", "2026-11-19", "2026-11-20", "2026-11-21", "2026-11-22", "2026-11-23", "2026-11-24"]);
+  assert.deepEqual(r.serie.map((d) => d.n), [0, 0, 4, 2, 2, 0, 6]);
+  assert.deepEqual(r.totais_anterior, { acoes: 5, cobrancas: 0, espera: 0, volume: 5 });
+  assert.deepEqual(a.saude, { tom: "ok", texto: "Saudável" });
+  assert.deepEqual(r.clinicas[0].saude, { tom: "err", texto: "Crítica" });
+});
+
+test("saúde: desligada e nunca usou neutras; crítica vence atenção", () => {
+  const ok = { tom: "ok" as const, texto: "Em uso" };
+  const av = { tipo: "x", nivel: "aviso" as const, texto: "" }, cr = { ...av, nivel: "critico" as const };
+  assert.equal(saudeDe({ tom: "off", texto: "" }, [cr]).texto, "Desligada");
+  assert.equal(saudeDe(ok, [av, cr]).tom, "err");
+  assert.equal(saudeDe(ok, [av]).texto, "Atenção");
+  assert.equal(saudeDe({ tom: "idle", texto: "" }, []).texto, "Nunca usou");
+  assert.equal(saudeDe({ tom: "idle", texto: "" }, [av]).tom, "warn");
+  assert.equal(saudeDe(ok, []).texto, "Saudável");
 });
 
 test("contagem diária: buscas, chamadas e falhas do ERP por código; versão atrasada", () => {

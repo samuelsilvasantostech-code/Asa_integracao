@@ -516,7 +516,7 @@
         <p class="pagina__sub">O que cada clínica fez pelo ClinFy: marcações, presença, tempo de espera, cobranças e confirmações.</p>
         <details class="como">
           <summary>Como funciona</summary>
-          <p>O "uso no período" soma as ações na agenda, as cobranças e os atendimentos com tempo de espera. Mede só o que passou pela extensão, não a agenda inteira da clínica. Atendentes distintos valem só para os últimos 90 dias (a retenção apaga os nomes depois disso). Buscas de paciente, telas abertas, falhas do sistema (ERP) e a versão da extensão são contados desde a versão 0.35.0.</p>
+          <p>O "uso" soma as ações na agenda, as cobranças e os atendimentos com tempo de espera; o gráfico de cada clínica mostra esse total dia a dia, e a seta compara com o período anterior de mesmo tamanho. O selo resume a saúde: <strong>Crítica</strong> quando há alerta crítico, <strong>Atenção</strong> quando há aviso. "Ver" abre os números completos. Mede só o que passou pela extensão, não a agenda inteira da clínica. Atendentes distintos valem só para os últimos 90 dias (a retenção apaga os nomes depois disso). Buscas de paciente, telas abertas, falhas do sistema (ERP) e a versão da extensão são contados desde a versão 0.35.0.</p>
         </details>
       </header>
       <section class="cartao" aria-label="Uso por clínica">
@@ -525,7 +525,7 @@
           <table class="tabela tabela--uso">
             <caption class="sr">Uso do ClinFy por clínica no período</caption>
             <thead>
-              <tr><th scope="col">Clínica</th><th scope="col">Uso no período</th><th scope="col">Buscas e telas</th><th scope="col">Agenda</th><th scope="col">Presença e espera</th><th scope="col">Cobranças</th><th scope="col">Confirmação D-1</th><th scope="col">Atendentes</th><th scope="col">Última ação</th><th scope="col"><span class="sr">Detalhe</span></th></tr>
+              <tr><th scope="col">Clínica</th><th scope="col">Uso por dia</th><th scope="col">Funções em uso</th><th scope="col">Última ação</th><th scope="col"><span class="sr">Detalhe</span></th></tr>
             </thead>
             <tbody id="uso-lista"></tbody>
           </table>

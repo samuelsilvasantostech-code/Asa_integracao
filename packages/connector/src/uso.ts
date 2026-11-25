@@ -45,6 +45,7 @@ export type EntradaUso = {
 
 export type Alerta = { tipo: string; nivel: "aviso" | "critico"; texto: string };
 export type Situacao = { tom: "ok" | "warn" | "off" | "idle"; texto: string };
+export type Saude = { tom: "ok" | "warn" | "err" | "idle"; texto: string };
 
 const TIPOS = ["criar", "remarcar", "cancelar", "confirmar", "ausente"] as const;
 const ms = (v: Date | string | null | undefined) => (v ? new Date(v).getTime() : NaN);
@@ -89,7 +90,11 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date, versaoAtual
   const usr = new Map(e.usuarios.map((u) => [u.tenant_id, u.n]));
   const ult = new Map(e.ultimas.map((u) => [u.tenant_id, u.ultima]));
 
+  // Os dias do período, em ordem: a série diária de cada clínica tem um valor por dia (zero se não houve uso).
+  const dias = Array.from({ length: p.dias }, (_, i) => somaDias(p.inicio, i));
   const clinicas = e.tenants.map((t) => {
+    const diario = new Map<string, number>();
+    const somar = (dia: string, n: number) => diario.set(dia, (diario.get(dia) ?? 0) + n);
     const acoes: Record<string, number> = Object.fromEntries(TIPOS.map((k) => [k, 0]));
     const porDia = new Map<string, number>();
     let incertos = 0, anterior = 0;
@@ -97,6 +102,7 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date, versaoAtual
       if (r.situacao === "ok" && noPeriodo(r.dia)) {
         acoes[r.tipo] = (acoes[r.tipo] ?? 0) + r.n;
         porDia.set(r.dia, (porDia.get(r.dia) ?? 0) + r.n);
+        somar(r.dia, r.n);
       }
       if (r.situacao === "ok" && noAnterior(r.dia)) anterior += r.n;
       if (r.situacao === "incerto" && noPeriodo(r.dia)) incertos += r.n;
@@ -104,7 +110,7 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date, versaoAtual
     const cobrancas = { n: 0, valor: 0, incertas: 0 };
     let cobAnterior = 0;
     for (const r of cob(t.id)) {
-      if (r.situacao === "ok" && noPeriodo(r.dia)) { cobrancas.n += r.n; cobrancas.valor += Number(r.total ?? 0); }
+      if (r.situacao === "ok" && noPeriodo(r.dia)) { cobrancas.n += r.n; cobrancas.valor += Number(r.total ?? 0); somar(r.dia, r.n); }
       if (r.situacao === "ok" && noAnterior(r.dia)) cobAnterior += r.n;
       if (r.situacao === "incerto" && noPeriodo(r.dia)) cobrancas.incertas += r.n;
     }
@@ -118,7 +124,7 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date, versaoAtual
     }
     let espera = 0, esperaAnterior = 0;
     for (const r of esp(t.id)) {
-      if (noPeriodo(r.dia)) espera += r.n;
+      if (noPeriodo(r.dia)) { espera += r.n; somar(r.dia, r.n); }
       else if (noAnterior(r.dia)) esperaAnterior += r.n;
     }
 
@@ -146,18 +152,18 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date, versaoAtual
       ultimo_uso_em: t.ultimo_uso_em, ultima_acao_em: ult.get(t.id) ?? null, desligado_em: t.desligado_em,
       acoes, incertos, cobrancas, confirmacoes, espera: { atendimentos: espera },
       usuarios: usr.get(t.id) ?? 0, volume, volume_anterior: volumeAnterior,
+      anterior: { acoes: anterior, cobrancas: cobAnterior, espera: esperaAnterior },
       funcoes, configuradas, eventos, erros_erp,
       versao: {
         extensao: t.extensao_versao ?? null, em: t.extensao_versao_em ?? null, atual: versaoAtual ?? null,
         antiga: versaoAtrasada(t.extensao_versao, versaoAtual) && diasDesde(t.extensao_versao_em, agoraMs) < 7,
       },
       por_dia: [...porDia.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([dia, n]) => ({ dia, n })),
+      spark: dias.map((d) => diario.get(d) ?? 0),
     };
-    return {
-      ...base,
-      situacao: situacaoDe(t, agoraMs),
-      alertas: alertasDe({ ...base, tem_credencial: t.tem_credencial, confirmacao_ligada: cfgConf.ativo && !cfgConf.teste.ativo }, p, agoraMs),
-    };
+    const situacao = situacaoDe(t, agoraMs);
+    const alertas = alertasDe({ ...base, tem_credencial: t.tem_credencial, confirmacao_ligada: cfgConf.ativo && !cfgConf.teste.ativo }, p, agoraMs);
+    return { ...base, situacao, alertas, saude: saudeDe(situacao, alertas) };
   });
 
   // Alertas críticos primeiro, depois avisos, depois quem tem mais uso.
@@ -165,8 +171,17 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date, versaoAtual
   clinicas.sort((a, b) => Number(b.ativo) - Number(a.ativo) || peso(b) - peso(a) || b.volume - a.volume || a.nome.localeCompare(b.nome));
 
   const ativas7d = clinicas.filter((c) => c.ativo && diasDesde(c.ultimo_uso_em, agoraMs) < 7).length;
+  const soma = (f: (c: (typeof clinicas)[number]) => number) => clinicas.reduce((s, c) => s + f(c), 0);
   return {
     periodo: p,
+    // Uso somado de todas as clínicas, dia a dia (ações na agenda, cobranças e atendimentos na espera).
+    serie: dias.map((dia, i) => ({ dia, n: soma((c) => c.spark[i]) })),
+    totais_anterior: {
+      acoes: soma((c) => c.anterior.acoes),
+      cobrancas: soma((c) => c.anterior.cobrancas),
+      espera: soma((c) => c.anterior.espera),
+      volume: soma((c) => c.volume_anterior),
+    },
     totais: {
       clinicas: clinicas.length,
       ativas: clinicas.filter((c) => c.ativo).length,
@@ -179,6 +194,15 @@ export function montarUso(e: EntradaUso, p: PeriodoUso, agora: Date, versaoAtual
     },
     clinicas,
   };
+}
+
+// Selo de saúde: resume situação e alertas numa palavra. Crítica vence atenção; desligada e nunca usou ficam neutras.
+export function saudeDe(situacao: Situacao, alertas: Alerta[]): Saude {
+  if (situacao.tom === "off") return { tom: "idle", texto: "Desligada" };
+  if (alertas.some((a) => a.nivel === "critico")) return { tom: "err", texto: "Crítica" };
+  if (alertas.length) return { tom: "warn", texto: "Atenção" };
+  if (situacao.tom === "idle") return { tom: "idle", texto: "Nunca usou" };
+  return { tom: "ok", texto: "Saudável" };
 }
 
 export function situacaoDe(t: Pick<TenantUso, "ativo" | "ultimo_uso_em" | "criado_em">, agora: number): Situacao {

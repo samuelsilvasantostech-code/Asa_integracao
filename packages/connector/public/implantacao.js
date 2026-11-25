@@ -1666,22 +1666,77 @@
     });
   }
 
-  function kpi(dl, rotulo, valor, detalhe) {
+  function kpi(dl, rotulo, valor, detalhe, tend) {
     var d = el('div', 'kpi');
     d.appendChild(el('dt', null, rotulo));
     var dd = el('dd', null, valor);
     if (detalhe) dd.appendChild(el('span', 'kpi__sub', detalhe));
+    if (tend && tend.textContent) { tend.className = 'tend kpi__tend'; dd.appendChild(tend); }
     d.appendChild(dd);
     dl.appendChild(d);
   }
 
-  function tendencia(c) {
+  // Seta e porcentagem contra o período anterior de mesmo tamanho. A cor reforça; a seta e o texto dizem.
+  function comparar(atual, anterior, curto) {
     var span = el('span', 'tend');
-    if (!c.volume_anterior) { span.textContent = c.volume ? 'sem uso no período anterior' : ''; return span; }
-    var v = Math.round(((c.volume - c.volume_anterior) / c.volume_anterior) * 100);
-    span.textContent = (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '= ') + Math.abs(v) + '% vs. período anterior';
+    var sufixo = curto ? '' : ' vs. período anterior';
+    if (!anterior) { span.textContent = atual ? (curto ? 'novo' : 'sem uso no período anterior') : ''; return span; }
+    var v = Math.round(((atual - anterior) / anterior) * 100);
+    span.textContent = (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '= ') + Math.abs(v) + '%' + sufixo;
     span.setAttribute('data-tom', v >= 0 ? 'ok' : v <= -50 ? 'err' : 'warn');
     return span;
+  }
+
+  function dataCurta(iso) { return iso.slice(8, 10) + '/' + iso.slice(5, 7); }
+  function diasDoPeriodo(p) {
+    var dias = [];
+    for (var t = Date.parse(p.inicio + 'T12:00:00Z'); t <= Date.parse(p.fim + 'T12:00:00Z'); t += 86400000) dias.push(new Date(t).toISOString().slice(0, 10));
+    return dias;
+  }
+  // Série diária da clínica: a do Conector (agenda + cobranças + espera); se não vier, só as ações de agenda.
+  function serieDe(c, p) {
+    var dias = diasDoPeriodo(p);
+    if (c.spark && c.spark.length === dias.length) return dias.map(function (d, i) { return { dia: d, n: c.spark[i] }; });
+    var m = {};
+    c.por_dia.forEach(function (x) { m[x.dia] = x.n; });
+    return dias.map(function (d) { return { dia: d, n: m[d] || 0 }; });
+  }
+  function resumoSerie(s, unidade) {
+    var total = 0, comUso = 0, pico = null;
+    s.forEach(function (x) { total += x.n; if (x.n) comUso++; if (!pico || x.n > pico.n) pico = x; });
+    return num(total) + ' ' + unidade + ' em ' + comUso + ' de ' + s.length + ' dias'
+      + (pico && pico.n ? '; pico de ' + num(pico.n) + ' em ' + dataCurta(pico.dia) : '');
+  }
+
+  // Minigráfico de linha (série única, na cor da marca): área suave, linha de 2px e ponto no último dia.
+  var SVG = 'http://www.w3.org/2000/svg';
+  function svg(tag, attrs) {
+    var n = document.createElementNS(SVG, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function sparkline(s) {
+    var L = 128, A = 32, pad = 3, max = 0;
+    s.forEach(function (x) { if (x.n > max) max = x.n; });
+    var passo = s.length > 1 ? L / (s.length - 1) : 0;
+    var pts = s.map(function (x, i) {
+      var y = max ? A - pad - (x.n / max) * (A - 2 * pad) : A - pad;
+      return [Math.round(i * passo * 10) / 10, Math.round(y * 10) / 10];
+    });
+    var resumo = 'Uso por dia: ' + resumoSerie(s, 'usos');
+    var g = svg('svg', { class: 'spark', viewBox: '0 0 ' + L + ' ' + A, role: 'img', 'aria-label': resumo });
+    var t = svg('title', {});
+    t.textContent = resumo;
+    g.appendChild(t);
+    g.appendChild(svg('line', { class: 'spark__base', x1: 0, y1: A - pad, x2: L, y2: A - pad }));
+    if (max) {
+      var linha = pts.map(function (p) { return p.join(','); }).join(' ');
+      g.appendChild(svg('polygon', { class: 'spark__area', points: '0,' + (A - pad) + ' ' + linha + ' ' + L + ',' + (A - pad) }));
+      g.appendChild(svg('polyline', { class: 'spark__linha', points: linha }));
+      var u = pts[pts.length - 1];
+      g.appendChild(svg('circle', { class: 'spark__ponto', cx: u[0], cy: u[1], r: 3 }));
+    }
+    return g;
   }
 
   function desenharUso() {
@@ -1689,10 +1744,13 @@
     if (!d) return;
     var t = d.totais, k = $('uso-kpis');
     k.textContent = '';
+    var ta = d.totais_anterior;
+    var volume = (d.serie || []).reduce(function (s, x) { return s + x.n; }, 0);
     kpi(k, 'Clínicas em uso', num(t.usaram_7d) + ' de ' + num(t.ativas), 'usaram nos últimos 7 dias');
+    if (ta) kpi(k, 'Uso total', num(volume), 'agenda, cobranças e espera', comparar(volume, ta.volume));
     kpi(k, 'Buscas de paciente', num(t.buscas), 'por CPF ou telefone');
-    kpi(k, 'Ações na agenda', num(t.acoes), 'marcar, remarcar, cancelar, presença e falta');
-    kpi(k, 'Cobranças', num(t.cobrancas.n), reais(t.cobrancas.valor));
+    kpi(k, 'Ações na agenda', num(t.acoes), 'marcar, remarcar, cancelar, presença e falta', ta && comparar(t.acoes, ta.acoes));
+    kpi(k, 'Cobranças', num(t.cobrancas.n), reais(t.cobrancas.valor), ta && comparar(t.cobrancas.n, ta.cobrancas));
     kpi(k, 'Confirmações enviadas', num(t.confirmacoes));
     kpi(k, 'Com alerta', num(t.com_alerta), t.com_alerta ? 'no topo da lista' : 'nenhuma');
 
@@ -1703,7 +1761,9 @@
       var nome = el('td');
       nome.appendChild(el('strong', null, c.nome));
       nome.appendChild(document.createTextNode(' '));
-      nome.appendChild(selo(c.situacao.tom, c.situacao.texto));
+      var saude = c.saude || c.situacao;
+      nome.appendChild(selo(saude.tom, saude.texto));
+      if (c.saude && c.situacao.tom === 'warn') nome.appendChild(el('div', 'sub', c.situacao.texto));
       if (c.alertas.length) {
         var ul = el('ul', 'alertas');
         c.alertas.forEach(function (a) {
@@ -1716,25 +1776,30 @@
       }
       tr.appendChild(nome);
 
-      var uso = el('td');
-      uso.appendChild(el('strong', null, num(c.volume)));
-      var tend = tendencia(c);
-      if (tend.textContent) { var dv = el('div'); dv.appendChild(tend); uso.appendChild(dv); }
+      var uso = el('td'), caixa = el('div', 'uso-tend');
+      caixa.appendChild(sparkline(serieDe(c, d.periodo)));
+      var nums = el('div', 'uso-tend__n');
+      nums.appendChild(el('strong', null, num(c.volume)));
+      var tend = comparar(c.volume, c.volume_anterior, true);
+      if (tend.textContent) { tend.title = 'Comparado com o período anterior (' + num(c.volume_anterior) + ')'; nums.appendChild(tend); }
+      caixa.appendChild(nums);
+      uso.appendChild(caixa);
       tr.appendChild(uso);
 
-      var ev = c.eventos || {};
-      tr.appendChild(celula(num(ev.busca_paciente) + ' buscas', num(ev.agenda_dia) + ' aberturas da agenda · ' + num(ev.cadastro_paciente) + ' cadastros'
-        + (c.erros_erp && c.erros_erp.total ? ' · ' + num(c.erros_erp.total) + ' falhas do sistema' : '')));
+      var fn = el('td', 'uso-funcoes');
+      var paradas = c.ativo ? c.configuradas.filter(function (f) { return c.funcoes.indexOf(f) < 0; }) : [];
+      if (c.funcoes.length || paradas.length) {
+        var chips = el('ul', 'chips');
+        c.funcoes.forEach(function (f) { chips.appendChild(el('li', 'chip', NOMES_FUNCAO[f] || f)); });
+        paradas.forEach(function (f) {
+          var li = el('li', 'chip chip--parada', (NOMES_FUNCAO[f] || f) + ' (sem uso)');
+          li.title = 'Ligada, mas sem uso no período';
+          chips.appendChild(li);
+        });
+        fn.appendChild(chips);
+      } else fn.appendChild(el('span', 'sub', 'nenhuma no período'));
+      tr.appendChild(fn);
 
-      var a = c.acoes;
-      tr.appendChild(celula(num(a.criar) + ' marcadas', num(a.remarcar) + ' remarcadas · ' + num(a.cancelar) + ' canceladas' + (c.incertos ? ' · ' + num(c.incertos) + ' a conferir' : '')));
-      tr.appendChild(celula(num(a.confirmar) + ' presenças · ' + num(a.ausente) + ' faltas', num(c.espera.atendimentos) + ' com tempo de espera'));
-      tr.appendChild(celula(num(c.cobrancas.n), c.cobrancas.n ? reais(c.cobrancas.valor) : (!c.ativo ? '' : c.configuradas.indexOf('cobranca') >= 0 ? 'ligada, sem uso' : 'desligada')));
-      var cf = c.confirmacoes;
-      tr.appendChild(celula(num(cf.enviadas) + ' enviadas', cf.enviadas
-        ? pctDe(cf.respondidas, cf.enviadas) + ' responderam' + (cf.falharam ? ' · ' + num(cf.falharam) + ' falharam' : '')
-        : (!c.ativo ? '' : c.configuradas.indexOf('confirmacao') >= 0 ? 'ligada, sem envio' : 'desligada')));
-      tr.appendChild(celula(num(c.usuarios)));
       tr.appendChild(celula(dataHora(c.ultima_acao_em), 'Acesso: ' + dataHora(c.ultimo_uso_em) + (c.versao && c.versao.extensao ? ' · v' + c.versao.extensao : '')));
 
       var acao = el('td');
@@ -1754,42 +1819,38 @@
     });
   }
 
-  // Linha de detalhe: ações por dia (barras), funções usadas e as ligadas sem uso.
+  // Linha de detalhe: uso por dia (barras), os números de cada função e os dados técnicos.
   function detalheUso(c, p) {
     var tr = el('tr', 'uso-detalhe'), td = el('td');
-    td.colSpan = 10;
-    td.appendChild(el('h3', null, 'Ações de agenda por dia · ' + p.dias + ' dias'));
-    var porDia = {};
-    c.por_dia.forEach(function (x) { porDia[x.dia] = x.n; });
-    var dias = [], max = 0;
-    for (var t = Date.parse(p.inicio + 'T12:00:00Z'); t <= Date.parse(p.fim + 'T12:00:00Z'); t += 86400000) {
-      var iso = new Date(t).toISOString().slice(0, 10);
-      dias.push({ dia: iso, n: porDia[iso] || 0 });
-      max = Math.max(max, porDia[iso] || 0);
-    }
-    var total = dias.reduce(function (s, x) { return s + x.n; }, 0);
-    var comUso = dias.filter(function (x) { return x.n; }).length;
+    td.colSpan = 5;
+    td.appendChild(el('h3', null, 'Uso por dia · ' + p.dias + ' dias'));
+    var dias = serieDe(c, p), max = 0;
+    dias.forEach(function (x) { if (x.n > max) max = x.n; });
     var barras = el('div', 'barras');
     barras.setAttribute('role', 'img');
-    barras.setAttribute('aria-label', num(total) + ' ações em ' + comUso + ' de ' + dias.length + ' dias' + (max ? '; no máximo ' + num(max) + ' num dia' : ''));
+    barras.setAttribute('aria-label', 'Uso por dia: ' + resumoSerie(dias, 'usos'));
     dias.forEach(function (x) {
       var b = el('span', 'barras__b');
       b.style.height = max && x.n ? Math.max(4, Math.round((x.n / max) * 100)) + '%' : '0';
-      b.title = x.dia.split('-').reverse().join('/') + ': ' + num(x.n);
+      b.title = dataCurta(x.dia) + ': ' + num(x.n);
       barras.appendChild(b);
     });
     td.appendChild(barras);
-    td.appendChild(el('p', 'dica', total ? num(total) + ' ações em ' + comUso + ' de ' + dias.length + ' dias.' : 'Nenhuma ação de agenda gravada no período.'));
+    var total = dias.reduce(function (s, x) { return s + x.n; }, 0);
+    td.appendChild(el('p', 'dica', total ? resumoSerie(dias, 'usos') + ' (ações na agenda, cobranças e atendimentos com espera).' : 'Nenhum uso gravado no período.'));
 
     var dl = el('dl', 'resumo');
     function linha(r, v) { dl.appendChild(el('dt', null, r)); dl.appendChild(el('dd', null, v)); }
-    function nomes(lista) { return lista.map(function (f) { return NOMES_FUNCAO[f] || f; }).join(', '); }
-    linha('Funções usadas', c.funcoes.length ? nomes(c.funcoes) : 'nenhuma no período');
-    var paradas = c.configuradas.filter(function (f) { return c.funcoes.indexOf(f) < 0; });
-    if (paradas.length) linha('Ligadas sem uso', nomes(paradas));
+    var a = c.acoes;
+    linha('Agenda', num(a.criar) + ' marcadas · ' + num(a.remarcar) + ' remarcadas · ' + num(a.cancelar) + ' canceladas' + (c.incertos ? ' · ' + num(c.incertos) + ' a conferir' : ''));
+    linha('Presença e espera', num(a.confirmar) + ' presenças · ' + num(a.ausente) + ' faltas · ' + num(c.espera.atendimentos) + ' com tempo de espera');
+    linha('Cobranças', c.cobrancas.n ? num(c.cobrancas.n) + ' · ' + reais(c.cobrancas.valor) + (c.cobrancas.incertas ? ' · ' + num(c.cobrancas.incertas) + ' a conferir' : '')
+      : (c.configuradas.indexOf('cobranca') >= 0 ? 'ligada, sem uso no período' : 'desligada'));
     var cf = c.confirmacoes;
-    linha('Confirmação D-1', num(cf.enviadas) + ' enviadas (' + num(cf.manuais) + ' pelo botão) · ' + num(cf.confirmadas) + ' confirmaram · ' + num(cf.falharam) + ' não entregues');
-    if (c.cobrancas.incertas) linha('Cobranças a conferir', num(c.cobrancas.incertas));
+    linha('Confirmação D-1', cf.enviadas || cf.falharam
+      ? num(cf.enviadas) + ' enviadas (' + num(cf.manuais) + ' pelo botão) · ' + pctDe(cf.respondidas, cf.enviadas) + ' responderam · ' + num(cf.confirmadas) + ' confirmaram · ' + num(cf.falharam) + ' não entregues'
+      : (c.configuradas.indexOf('confirmacao') >= 0 ? 'ligada, sem envio no período' : 'desligada'));
+    linha('Atendentes', num(c.usuarios) + ' com ação gravada');
     var ev = c.eventos || {};
     linha('Telas e buscas', num(ev.abertura) + ' aberturas do ClinFy · ' + num(ev.busca_paciente) + ' buscas de paciente · ' + num(ev.agenda_dia) + ' dias da agenda · ' + num(ev.horarios) + ' consultas de horários · ' + num(ev.painel) + ' painéis');
     var ee = c.erros_erp;

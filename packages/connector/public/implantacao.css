@@ -227,6 +227,7 @@ a:hover { color: var(--brand-hover); }
 .selo--warn { background: var(--warn-soft); color: var(--warn); }
 .selo--off { background: var(--err-soft); color: var(--err); }
 .selo--idle { background: var(--idle-soft); color: var(--idle); }
+.selo--err { background: var(--err-soft); color: var(--err); }
 
 /* Resumo (lista de definição) */
 .resumo { display: grid; grid-template-columns: max-content 1fr; gap: 6px 20px; margin: var(--s3) 0 0; font-size: 13.5px; padding: var(--s3) var(--s4); background: var(--surface); border-radius: var(--r-sm); }
@@ -288,13 +289,26 @@ a:hover { color: var(--brand-hover); }
 .seg__btn[aria-pressed="true"] { background: var(--brand); color: var(--brand-ink); }
 .seg__btn:focus-visible { outline: 3px solid var(--focus); outline-offset: -4px; }
 .seg__btn[aria-pressed="true"]:focus-visible { outline-color: var(--brand-ink); }
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--s3); margin: var(--s4) 0 0; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s3); margin: var(--s4) 0 0; }
 .kpi { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s3) var(--s4); background: var(--bg); }
 .kpi dt { color: var(--muted); font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; }
 .kpi dd { margin: var(--s1) 0 0; font-family: var(--display); font-size: 26px; line-height: 1.15; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
 .kpi__sub { display: block; margin-top: 2px; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; font-size: 12.5px; font-weight: 400; color: var(--muted); }
 .tabela--uso td { white-space: nowrap; }
 .tabela--uso td:first-child { white-space: normal; min-width: 220px; }
+.tabela--uso td.uso-funcoes { white-space: normal; min-width: 180px; }
+.uso-tend { display: flex; align-items: center; gap: var(--s3); }
+.uso-tend__n { min-width: 3.5em; font-variant-numeric: tabular-nums; }
+.uso-tend__n strong { display: block; font-size: 15px; }
+.spark { display: block; width: 128px; height: 32px; flex: none; overflow: visible; }
+.spark__area { fill: var(--brand-soft); }
+.spark__linha { fill: none; stroke: var(--brand); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.spark__base { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.spark__ponto { fill: var(--brand); stroke: var(--bg); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--text); background: var(--surface); white-space: nowrap; }
+.chip--parada { border-style: dashed; color: var(--muted); background: transparent; }
+.kpi__tend { display: block; margin-top: 2px; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; font-size: 12.5px; font-weight: 600; }
 .alertas { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 3px; }
 .alerta { font-size: 12.5px; padding-left: 14px; position: relative; color: var(--warn); }
 .alerta::before { content: ""; position: absolute; left: 0; top: .5em; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
