@@ -393,10 +393,14 @@
 
     <!-- ==================== SISTEMAS (ERP) ==================== -->
     <section id="v-sistemas" class="vista" role="tabpanel" aria-labelledby="nav-sistemas" hidden>
+      <div class="uso-pagina" id="cx-central">
       <header class="pagina">
         <div class="cabeca">
           <h2 id="h-central">Sistemas (ERP)</h2>
-          <button type="button" class="btn" id="cx-atualizar">Atualizar</button>
+          <div class="acoes">
+            <button type="button" class="btn" id="cx-atualizar">Atualizar</button>
+            <button type="button" class="btn btn--primario" id="cx-novo-abrir">+ Novo sistema</button>
+          </div>
         </div>
         <p class="pagina__sub">Os conectores de cada sistema de gestão e os pedidos de sistemas que ainda não têm conector.</p>
         <details class="como">
@@ -405,97 +409,114 @@
           <p>Os pedidos chegam das clínicas (Outro / não encontrei) e do assistente de novo cliente. Crie o conector a partir do pedido, anexe a documentação e acompanhe até publicar.</p>
         </details>
       </header>
+      <p class="msg" id="m-cx" role="status"></p>
+      <div class="kpis2" id="cx-kpis"></div>
       <div class="abas abas--pagina" role="tablist" aria-label="Sistemas (ERP)">
         <button type="button" class="aba" role="tab" id="sx-conectores" aria-controls="sp-conectores" aria-selected="true">Conectores</button>
         <button type="button" class="aba" role="tab" id="sx-pedidos" aria-controls="sp-pedidos" aria-selected="false" tabindex="-1">Pedidos <span class="contador" id="sx-pedidos-n" hidden></span></button>
       </div>
       <div class="subvista" id="sp-conectores" role="tabpanel" aria-labelledby="sx-conectores">
-      <section class="cartao" id="central" aria-label="Conectores do catálogo">
-        <div class="tabela-rolagem">
-          <table class="tabela">
-            <caption class="sr">Conectores do catálogo</caption>
-            <thead><tr><th scope="col">Sistema</th><th scope="col">Situação</th><th scope="col">Versão</th><th scope="col">Documentos</th><th scope="col">Clínicas</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
-            <tbody id="cx-lista"></tbody>
-          </table>
+        <div class="uso-barra">
+          <label class="filtros__busca"><span class="sr">Buscar sistema</span><input id="cx-busca" type="search" placeholder="Buscar sistema" spellcheck="false" autocomplete="off"></label>
+          <div class="seg" role="group" aria-label="Mostrar" id="cx-filtro">
+            <button type="button" class="seg__btn" data-filtro="todos" aria-pressed="true">Todos <span class="seg__n" data-n="todos"></span></button>
+            <button type="button" class="seg__btn" data-filtro="publicado" aria-pressed="false">Publicados <span class="seg__n" data-n="publicado"></span></button>
+            <button type="button" class="seg__btn" data-filtro="homologacao" aria-pressed="false">Em homologação <span class="seg__n" data-n="homologacao"></span></button>
+            <button type="button" class="seg__btn" data-filtro="rascunho" aria-pressed="false">Rascunhos <span class="seg__n" data-n="rascunho"></span></button>
+            <button type="button" class="seg__btn" data-filtro="arquivado" aria-pressed="false">Arquivados <span class="seg__n" data-n="arquivado"></span></button>
+          </div>
+          <span class="filtros__n" id="cx-contagem" role="status"></span>
         </div>
-        <p class="msg" id="m-cx" role="status"></p>
-
-        <form id="f-cx-novo" class="bloco grade" autocomplete="off">
-          <h3>Novo sistema</h3>
-          <label class="campo"><span>Nome do sistema</span><input id="cx-n-nome" maxlength="40" placeholder="Feegow" required></label>
-          <label class="campo"><span>Identificador</span><input id="cx-n-slug" maxlength="40" pattern="[a-z][a-z0-9-]{1,39}" placeholder="feegow" spellcheck="false" required></label>
-          <label class="campo"><span>Artigo</span><select id="cx-n-artigo"><option value="o">o (no Feegow)</option><option value="a">a (na Asa)</option></select></label>
-          <div class="acoes"><button type="submit" class="btn btn--primario">Criar rascunho</button></div>
-          <p class="msg" id="m-cx-novo" role="status"></p>
-        </form>
-      </section>
-
-      <section class="cartao" id="cx-detalhe" hidden>
-        <div class="cabeca">
-          <h2 id="cx-titulo" tabindex="-1">Conector</h2>
-          <button type="button" class="btn" id="cx-fechar">Fechar</button>
+        <div class="grade-clinicas" id="cx-lista"></div>
+      </div>
+      <div class="subvista" id="sp-pedidos" role="tabpanel" aria-labelledby="sx-pedidos" hidden>
+        <div class="uso-barra">
+          <p class="painel-uso__sub">Sistemas que ainda não têm conector. "Criar conector" já preenche o nome; "Abrir conector" leva direto a ele.</p>
+          <div class="seg" role="group" aria-label="Mostrar" id="cx-ped-filtro">
+            <button type="button" class="seg__btn" data-filtro="abertos" aria-pressed="true">Em aberto <span class="seg__n" data-n="abertos"></span></button>
+            <button type="button" class="seg__btn" data-filtro="atendido" aria-pressed="false">Atendidos <span class="seg__n" data-n="atendido"></span></button>
+            <button type="button" class="seg__btn" data-filtro="recusado" aria-pressed="false">Recusados <span class="seg__n" data-n="recusado"></span></button>
+            <button type="button" class="seg__btn" data-filtro="todos" aria-pressed="false">Todos <span class="seg__n" data-n="todos"></span></button>
+          </div>
         </div>
-        <dl class="resumo" id="cx-resumo"></dl>
+        <div class="grade-clinicas" id="cx-pedidos"></div>
+      </div>
+      </div>
 
-        <form id="f-cx-dados" class="grade" autocomplete="off">
-          <label class="campo"><span>Nome nas telas</span><input id="cx-nome" maxlength="40" required></label>
-          <label class="campo"><span>Artigo</span><select id="cx-artigo"><option value="o">o</option><option value="a">a</option></select></label>
-          <label class="campo"><span>Situação</span>
-            <select id="cx-situacao"><option value="rascunho">Rascunho</option><option value="homologacao">Homologação</option><option value="publicado">Publicado</option><option value="arquivado">Arquivado</option></select>
-          </label>
-          <label class="campo campo--largo"><span>Observação</span><textarea id="cx-obs" rows="2" maxlength="1000"></textarea></label>
-          <div class="acoes"><button type="submit" class="btn btn--primario">Salvar dados e situação</button></div>
-          <p class="msg" id="m-cx-dados" role="status"></p>
-        </form>
+      <div class="uso-pagina" id="cx-detalhe" hidden>
+        <header class="pagina">
+          <button type="button" class="voltar" id="cx-fechar">← Sistemas (ERP)</button>
+          <div class="cabeca">
+            <div class="cabeca cabeca--inicio">
+              <h2 id="cx-titulo" tabindex="-1">Conector</h2>
+              <span id="cx-selo"></span>
+            </div>
+            <div class="acoes" id="cx-acoes"></div>
+          </div>
+          <p class="pagina__sub" id="cx-sub"></p>
+        </header>
+        <p class="msg" id="m-cx-acao" role="status"></p>
+        <ol class="etapas etapas--cx" id="cx-etapas" aria-label="Caminho até publicar"></ol>
+        <div class="kpis2" id="cx-resumo"></div>
+        <div class="abas abas--pagina" role="tablist" aria-label="Partes do conector">
+          <button type="button" class="aba" role="tab" id="cxa-dados" aria-controls="cxp-dados" aria-selected="true">Dados</button>
+          <button type="button" class="aba" role="tab" id="cxa-docs" aria-controls="cxp-docs" aria-selected="false" tabindex="-1">Documentação</button>
+          <button type="button" class="aba" role="tab" id="cxa-config" aria-controls="cxp-config" aria-selected="false" tabindex="-1">Configuração</button>
+          <button type="button" class="aba" role="tab" id="cxa-teste" aria-controls="cxp-teste" aria-selected="false" tabindex="-1">Testar</button>
+        </div>
 
-        <div class="bloco">
-          <h3>Documentação</h3>
+        <section class="cartao" id="cxp-dados" role="tabpanel" aria-labelledby="cxa-dados">
+          <form id="f-cx-dados" class="grade" autocomplete="off">
+            <label class="campo"><span>Nome nas telas</span><input id="cx-nome" maxlength="40" required></label>
+            <label class="campo"><span>Artigo</span><select id="cx-artigo"><option value="o">o</option><option value="a">a</option></select></label>
+            <label class="campo"><span>Situação</span>
+              <select id="cx-situacao"><option value="rascunho">Rascunho</option><option value="homologacao">Homologação</option><option value="publicado">Publicado</option><option value="arquivado">Arquivado</option></select>
+            </label>
+            <label class="campo campo--largo"><span>Observação</span><textarea id="cx-obs" rows="3" maxlength="1000"></textarea></label>
+            <div class="acoes"><button type="submit" class="btn btn--primario">Salvar dados e situação</button></div>
+            <p class="msg" id="m-cx-dados" role="status"></p>
+          </form>
+        </section>
+
+        <section class="cartao" id="cxp-docs" role="tabpanel" aria-labelledby="cxa-docs" hidden>
+          <h3 class="cartao__h3">Documentação da API</h3>
           <p class="dica">Link ou arquivo da API do sistema (OpenAPI/Swagger, coleção do Postman, PDF). Fica só aqui, para a chave de administrador. Credenciais dentro de coleções do Postman e de OpenAPI em JSON são apagadas ao receber; em PDF e outros formatos, não: confira antes de enviar.</p>
-          <ul class="docs" id="cx-docs"></ul>
-          <form id="f-cx-doc" class="grade" autocomplete="off">
+          <ul class="docs docs--grade" id="cx-docs"></ul>
+          <form id="f-cx-doc" class="bloco grade" autocomplete="off">
+            <h3>Anexar</h3>
             <label class="campo"><span>De onde veio</span><input id="cx-doc-origem" maxlength="200" placeholder="Clínica X, fornecedor…"></label>
             <label class="campo"><span>Link</span><input id="cx-doc-url" type="url" spellcheck="false" placeholder="https://…"></label>
             <label class="campo"><span>Ou arquivo (até 10 MB)</span><input id="cx-doc-arquivo" type="file"></label>
             <div class="acoes"><button type="submit" class="btn btn--primario">Anexar</button></div>
             <p class="msg" id="m-cx-doc" role="status"></p>
           </form>
-        </div>
+        </section>
 
-        <form id="f-cx-config" class="bloco" autocomplete="off">
-          <h3>Configuração</h3>
-          <p class="dica">JSON do conector: autenticação, campos que a clínica preenche e a tradução de cada rota da especificação. É validado antes de gravar; cada gravação sobe a versão, e as clínicas passam a usar a nova em até 30 segundos.</p>
-          <label class="campo"><span class="sr">Configuração em JSON</span><textarea id="cx-config" class="mono" rows="18" spellcheck="false"></textarea></label>
-          <div class="acoes"><button type="submit" class="btn btn--primario">Validar e salvar</button></div>
-          <p class="msg" id="m-cx-config" role="status"></p>
-          <ul class="erros" id="cx-erros"></ul>
-        </form>
+        <section class="cartao" id="cxp-config" role="tabpanel" aria-labelledby="cxa-config" hidden>
+          <form id="f-cx-config" autocomplete="off">
+            <h3 class="cartao__h3">Configuração</h3>
+            <p class="dica">JSON do conector: autenticação, campos que a clínica preenche e a tradução de cada rota da especificação. É validado antes de gravar; cada gravação sobe a versão, e as clínicas passam a usar a nova em até 30 segundos.</p>
+            <label class="campo"><span class="sr">Configuração em JSON</span><textarea id="cx-config" class="mono" rows="24" spellcheck="false"></textarea></label>
+            <div class="acoes"><button type="submit" class="btn btn--primario">Validar e salvar</button></div>
+            <p class="msg" id="m-cx-config" role="status"></p>
+            <ul class="erros" id="cx-erros"></ul>
+          </form>
+        </section>
 
-        <form id="f-cx-teste" class="bloco" autocomplete="off">
-          <h3>Testar com credencial</h3>
-          <p class="dica">Só leitura: conexão, profissionais, dias e horários livres, agenda do dia e, se informar, a busca de um paciente. A credencial não é gravada. Funciona também com o rascunho.</p>
-          <div class="grade" id="cx-teste-campos"></div>
-          <div class="grade">
-            <label class="campo"><span>CPF de um paciente de teste (opcional)</span><input id="cx-teste-cpf" inputmode="numeric" maxlength="14"></label>
-            <label class="campo"><span>Ou telefone (opcional)</span><input id="cx-teste-tel" inputmode="tel" maxlength="20"></label>
-          </div>
-          <div class="acoes"><button type="submit" class="btn btn--primario">Testar</button></div>
-          <p class="msg" id="m-cx-teste" role="status"></p>
-          <ul class="passos" id="cx-passos"></ul>
-        </form>
-      </section>
-      </div>
-
-      <div class="subvista" id="sp-pedidos" role="tabpanel" aria-labelledby="sx-pedidos" hidden>
-      <section class="cartao" aria-label="Pedidos de sistemas">
-        <p class="dica">Sistemas que ainda não têm conector. "Criar conector" já preenche o nome; "Abrir conector" leva direto a ele.</p>
-        <div class="tabela-rolagem">
-          <table class="tabela">
-            <caption class="sr">Pedidos de sistemas fora do catálogo</caption>
-            <thead><tr><th scope="col">Sistema</th><th scope="col">Clínica</th><th scope="col">Contato</th><th scope="col">Situação</th><th scope="col">Desde</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
-            <tbody id="cx-pedidos"></tbody>
-          </table>
-        </div>
-      </section>
+        <section class="cartao" id="cxp-teste" role="tabpanel" aria-labelledby="cxa-teste" hidden>
+          <form id="f-cx-teste" autocomplete="off">
+            <h3 class="cartao__h3">Testar com credencial</h3>
+            <p class="dica">Só leitura: conexão, profissionais, dias e horários livres, agenda do dia e, se informar, a busca de um paciente. A credencial não é gravada. Funciona também com o rascunho.</p>
+            <div class="grade" id="cx-teste-campos"></div>
+            <div class="grade">
+              <label class="campo"><span>CPF de um paciente de teste (opcional)</span><input id="cx-teste-cpf" inputmode="numeric" maxlength="14"></label>
+              <label class="campo"><span>Ou telefone (opcional)</span><input id="cx-teste-tel" inputmode="tel" maxlength="20"></label>
+            </div>
+            <div class="acoes"><button type="submit" class="btn btn--primario">Testar</button></div>
+            <p class="msg" id="m-cx-teste" role="status"></p>
+            <ul class="passos" id="cx-passos"></ul>
+          </form>
+        </section>
       </div>
     </section>
 
@@ -620,6 +641,21 @@
     <div class="acoes acoes--fim">
       <button type="button" class="btn" id="dlg-cancelar">Cancelar</button>
       <button type="submit" class="btn btn--primario">Definir senha</button>
+    </div>
+  </form>
+</dialog>
+<dialog class="dialogo" id="dlg-cx-novo" aria-labelledby="dlg-cx-novo-t">
+  <form id="f-cx-novo" autocomplete="off">
+    <h2 id="dlg-cx-novo-t">Novo sistema</h2>
+    <p class="dica" id="cx-novo-pedido" hidden></p>
+    <label class="campo"><span>Nome do sistema</span><input id="cx-n-nome" maxlength="40" placeholder="Feegow" required></label>
+    <label class="campo"><span>Identificador</span><input id="cx-n-slug" maxlength="40" pattern="[a-z][a-z0-9-]{1,39}" placeholder="feegow" spellcheck="false" required aria-describedby="cx-n-slug-dica"><small class="dica" id="cx-n-slug-dica">Preenchido pelo nome. Letras minúsculas, números e hífen.</small></label>
+    <label class="campo"><span>Artigo</span><select id="cx-n-artigo" aria-describedby="cx-n-previa"><option value="o">o (no Feegow)</option><option value="a">a (na Asa)</option></select></label>
+    <p class="dica" id="cx-n-previa"></p>
+    <p class="msg" id="m-cx-novo" role="status"></p>
+    <div class="acoes acoes--fim">
+      <button type="button" class="btn" id="cx-novo-cancelar">Cancelar</button>
+      <button type="submit" class="btn btn--primario">Criar rascunho</button>
     </div>
   </form>
 </dialog>

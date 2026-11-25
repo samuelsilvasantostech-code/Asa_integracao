@@ -75,6 +75,14 @@
     if (tom) n.setAttribute('data-tom', tom); else n.removeAttribute('data-tom');
     n.textContent = texto || '';
   }
+  // Erro ao carregar uma tela: a mensagem e um "Tentar de novo" ao lado.
+  function falhou(id, texto, tentar) {
+    msg(id, 'err', texto);
+    var b = el('button', 'btn', 'Tentar de novo');
+    b.type = 'button';
+    b.addEventListener('click', function () { msg(id, null, 'Carregando…'); tentar(); });
+    $(id).appendChild(b);
+  }
   // Texto para a tela. Código sem tradução vai só para o console (quem depura vê; a tela não).
   function erroDe(r) {
     var e = r.body && r.body.erro, s = r.status;
@@ -176,13 +184,13 @@
   var irPara = ligarAbas(['nav-clientes', 'nav-uso', 'nav-sistemas', 'nav-usuarios'], function (id) {
     window.scrollTo(0, 0);
     if (id === 'nav-usuarios') carregarUsuarios();
-    // A aba Uso usa a largura toda da tela e sempre abre na visão geral.
-    document.body.classList.toggle('tela-larga', id === 'nav-uso');
+    // A aba Uso sempre abre na visão geral.
     if (id === 'nav-uso') { usoClinica = null; carregarUso(); }
   });
   // Sistemas (ERP) tem duas sub-abas: conectores e pedidos. Ir a um conector sempre mostra a primeira.
   var abaDeSistemas = ligarAbas(['sx-conectores', 'sx-pedidos']);
-  function irParaConectores() { irPara('nav-sistemas'); abaDeSistemas('sx-conectores'); }
+  // O detalhe do conector tem quatro abas: dados, documentação, configuração e teste.
+  var abaDoConector = ligarAbas(['cxa-dados', 'cxa-docs', 'cxa-config', 'cxa-teste']);
   var ABAS_CLIENTE = ['da-geral', 'da-sistema', 'da-instalacao', 'da-financeiro', 'da-confirmacao', 'da-avancado'];
   var abaDoCliente = ligarAbas(ABAS_CLIENTE);
 
@@ -281,7 +289,8 @@
     $('detalhe').hidden = true;
     $('c-lista').hidden = false;
     $('assistente').hidden = true;
-    $('cx-detalhe').hidden = true;
+    mostrarDetalheCx(false);
+    if ($('dlg-cx-novo').open) $('dlg-cx-novo').close();
     $('acesso').hidden = false;
     $('f-login').hidden = false;
     $('f-primeiro').hidden = true;
@@ -294,7 +303,7 @@
   function carregarUsuarios() {
     msg('m-usuarios', null, 'Carregando…');
     return chamar('GET', '/admin/usuarios').then(function (r) {
-      if (r.status !== 200 || !r.body) { msg('m-usuarios', 'err', erroDe(r)); return; }
+      if (r.status !== 200 || !r.body) { falhou('m-usuarios', erroDe(r), carregarUsuarios); return; }
       msg('m-usuarios', null, r.body.usuarios.length ? '' : 'Nenhum usuário ainda.');
       var tb = $('u-lista');
       tb.textContent = '';
@@ -382,7 +391,7 @@
   function carregar() {
     return chamar('GET', '/admin/tenants').then(function (r) {
       if (r.status !== 200 || !r.body) {
-        msg($('area').hidden ? 'm-acesso' : 'm-lista', 'err', erroDe(r));
+        if ($('area').hidden) msg('m-acesso', 'err', erroDe(r)); else falhou('m-lista', erroDe(r), carregar);
         return false;
       }
       tenants = r.body.tenants || [];
@@ -889,7 +898,7 @@
     caixa.hidden = !d.pedido;
     if (d.pedido) {
       caixa.appendChild(el('strong', null, 'Sistema pedido: ' + d.pedido.sistema));
-      caixa.appendChild(el('p', 'dica', 'Este sistema ainda não tem conector publicado (pedido ' + (PEDIDOS[d.pedido.situacao] || d.pedido.situacao).toLowerCase() + ' desde ' + dataHora(d.pedido.criado_em) + '). A documentação anexada abaixo vai para o conector dele; quando ele for publicado, escolha-o aqui em "Sistema" e preencha o acesso.'));
+      caixa.appendChild(el('p', 'dica', 'Este sistema ainda não tem conector publicado (pedido ' + (PEDIDOS[d.pedido.situacao] ? PEDIDOS[d.pedido.situacao].texto : d.pedido.situacao).toLowerCase() + ' desde ' + dataHora(d.pedido.criado_em) + '). A documentação anexada abaixo vai para o conector dele; quando ele for publicado, escolha-o aqui em "Sistema" e preencha o acesso.'));
       if (d.pedido.conector_slug) caixa.appendChild(botao('Abrir em Sistemas (ERP)', null, function () { abrirConector(d.pedido.conector_slug); }));
     }
     $('d-doc-destino').textContent = d.slug ? 'Destino: conector ' + nomeConector(d.slug) + ' (' + d.slug + ').' : 'Destino: o conector de ' + d.pedido.sistema + ' é criado como rascunho ao anexar.';
@@ -1051,8 +1060,11 @@
   }
 
   /* ---------- Central de conectores ---------- */
-  var SITUACOES = { rascunho: { tom: 'off', texto: 'Rascunho' }, homologacao: { tom: 'warn', texto: 'Homologação' }, publicado: { tom: 'ok', texto: 'Publicado' }, arquivado: { tom: 'off', texto: 'Arquivado' } };
-  var PEDIDOS = { aberto: 'Aberto', em_andamento: 'Em andamento', atendido: 'Atendido', recusado: 'Recusado' };
+  // Rascunho e arquivado são neutros (não são erro); homologação pede atenção.
+  var SITUACOES = { rascunho: { tom: 'idle', texto: 'Rascunho' }, homologacao: { tom: 'warn', texto: 'Homologação' }, publicado: { tom: 'ok', texto: 'Publicado' }, arquivado: { tom: 'idle', texto: 'Arquivado' } };
+  var PEDIDOS = { aberto: { tom: 'warn', texto: 'Aberto' }, em_andamento: { tom: 'idle', texto: 'Em andamento' }, atendido: { tom: 'ok', texto: 'Atendido' }, recusado: { tom: 'idle', texto: 'Recusado' } };
+  var ORDEM_SITUACAO = { homologacao: 0, rascunho: 1, publicado: 2, arquivado: 3 };
+  var cxFiltro = 'todos', cxBusca = '', pedFiltro = 'abertos';
   var conectorAtual = null, pedidoAtual = null;
   // Ponto de partida de um rascunho: o motor só aceita rotas da especificação (ver a lista no detalhe).
   var MODELO_CONECTOR = {
@@ -1064,15 +1076,17 @@
     erros: { mensagem: '{{$.message}}' }
   };
 
+  function pedidoEmAberto(p) { return p.situacao === 'aberto' || p.situacao === 'em_andamento'; }
+
   function carregarConectores() {
     return chamar('GET', '/admin/conectores').then(function (r) {
-      if (r.status !== 200 || !r.body) { msg('m-cx', 'err', erroDe(r)); return; }
+      if (r.status !== 200 || !r.body) { falhou('m-cx', erroDe(r), carregarConectores); return; }
       conectores = r.body.conectores || [];
       pedidos = r.body.pedidos || [];
       camposCache = {};
       msg('m-cx', null, '');
       desenharCentral();
-      var abertos = pedidos.filter(function (p) { return p.situacao === 'aberto' || p.situacao === 'em_andamento'; }).length;
+      var abertos = pedidos.filter(pedidoEmAberto).length;
       ['nav-pedidos-n', 'sx-pedidos-n'].forEach(function (id) { $(id).textContent = String(abertos); $(id).hidden = !abertos; });
       $('nav-sistemas').setAttribute('aria-label', 'Sistemas (ERP)' + (abertos ? ', ' + abertos + (abertos === 1 ? ' pedido aberto' : ' pedidos abertos') : ''));
       desenharLista();
@@ -1093,70 +1107,184 @@
     b.addEventListener('click', acao);
     return b;
   }
+  function nomeDoConector(c) { return c.slug === 'padrao' ? 'Sistema próprio (padrão Kentro)' : c.nome; }
+  function dataCurtaDe(v) { return v ? dataHora(v).split(',')[0] : '—'; }
+  function haTempo(v) {
+    var d = diasDesde(v);
+    return d == null ? '—' : d <= 0 ? 'hoje' : d === 1 ? 'ontem' : 'há ' + d + ' dias';
+  }
+  function plural(n, um, varios) { return num(n) + ' ' + (n === 1 ? um : varios); }
+
+  // O que falta para o conector andar, só com os dados da lista. null = nada a fazer.
+  function faltaDe(c) {
+    if (c.slug === 'padrao') return { tom: 'idle', texto: 'Interno: clínicas com sistema próprio' };
+    if (c.situacao === 'arquivado') return { tom: 'idle', texto: 'Arquivado: não aparece para as clínicas' };
+    if (c.situacao === 'rascunho') return c.documentos || c.tipo === 'codigo' ? { tom: 'warn', texto: 'Falta configurar, testar e enviar para homologação' } : { tom: 'warn', texto: 'Falta anexar a documentação da API' };
+    if (c.situacao === 'homologacao') return { tom: 'warn', texto: 'Em homologação: falta publicar' };
+    if (!c.clinicas) return { tom: 'idle', texto: 'Publicado, ainda sem clínicas' };
+    return null;
+  }
+
+  // Botões .seg com data-filtro: marca o escolhido e avisa quem chamou.
+  function ligarSeg(id, aoEscolher) {
+    Array.prototype.forEach.call(document.querySelectorAll('#' + id + ' .seg__btn'), function (b) {
+      b.addEventListener('click', function () {
+        Array.prototype.forEach.call(document.querySelectorAll('#' + id + ' .seg__btn'), function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+        aoEscolher(b.getAttribute('data-filtro'));
+      });
+    });
+  }
+  function contarNoSeg(id, chave, n) { var s = document.querySelector('#' + id + ' [data-n="' + chave + '"]'); if (s) s.textContent = String(n); }
 
   function desenharCentral() {
-    var tb = $('cx-lista');
-    tb.textContent = '';
-    conectores.forEach(function (c) {
-      var tr = el('tr');
-      var nome = el('td');
-      nome.appendChild(el('strong', null, c.slug === 'padrao' ? 'Sistema próprio (padrão Kentro)' : c.nome));
-      nome.appendChild(el('div', 'sub', c.slug + (c.tipo === 'codigo' ? ' · adaptador em código' : '')));
-      tr.appendChild(nome);
-      var st = SITUACOES[c.situacao] || { tom: 'off', texto: c.situacao };
-      var td = el('td');
-      td.appendChild(selo(st.tom, st.texto));
-      tr.appendChild(td);
-      tr.appendChild(el('td', null, 'v' + c.versao));
-      tr.appendChild(el('td', null, String(c.documentos)));
-      tr.appendChild(el('td', null, String(c.clinicas)));
-      var acao = el('td');
-      acao.appendChild(botao('Abrir', 'Abrir o conector ' + c.nome, function () { abrirConector(c.slug); }));
-      tr.appendChild(acao);
-      tb.appendChild(tr);
+    desenharKpisCx();
+    desenharConectores();
+    desenharPedidos();
+  }
+
+  function desenharKpisCx() {
+    var k = $('cx-kpis');
+    k.textContent = '';
+    var conta = function (s) { return conectores.filter(function (c) { return c.situacao === s; }).length; };
+    var soma = function (campo) { return conectores.reduce(function (s, c) { return s + (c[campo] || 0); }, 0); };
+    var abertos = pedidos.filter(pedidoEmAberto).length;
+    kpi2(k, 'Publicados', num(conta('publicado')), 'aparecem para todas as clínicas');
+    kpi2(k, 'Em homologação', num(conta('homologacao')), 'em teste numa clínica');
+    kpi2(k, 'Rascunhos', num(conta('rascunho')), 'em construção');
+    kpi2(k, 'Clínicas conectadas', num(soma('clinicas')), 'somando todos os sistemas');
+    kpi2(k, 'Documentos de API', num(soma('documentos')), 'anexados aos conectores');
+    kpi2(k, 'Pedidos em aberto', num(abertos), abertos ? 'aguardando um conector' : 'nenhum aguardando');
+  }
+
+  function desenharConectores() {
+    ['publicado', 'homologacao', 'rascunho', 'arquivado'].forEach(function (s) {
+      contarNoSeg('cx-filtro', s, conectores.filter(function (c) { return c.situacao === s; }).length);
     });
-    var tp = $('cx-pedidos');
-    tp.textContent = '';
-    if (!pedidos.length) {
-      var vazio = el('tr');
-      var td0 = el('td', 'sub', 'Nenhum pedido.');
-      td0.colSpan = 6;
-      vazio.appendChild(td0);
-      tp.appendChild(vazio);
+    contarNoSeg('cx-filtro', 'todos', conectores.length);
+    var busca = dobrado(cxBusca.trim());
+    var max = conectores.reduce(function (m, c) { return Math.max(m, c.clinicas || 0); }, 0);
+    var lista = conectores.filter(function (c) {
+      return (cxFiltro === 'todos' || c.situacao === cxFiltro) && (!busca || dobrado(nomeDoConector(c) + ' ' + c.slug).indexOf(busca) >= 0);
+    }).sort(function (a, b) {
+      var oa = ORDEM_SITUACAO[a.situacao], ob = ORDEM_SITUACAO[b.situacao];
+      return (oa == null ? 9 : oa) - (ob == null ? 9 : ob) || nomeDoConector(a).localeCompare(nomeDoConector(b), 'pt-BR');
+    });
+    $('cx-contagem').textContent = plural(lista.length, 'sistema', 'sistemas');
+    var grade = $('cx-lista');
+    grade.textContent = '';
+    if (!lista.length) {
+      grade.appendChild(vazio(conectores.length ? 'Nenhum sistema neste filtro.' : 'Nenhum sistema cadastrado. Crie o primeiro em + Novo sistema.'));
+      return;
     }
-    pedidos.forEach(function (p) {
-      var tr = el('tr');
-      var sis = el('td');
-      sis.appendChild(el('strong', null, p.sistema));
-      if (p.observacao) sis.appendChild(el('div', 'sub', p.observacao));
-      tr.appendChild(sis);
-      tr.appendChild(el('td', null, p.clinica || '—'));
-      tr.appendChild(el('td', null, p.contato || '—'));
-      tr.appendChild(el('td', null, PEDIDOS[p.situacao] || p.situacao));
-      tr.appendChild(el('td', null, dataHora(p.criado_em)));
-      var acao = el('td');
-      if (p.conector_slug) acao.appendChild(botao('Abrir conector', null, function () { abrirConector(p.conector_slug); }));
-      else if (p.situacao === 'aberto' || p.situacao === 'em_andamento') acao.appendChild(botao('Criar conector', 'Criar conector para ' + p.sistema, function () { comecarPeloPedido(p); }));
-      if (p.situacao !== 'atendido' && p.situacao !== 'recusado') {
-        acao.appendChild(botao('Atendido', null, function () { mudarPedido(p, 'atendido'); }));
-        acao.appendChild(botao('Recusar', null, function () { mudarPedido(p, 'recusado'); }));
-      }
-      tr.appendChild(acao);
-      tp.appendChild(tr);
-    });
+    lista.forEach(function (c) { grade.appendChild(cartaoConector(c, max)); });
+  }
+
+  function cartaoConector(c, max) {
+    var st = SITUACOES[c.situacao] || { tom: 'idle', texto: c.situacao };
+    var nome = nomeDoConector(c), falta = faltaDe(c);
+    var b = el('button', 'cartao-clinica cartao-conector' + (c.situacao === 'homologacao' ? ' cartao-clinica--aviso' : ''));
+    b.type = 'button';
+    b.dataset.slug = c.slug;
+    var topo = el('div', 'cartao-clinica__topo');
+    topo.appendChild(el('span', 'cartao-clinica__nome', nome));
+    topo.appendChild(selo(st.tom, st.texto));
+    b.appendChild(topo);
+    b.appendChild(el('div', 'cartao-conector__id', c.slug + ' · ' + (c.tipo === 'codigo' ? 'adaptador em código' : 'configuração') + ' · v' + c.versao));
+    var linha = el('div', 'cartao-clinica__linha');
+    linha.appendChild(el('span', 'cartao-clinica__num', num(c.clinicas)));
+    linha.appendChild(el('span', 'cartao-clinica__un', c.clinicas === 1 ? 'clínica usa' : 'clínicas usam'));
+    b.appendChild(linha);
+    var trilho = el('span', 'barras-h__trilho cartao-conector__trilho'), barra = el('span', 'barras-h__barra');
+    barra.style.width = max && c.clinicas ? Math.max(3, (c.clinicas / max) * 100) + '%' : '0';
+    trilho.appendChild(barra);
+    b.appendChild(trilho);
+    if (falta) b.appendChild(el('div', 'cartao-clinica__motivo' + (falta.tom === 'idle' ? ' cartao-clinica__motivo--neutro' : ''), falta.texto));
+    var pe = el('div', 'cartao-clinica__pe');
+    pe.appendChild(el('span', null, c.documentos ? plural(c.documentos, 'documento', 'documentos') : 'Sem documentação'));
+    pe.appendChild(el('span', null, 'Atualizado ' + dataCurtaDe(c.atualizado_em)));
+    b.appendChild(pe);
+    b.setAttribute('aria-label', nome + ', ' + st.texto + ', ' + plural(c.clinicas, 'clínica', 'clínicas') + (falta ? ', ' + falta.texto : '') + '. Abrir o conector.');
+    b.addEventListener('click', function () { abrirConector(c.slug); });
+    return b;
+  }
+
+  var FILTROS_PEDIDO = {
+    abertos: pedidoEmAberto,
+    atendido: function (p) { return p.situacao === 'atendido'; },
+    recusado: function (p) { return p.situacao === 'recusado'; },
+    todos: function () { return true; }
+  };
+
+  function desenharPedidos() {
+    Object.keys(FILTROS_PEDIDO).forEach(function (f) { contarNoSeg('cx-ped-filtro', f, pedidos.filter(FILTROS_PEDIDO[f]).length); });
+    var lista = pedidos.filter(FILTROS_PEDIDO[pedFiltro]).sort(function (a, b) { return String(b.criado_em).localeCompare(String(a.criado_em)); });
+    var grade = $('cx-pedidos');
+    grade.textContent = '';
+    if (!lista.length) {
+      grade.appendChild(vazio(pedFiltro === 'abertos' ? 'Nenhum pedido em aberto. Os pedidos chegam das clínicas e do assistente de novo cliente.' : 'Nenhum pedido aqui.'));
+      return;
+    }
+    lista.forEach(function (p) { grade.appendChild(cartaoPedido(p)); });
+  }
+
+  function cartaoPedido(p) {
+    var st = PEDIDOS[p.situacao] || { tom: 'idle', texto: p.situacao };
+    var aberto = pedidoEmAberto(p);
+    var a = el('article', 'cartao-clinica cartao-pedido' + (p.situacao === 'aberto' ? ' cartao-clinica--aviso' : ''));
+    var topo = el('div', 'cartao-clinica__topo');
+    topo.appendChild(el('h3', 'cartao-clinica__nome', p.sistema));
+    topo.appendChild(selo(st.tom, st.texto));
+    a.appendChild(topo);
+    var quem = el('div', 'cartao-pedido__quem');
+    quem.appendChild(el('span', null, p.clinica || 'Clínica não informada'));
+    if (p.contato) quem.appendChild(el('span', null, p.contato));
+    a.appendChild(quem);
+    if (p.observacao) a.appendChild(el('p', 'cartao-pedido__obs', p.observacao));
+    var quando = el('time', 'cartao-pedido__quando', 'Pedido ' + haTempo(p.criado_em));
+    quando.setAttribute('datetime', p.criado_em || '');
+    quando.title = dataHora(p.criado_em);
+    a.appendChild(quando);
+    var acoes = el('div', 'cartao-pedido__acoes');
+    var principal = null;
+    if (p.conector_slug) principal = botao('Abrir conector', 'Abrir o conector de ' + p.sistema, function () { abrirConector(p.conector_slug); });
+    else if (aberto) principal = botao('Criar conector', 'Criar conector para ' + p.sistema, function () { comecarPeloPedido(p); });
+    if (principal) { principal.classList.add('btn--primario'); acoes.appendChild(principal); }
+    if (aberto) {
+      acoes.appendChild(botao('Atendido', 'Marcar o pedido de ' + p.sistema + ' como atendido', function () { mudarPedido(p, 'atendido'); }));
+      acoes.appendChild(botao('Recusar', 'Recusar o pedido de ' + p.sistema, function () {
+        if (window.confirm('Recusar o pedido de ' + p.sistema + (p.clinica ? ' (' + p.clinica + ')' : '') + '?')) mudarPedido(p, 'recusado');
+      }));
+    }
+    if (acoes.firstChild) a.appendChild(acoes);
+    return a;
   }
 
   function slugDe(nome) {
     return String(nome || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/^[^a-z]+/, '').slice(0, 40);
   }
 
-  function comecarPeloPedido(p) {
-    pedidoAtual = p;
-    irParaConectores();
-    $('cx-n-nome').value = p.sistema;
-    $('cx-n-slug').value = slugDe(p.sistema);
-    msg('m-cx-novo', null, 'Criando o conector do pedido de ' + (p.clinica || 'uma clínica') + '. Confira o nome e o identificador.');
+  // "Novo sistema" abre num diálogo; vindo de um pedido, já chega preenchido.
+  function abrirNovoSistema(p) {
+    pedidoAtual = p || null;
+    $('f-cx-novo').reset();
+    delete $('cx-n-slug').dataset.mexido;
+    $('cx-n-nome').value = p ? p.sistema : '';
+    $('cx-n-slug').value = p ? slugDe(p.sistema) : '';
+    $('cx-novo-pedido').textContent = p ? 'Para o pedido de ' + (p.clinica || 'uma clínica') + '. Confira o nome e o identificador.' : '';
+    $('cx-novo-pedido').hidden = !p;
+    msg('m-cx-novo', null, '');
+    previaArtigo();
+    $('dlg-cx-novo').showModal();
     $('cx-n-nome').focus();
+  }
+  function previaArtigo() {
+    var nome = $('cx-n-nome').value.trim() || 'Feegow';
+    $('cx-n-previa').textContent = 'Nas telas da clínica: "' + ($('cx-n-artigo').value === 'a' ? 'na ' : 'no ') + nome + '".';
+  }
+
+  function comecarPeloPedido(p) {
+    irPara('nav-sistemas');
+    abrirNovoSistema(p);
   }
 
   function mudarPedido(p, situacao) {
@@ -1173,33 +1301,109 @@
     msg('m-cx-novo', null, 'Criando…');
     chamar('POST', '/admin/conectores', corpo).then(function (r) {
       if (r.status !== 201) { msg('m-cx-novo', 'err', erroDe(r)); return; }
-      msg('m-cx-novo', 'ok', 'Rascunho criado. Anexe a documentação e escreva a configuração abaixo.');
       pedidoAtual = null;
-      $('f-cx-novo').reset();
-      carregarConectores().then(function () { abrirConector(corpo.slug); });
+      $('dlg-cx-novo').close();
+      carregarConectores().then(function () { return abrirConector(corpo.slug, 'cxa-docs'); }).then(function () {
+        msg('m-cx-acao', 'ok', 'Rascunho criado. Anexe a documentação e depois escreva a configuração.');
+      });
     });
   }
 
-  function abrirConector(slug) {
-    if (conectorAtual && conectorAtual.slug !== slug && !podeDescartar(FORMS_CONECTOR)) return;
-    chamar('GET', '/admin/conectores/' + encodeURIComponent(slug)).then(function (r) {
-      if (r.status !== 200 || !r.body) { msg('m-cx', 'err', erroDe(r)); return; }
+  // Lista e detalhe dividem a mesma aba: um aparece, o outro some.
+  function mostrarDetalheCx(sim) {
+    $('cx-central').hidden = sim;
+    $('cx-detalhe').hidden = !sim;
+  }
+  function fecharConector() {
+    if (!podeDescartar(FORMS_CONECTOR)) return;
+    FORMS_CONECTOR.forEach(function (f) { delete fotos[f]; });
+    var slug = conectorAtual && conectorAtual.slug;
+    conectorAtual = null;
+    mostrarDetalheCx(false);
+    window.scrollTo(0, 0);
+    var volta = slug && Array.prototype.filter.call($('cx-lista').querySelectorAll('.cartao-conector'), function (b) { return b.dataset.slug === slug; })[0];
+    if (volta) volta.focus(); else $('h-central').focus();
+  }
+
+  // Passos até publicar. "Homologação" e "Publicado" vêm da situação; não há registro de teste gravado.
+  function etapasDoConector(c) {
+    var ol = $('cx-etapas');
+    ol.textContent = '';
+    var docs = (c.documentos || []).length, codigo = c.tipo === 'codigo' || c.slug === 'padrao';
+    var nivel = { rascunho: 0, homologacao: 1, publicado: 2 }[c.situacao];
+    if (nivel == null) nivel = -1;
+    var passos = [
+      { nome: 'Documentação', feito: docs > 0 || codigo, sub: docs ? plural(docs, 'anexado', 'anexados') : codigo ? 'no código' : 'falta anexar' },
+      { nome: 'Configuração', feito: codigo || !!c.config, sub: codigo ? 'no código' : c.config ? 'v' + c.versao : 'falta escrever' },
+      { nome: 'Homologação', feito: nivel >= 2, sub: nivel >= 2 ? 'concluída' : nivel === 1 ? 'em teste agora' : 'uma clínica testa' },
+      { nome: 'Publicado', feito: nivel >= 2, sub: nivel >= 2 ? dataCurtaDe(c.publicado_em) : 'todas as clínicas veem' }
+    ];
+    var atualMarcado = false;
+    passos.forEach(function (p) {
+      var li = el('li');
+      var estado = p.feito ? 'feita' : atualMarcado ? '' : 'atual';
+      if (!p.feito) atualMarcado = true;
+      if (estado) li.setAttribute('data-estado', estado);
+      li.appendChild(el('span', null, p.nome));
+      li.appendChild(el('span', 'etapas__sub', p.sub));
+      li.appendChild(el('span', 'sr', p.feito ? ' (concluído)' : ' (pendente)'));
+      ol.appendChild(li);
+    });
+    ol.hidden = c.situacao === 'arquivado';
+  }
+
+  // Ação principal conforme a situação (a mesma rota do formulário Dados).
+  function acoesDoConector(c) {
+    var box = $('cx-acoes');
+    box.textContent = '';
+    var proxima = { rascunho: ['homologacao', 'Enviar para homologação'], homologacao: ['publicado', 'Publicar'], arquivado: ['rascunho', 'Reativar como rascunho'] }[c.situacao];
+    if (!proxima || c.slug === 'padrao') return;
+    var b = botao(proxima[1], null, function () { mudarSituacao(c, proxima[0]); });
+    if (c.situacao !== 'arquivado') b.classList.add('btn--primario');
+    box.appendChild(b);
+  }
+
+  function mudarSituacao(c, situacao) {
+    if (situacao === 'publicado' && !window.confirm('Publicar ' + c.nome + '? Ele passa a aparecer para todas as clínicas escolherem.')) return;
+    msg('m-cx-acao', null, 'Salvando…');
+    chamar('POST', '/admin/conectores/' + encodeURIComponent(c.slug) + '/situacao', { situacao: situacao }).then(function (r) {
+      if (r.status !== 200) {
+        var extra = r.body && r.body.clinicas ? ' (' + r.body.clinicas + ' clínica(s) ativa(s) usam este conector)' : '';
+        msg('m-cx-acao', 'err', erroDe(r) + extra);
+        return;
+      }
+      carregarConectores().then(function () { return abrirConector(c.slug); }).then(function () {
+        msg('m-cx-acao', 'ok', 'Situação: ' + SITUACOES[situacao].texto + '.');
+      });
+    });
+  }
+
+  function abrirConector(slug, aba) {
+    if (conectorAtual && conectorAtual.slug !== slug && !podeDescartar(FORMS_CONECTOR)) return Promise.resolve();
+    return chamar('GET', '/admin/conectores/' + encodeURIComponent(slug)).then(function (r) {
+      if (r.status !== 200 || !r.body) { msg(conectorAtual ? 'm-cx-acao' : 'm-cx', 'err', erroDe(r)); return; }
       var c = r.body;
-      var manter = function (f) { return conectorAtual && conectorAtual.slug === c.slug && sujo(f); };
+      var mesmo = conectorAtual && conectorAtual.slug === c.slug;
+      var manter = function (f) { return mesmo && sujo(f); };
       var kDados = manter('f-cx-dados'), kConfig = manter('f-cx-config'), kDoc = manter('f-cx-doc');
       conectorAtual = c;
-      irParaConectores();
-      $('cx-detalhe').hidden = false;
-      $('cx-titulo').textContent = c.slug === 'padrao' ? 'Sistema próprio (padrão Kentro)' : c.nome;
-      var dl = $('cx-resumo');
-      dl.textContent = '';
-      [
-        ['Identificador', c.slug],
-        ['Tipo', c.tipo === 'codigo' ? 'Adaptador em código (não editável aqui)' : 'Configuração'],
-        ['Versão', 'v' + c.versao],
-        ['Atualizado', dataHora(c.atualizado_em)],
-        ['Publicado em', dataHora(c.publicado_em)]
-      ].forEach(function (p) { dl.appendChild(el('dt', null, p[0])); dl.appendChild(el('dd', null, p[1])); });
+      if ($('v-sistemas').hidden) irPara('nav-sistemas');
+      mostrarDetalheCx(true);
+      var daLista = conectores.filter(function (x) { return x.slug === c.slug; })[0] || {};
+      var st = SITUACOES[c.situacao] || { tom: 'idle', texto: c.situacao };
+      $('cx-titulo').textContent = nomeDoConector(c);
+      $('cx-selo').textContent = '';
+      $('cx-selo').appendChild(selo(st.tom, st.texto));
+      $('cx-sub').textContent = c.slug + ' · ' + (c.tipo === 'codigo' ? 'adaptador em código (não editável aqui)' : 'conector por configuração') + (c.observacao ? ' · ' + c.observacao : '');
+      etapasDoConector(c);
+      acoesDoConector(c);
+      var k = $('cx-resumo');
+      k.textContent = '';
+      kpi2(k, 'Clínicas', num(daLista.clinicas), 'usam este sistema');
+      kpi2(k, 'Documentos', num((c.documentos || []).length), 'de API anexados');
+      kpi2(k, 'Versão', 'v' + c.versao, c.tipo === 'codigo' ? 'adaptador em código' : 'sobe a cada gravação');
+      kpi2(k, 'Atualizado', dataCurtaDe(c.atualizado_em), haTempo(c.atualizado_em));
+      kpi2(k, 'Publicado em', c.publicado_em ? dataCurtaDe(c.publicado_em) : '—', c.publicado_em ? haTempo(c.publicado_em) : 'ainda não publicado');
       if (!kDados) {
         $('cx-nome').value = c.nome;
         $('cx-artigo').value = c.artigo;
@@ -1212,14 +1416,18 @@
       $('f-cx-config').querySelector('button').disabled = $('cx-config').disabled;
       $('cx-erros').textContent = '';
       ['m-cx-dados', 'm-cx-config', 'm-cx-doc', 'm-cx-teste'].forEach(function (id) { msg(id, null, ''); });
+      if (!mesmo) msg('m-cx-acao', null, '');
       if (c.slug === 'padrao') msg('m-cx-config', null, 'O padrão Kentro não traduz nada: a configuração é a do código, só para consulta.');
+      else if (c.tipo === 'codigo') msg('m-cx-config', null, 'Este adaptador é código: a configuração aparece só para consulta.');
       desenharDocs($('cx-docs'), c.documentos || [], c.slug, 'm-cx-doc', function () { abrirConector(c.slug); carregarConectores(); });
       montarCampos($('cx-teste-campos'), c.campos || [], 'cx-t-');
-      $('cx-passos').textContent = '';
+      if (!mesmo) $('cx-passos').textContent = '';
       if (!kDados) fotografar('f-cx-dados');
       if (!kConfig) fotografar('f-cx-config');
       if (!kDoc) fotografar('f-cx-doc');
-      $('cx-titulo').focus();
+      if (aba) abaDoConector(aba);
+      else if (!mesmo) abaDoConector('cxa-dados');
+      if (!mesmo) { window.scrollTo(0, 0); $('cx-titulo').focus(); }
     });
   }
 
@@ -1614,12 +1822,14 @@
   $('f-cx-novo').addEventListener('submit', criarConector);
   $('cx-n-nome').addEventListener('input', function () { if (!$('cx-n-slug').dataset.mexido) $('cx-n-slug').value = slugDe($('cx-n-nome').value); });
   $('cx-n-slug').addEventListener('input', function () { $('cx-n-slug').dataset.mexido = '1'; });
-  $('cx-fechar').addEventListener('click', function () {
-    if (!podeDescartar(FORMS_CONECTOR)) return;
-    FORMS_CONECTOR.forEach(function (f) { delete fotos[f]; });
-    conectorAtual = null;
-    $('cx-detalhe').hidden = true;
-  });
+  $('cx-fechar').addEventListener('click', fecharConector);
+  $('cx-novo-abrir').addEventListener('click', function () { abrirNovoSistema(null); });
+  $('cx-novo-cancelar').addEventListener('click', function () { $('dlg-cx-novo').close(); });
+  $('cx-n-nome').addEventListener('input', previaArtigo);
+  $('cx-n-artigo').addEventListener('change', previaArtigo);
+  $('cx-busca').addEventListener('input', function () { cxBusca = $('cx-busca').value; desenharConectores(); });
+  ligarSeg('cx-filtro', function (f) { cxFiltro = f; desenharConectores(); });
+  ligarSeg('cx-ped-filtro', function (f) { pedFiltro = f; desenharPedidos(); });
   $('f-cx-dados').addEventListener('submit', salvarDadosConector);
   $('f-cx-config').addEventListener('submit', salvarConfigConector);
   $('f-cx-doc').addEventListener('submit', anexarDoc);
@@ -1653,7 +1863,7 @@
         usoDados = null;
         $('uso-lista').textContent = '';
         $('uso-kpis').textContent = '';
-        msg('m-uso', 'err', erroDe(r));
+        falhou('m-uso', erroDe(r), carregarUso);
         return;
       }
       usoDados = r.body;
