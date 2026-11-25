@@ -436,7 +436,6 @@ h3.cartao-clinica__nome { margin: 0; }
 .cartao-clinica__motivo--ok { color: var(--ok); }
 .cartao-cliente .alertas { margin: 0; }
 .kpi2--falta .kpi2__num { color: var(--warn); }
-@media (min-width: 1280px) { #resumo { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 .geral { display: grid; gap: var(--s5); padding-top: var(--s3); }
 .geral .cabeca { margin-bottom: var(--s2); }
 .geral .cabeca h3 { margin: 0; }
@@ -444,3 +443,17 @@ h3.cartao-clinica__nome { margin: 0; }
 .graf-area--baixa { min-height: 180px; }
 .recursos--grade { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .como .roteiro { margin-top: var(--s2); color: var(--muted); font-size: 13px; }
+
+/* 0.44: assistente como página, ficha em duas colunas, Usuários em 8-4, senha na barra lateral */
+.lateral__botoes { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.pilha { display: grid; gap: var(--s3); }
+.pilha h3 { margin: 0; }
+#assistente > .cartao .etapa { margin-top: 0; }
+@media (min-width: 1280px) and (max-width: 1439px) { #resumo { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 1440px) {
+  #detalhe { grid-template-columns: minmax(0, 1fr) 280px; }
+  #detalhe > header { grid-column: 1 / -1; }
+  #detalhe > .cartao { grid-column: 1; grid-row: 2; }
+  #resumo { grid-column: 2; grid-row: 2; grid-template-columns: minmax(0, 1fr); align-self: start; position: sticky; top: var(--s4); }
+}
+#v-usuarios .uso-linha { align-items: start; }

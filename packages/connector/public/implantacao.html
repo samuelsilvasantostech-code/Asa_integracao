@@ -21,7 +21,10 @@
   </nav>
   <div class="lateral__pe">
     <span class="lateral__quem" id="quem"></span>
-    <button type="button" class="btn btn--claro" id="b-sair" hidden>Sair</button>
+    <div class="lateral__botoes">
+      <button type="button" class="btn btn--claro" id="b-senha" hidden>Trocar senha</button>
+      <button type="button" class="btn btn--claro" id="b-sair" hidden>Sair</button>
+    </div>
   </div>
 </header>
 
@@ -107,17 +110,19 @@
       </div>
 
       <!-- Assistente de novo cliente -->
-      <section class="cartao" id="assistente" aria-labelledby="h-assistente" hidden>
-        <div class="cabeca">
+      <section class="subvista" id="assistente" aria-labelledby="h-assistente" hidden>
+        <header class="pagina">
+          <button type="button" class="voltar" id="w-fechar">← Clientes</button>
           <h2 id="h-assistente" tabindex="-1">Novo cliente</h2>
-          <button type="button" class="btn" id="w-fechar">Fechar</button>
-        </div>
-        <ol class="etapas" id="w-etapas">
+          <p class="pagina__sub">Quatro passos. O cliente é criado no primeiro; se sair antes do fim, termine pela ficha dele.</p>
+        </header>
+        <ol class="etapas etapas--cx" id="w-etapas">
           <li data-etapa="1">Clínica</li>
           <li data-etapa="2">Sistema (ERP)</li>
           <li data-etapa="3">Acesso ao sistema</li>
           <li data-etapa="4">Instalação na Kentro</li>
         </ol>
+        <div class="cartao">
 
         <form id="w-1" class="etapa grade" autocomplete="off">
           <label class="campo"><span>Nome da clínica</span><input id="w-nome" maxlength="120" required></label>
@@ -169,6 +174,7 @@
             <button type="submit" class="btn btn--primario">Concluir</button>
           </form>
           <p class="msg" id="m-w-4" role="status"></p>
+        </div>
         </div>
       </section>
 
@@ -603,34 +609,30 @@
           <p>Desativar um usuário ou trocar a senha dele encerra as sessões abertas daquele usuário. Cada sessão dura 12 horas.</p>
         </details>
       </header>
-      <section class="cartao" aria-label="Lista de usuários">
-        <div class="tabela-rolagem">
-          <table class="tabela">
-            <caption class="sr">Usuários da implantação</caption>
-            <thead><tr><th scope="col">Nome</th><th scope="col">Usuário</th><th scope="col">Situação</th><th scope="col">Último acesso</th><th scope="col">Criado</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
-            <tbody id="u-lista"></tbody>
-          </table>
-        </div>
-        <p class="msg" id="m-usuarios" role="status"></p>
+      <div class="uso-linha uso-linha--8-4">
+        <section class="cartao" aria-label="Lista de usuários">
+          <div class="tabela-rolagem">
+            <table class="tabela">
+              <caption class="sr">Usuários da implantação</caption>
+              <thead><tr><th scope="col">Nome</th><th scope="col">Usuário</th><th scope="col">Situação</th><th scope="col">Último acesso</th><th scope="col">Criado</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
+              <tbody id="u-lista"></tbody>
+            </table>
+          </div>
+          <p class="msg" id="m-usuarios" role="status"></p>
+        </section>
 
-        <form id="f-u-novo" class="bloco grade" autocomplete="off">
-          <h3>Novo usuário</h3>
-          <label class="campo"><span>Nome</span><input id="u-nome" maxlength="120" required></label>
-          <label class="campo"><span>Usuário (ou e-mail)</span><input id="u-usuario" maxlength="80" spellcheck="false" autocapitalize="none" required></label>
-          <label class="campo"><span>Senha inicial (mínimo 10 caracteres)</span><input id="u-senha" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
-          <div class="acoes"><button type="submit" class="btn btn--primario">Criar usuário</button></div>
-          <p class="msg" id="m-u-novo" role="status"></p>
-        </form>
-
-        <form id="f-u-senha" class="bloco grade" autocomplete="off">
-          <h3>Trocar a minha senha</h3>
-          <input type="text" id="u-eu" autocomplete="username" hidden>
-          <label class="campo"><span>Nova senha (mínimo 10 caracteres)</span><input id="u-nova" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
-          <label class="campo"><span>Repita a nova senha</span><input id="u-nova2" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
-          <div class="acoes"><button type="submit" class="btn btn--primario">Trocar senha</button></div>
-          <p class="msg" id="m-u-senha" role="status"></p>
-        </form>
-      </section>
+        <section class="cartao" aria-labelledby="h-u-novo">
+          <form id="f-u-novo" class="pilha" autocomplete="off">
+            <h3 id="h-u-novo">Novo usuário</h3>
+            <label class="campo"><span>Nome</span><input id="u-nome" maxlength="120" required></label>
+            <label class="campo"><span>Usuário (ou e-mail)</span><input id="u-usuario" maxlength="80" spellcheck="false" autocapitalize="none" required></label>
+            <label class="campo"><span>Senha inicial (mínimo 10 caracteres)</span><input id="u-senha" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
+            <div class="acoes"><button type="submit" class="btn btn--primario">Criar usuário</button></div>
+            <p class="msg" id="m-u-novo" role="status"></p>
+          </form>
+          <p class="dica">Para trocar a sua própria senha, use <strong>Trocar senha</strong> na barra lateral.</p>
+        </section>
+      </div>
     </section>
   </div>
 </main>

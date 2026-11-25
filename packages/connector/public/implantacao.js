@@ -207,8 +207,7 @@
     $('b-sair').hidden = false;
     $('nav-usuarios').hidden = false;
     $('quem').textContent = eu ? eu.nome : 'Chave de administrador';
-    $('u-eu').value = eu ? eu.usuario : '';
-    $('f-u-senha').hidden = !eu;
+    $('b-senha').hidden = !eu;
     irPara('nav-clientes');
     carregarConectores();
   }
@@ -286,6 +285,7 @@
     $('area').hidden = true;
     $('nav').hidden = true;
     $('b-sair').hidden = true;
+    $('b-senha').hidden = true;
     $('detalhe').hidden = true;
     $('c-lista').hidden = false;
     $('assistente').hidden = true;
@@ -342,7 +342,11 @@
   var senhaDe = null; // usuário cuja senha o diálogo está trocando
   function abrirNovaSenha(u) {
     senhaDe = u;
-    $('dlg-senha-quem').textContent = 'Para ' + u.nome + ' (' + u.usuario + '). As sessões abertas desse usuário são encerradas.';
+    var propria = !!(eu && u.id === eu.id);
+    $('dlg-senha-t').textContent = propria ? 'Trocar a minha senha' : 'Nova senha';
+    $('dlg-senha-quem').textContent = propria
+      ? 'A sua senha (' + u.usuario + '). As suas sessões em outros navegadores são encerradas; esta continua aberta.'
+      : 'Para ' + u.nome + ' (' + u.usuario + '). As sessões abertas desse usuário são encerradas.';
     $('dlg-senha-usuario').value = u.usuario;
     msg('m-dlg-senha', null, '');
     $('dlg-senha').showModal();
@@ -357,6 +361,14 @@
     msg('m-dlg-senha', null, 'Salvando…');
     chamar('PATCH', '/admin/usuarios/' + encodeURIComponent(u.id), { senha: a }).then(function (r) {
       if (r.status !== 200) { msg('m-dlg-senha', 'err', erroDe(r)); return; }
+      if (eu && u.id === eu.id) {
+        // A própria senha: confirma no diálogo, que fica aberto até a pessoa fechar.
+        $('dlg-nova').value = ''; $('dlg-nova2').value = '';
+        msg('m-dlg-senha', 'ok', 'Senha trocada. As suas outras sessões foram encerradas.');
+        $('dlg-cancelar').textContent = 'Fechar';
+        $('dlg-cancelar').focus();
+        return;
+      }
       $('dlg-senha').close();
       msg('m-usuarios', 'ok', 'Senha de ' + u.nome + ' trocada.');
       carregarUsuarios();
@@ -373,17 +385,6 @@
       msg('m-u-novo', 'ok', 'Usuário criado. Passe a senha inicial por um canal seguro e peça para trocar no primeiro acesso.');
       $('f-u-novo').reset();
       carregarUsuarios();
-    });
-  }
-
-  function trocarMinhaSenha(ev) {
-    ev.preventDefault();
-    if ($('u-nova').value !== $('u-nova2').value) { msg('m-u-senha', 'err', 'As duas senhas não são iguais.'); return; }
-    msg('m-u-senha', null, 'Salvando…');
-    chamar('PATCH', '/admin/usuarios/' + encodeURIComponent(eu.id), { senha: $('u-nova').value }).then(function (r) {
-      $('u-nova').value = ''; $('u-nova2').value = '';
-      if (r.status !== 200) { msg('m-u-senha', 'err', erroDe(r)); return; }
-      msg('m-u-senha', 'ok', 'Senha trocada. As suas outras sessões (outros navegadores) foram encerradas.');
     });
   }
 
@@ -556,9 +557,10 @@
     ['m-w-1', 'm-w-2', 'm-w-3', 'm-w-4'].forEach(function (id) { msg(id, null, ''); });
     $('w-chave').textContent = '';
     $('h-assistente').textContent = 'Novo cliente';
+    $('c-lista').hidden = true;
     $('assistente').hidden = false;
     etapa(1);
-    $('assistente').scrollIntoView({ behavior: 'smooth' });
+    window.scrollTo(0, 0);
     $('w-nome').focus();
   }
 
@@ -568,9 +570,11 @@
     wiz = null;
     $('assistente').hidden = true;
     $('w-chave').textContent = '';
-    if (criado) carregar().then(function () {
+    // Sem cliente criado, volta para a lista; com cliente, abre a ficha dele.
+    if (!criado) { $('c-lista').hidden = false; $('b-novo').focus(); return; }
+    carregar().then(function () {
       var t = tenants.filter(function (x) { return x.id === criado.id; })[0];
-      if (t) abrir(t, true);
+      if (t) abrir(t, true); else $('c-lista').hidden = false;
     });
   }
 
@@ -1822,12 +1826,17 @@
   $('f-primeiro').addEventListener('submit', primeiroAcesso);
   $('u-atualizar').addEventListener('click', carregarUsuarios);
   $('f-u-novo').addEventListener('submit', novoUsuario);
-  $('f-u-senha').addEventListener('submit', trocarMinhaSenha);
+  $('b-senha').addEventListener('click', function () { if (eu) abrirNovaSenha(eu); });
   $('f-dlg-senha').addEventListener('submit', definirNovaSenha);
   $('dlg-cancelar').addEventListener('click', function () { $('dlg-senha').close(); });
   // Fechar (Esc, Cancelar ou depois de salvar) apaga o que foi digitado.
-  $('dlg-senha').addEventListener('close', function () { $('dlg-nova').value = ''; $('dlg-nova2').value = ''; senhaDe = null; });
+  $('dlg-senha').addEventListener('close', function () { $('dlg-nova').value = ''; $('dlg-nova2').value = ''; senhaDe = null; $('dlg-cancelar').textContent = 'Cancelar'; });
   $('b-sair').addEventListener('click', sair);
+  // Em telas estreitas a barra lateral vira uma faixa horizontal; o leitor de tela precisa saber.
+  var estreita = window.matchMedia('(max-width: 900px)');
+  function orientarNav() { $('nav').setAttribute('aria-orientation', estreita.matches ? 'horizontal' : 'vertical'); }
+  orientarNav();
+  if (estreita.addEventListener) estreita.addEventListener('change', orientarNav);
   $('b-atualizar').addEventListener('click', function () { msg('m-lista', null, 'Atualizando…'); carregar(); });
   $('b-fechar').addEventListener('click', function () { if (podeDescartar(FORMS_CLIENTE)) fechar(); });
   $('c-busca').addEventListener('input', desenharLista);
