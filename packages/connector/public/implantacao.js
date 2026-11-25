@@ -181,7 +181,8 @@
   // Sistemas (ERP) tem duas sub-abas: conectores e pedidos. Ir a um conector sempre mostra a primeira.
   var abaDeSistemas = ligarAbas(['sx-conectores', 'sx-pedidos']);
   function irParaConectores() { irPara('nav-sistemas'); abaDeSistemas('sx-conectores'); }
-  var abaDoCliente = ligarAbas(['da-sistema', 'da-instalacao', 'da-financeiro', 'da-confirmacao', 'da-avancado']);
+  var ABAS_CLIENTE = ['da-geral', 'da-sistema', 'da-instalacao', 'da-financeiro', 'da-confirmacao', 'da-avancado'];
+  var abaDoCliente = ligarAbas(ABAS_CLIENTE);
 
   function urlManifest() { return location.origin + '/extensao/manifest.json'; }
 
@@ -262,6 +263,8 @@
   }
 
   function sair() {
+    if (!podeDescartar(FORMS_CLIENTE.concat(FORMS_CONECTOR))) return;
+    fotos = {};
     var tinhaSessao = !!eu;
     chave = '';
     eu = null;
@@ -274,6 +277,7 @@
     $('nav').hidden = true;
     $('b-sair').hidden = true;
     $('detalhe').hidden = true;
+    $('c-lista').hidden = false;
     $('assistente').hidden = true;
     $('cx-detalhe').hidden = true;
     $('acesso').hidden = false;
@@ -306,7 +310,7 @@
         tr.appendChild(el('td', null, dataHora(u.criado_em) + (u.criado_por ? ' · ' + u.criado_por : '')));
         var acao = el('td');
         if (!(eu && eu.id === u.id)) {
-          acao.appendChild(botao(u.ativo ? 'Desativar' : 'Reativar', null, function () { mudarUsuario(u, { ativo: !u.ativo }, u.ativo ? 'Desativar ' + u.nome + '? As sessões dele são encerradas.' : null); }));
+          acao.appendChild(botao(u.ativo ? 'Desativar' : 'Reativar', null, function () { mudarUsuario(u, { ativo: !u.ativo }, u.ativo ? 'Desativar ' + u.nome + '? As sessões desse usuário são encerradas.' : null); }));
           acao.appendChild(botao('Nova senha', 'Definir nova senha para ' + u.nome, function () { abrirNovaSenha(u); }));
         }
         tr.appendChild(acao);
@@ -410,16 +414,69 @@
     return pedidos.filter(function (p) { return p.tenant_id === t.id && (p.situacao === 'aberto' || p.situacao === 'em_andamento'); })[0] || null;
   }
 
+  function diasDesde(v) { return v ? Math.floor((Date.now() - new Date(v).getTime()) / 864e5) : null; }
+  function dobrado(x) { return String(x == null ? '' : x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+
+  // O que falta para a clínica usar o ClinFy de verdade. aba: onde se resolve na ficha (null = não se resolve aqui).
+  function pendencias(t) {
+    if (!t.ativo) return [];
+    var p = [], ped = pedidoDe(t);
+    if (ped) p.push({ texto: 'Aguardando conector de ' + ped.sistema, aba: 'da-sistema', grave: true });
+    else if (!t.tem_credencial) p.push({ texto: 'Sem acesso ao sistema', aba: 'da-sistema', grave: true });
+    else if (!t.erp_testado_em) p.push({ texto: 'Conexão ainda não testada', aba: 'da-sistema' });
+    if (t.kentro_instalacao_id == null) p.push({ texto: 'Id da instalação não anotado', aba: 'da-instalacao' });
+    if (!t.kentro_instancia) p.push({ texto: 'Instância da Kentro não informada', aba: 'da-instalacao' });
+    var d = diasDesde(t.ultimo_uso_em);
+    if (d == null) p.push({ texto: 'Ainda sem uso', aba: null });
+    else if (d >= 7) p.push({ texto: 'Sem uso há ' + d + ' dias', aba: null });
+    return p;
+  }
+
+  var filtroClientes = 'todos';
+  var FILTROS = {
+    todos: function () { return true; },
+    pendentes: function (t) { return pendencias(t).length > 0; },
+    ativos: function (t) { return !!t.ativo; },
+    desligados: function (t) { return !t.ativo; }
+  };
+  function textoDeBusca(t) {
+    var ped = pedidoDe(t);
+    return dobrado([t.nome, t.observacao, t.kentro_instancia, t.kentro_instalacao_id, nomeConector(t.erp || 'asa'), t.sistema_nome, ped && ped.sistema].join(' '));
+  }
+
+  function listaDePendencias(lista) {
+    var ul = el('ul', 'alertas');
+    lista.forEach(function (p) { ul.appendChild(el('li', 'alerta' + (p.grave ? ' alerta--critico' : ''), p.texto)); });
+    return ul;
+  }
+
   function desenharLista() {
     var tb = $('lista');
     tb.textContent = '';
-    tenants.forEach(function (t) {
+    Object.keys(FILTROS).forEach(function (k) {
+      var n = tenants.filter(FILTROS[k]).length;
+      document.querySelector('#c-filtros [data-n="' + k + '"]').textContent = String(n);
+    });
+    var termos = dobrado($('c-busca').value).split(/\s+/).filter(Boolean);
+    var visiveis = tenants.filter(FILTROS[filtroClientes]).filter(function (t) {
+      var txt = textoDeBusca(t);
+      return termos.every(function (w) { return txt.indexOf(w) >= 0; });
+    });
+    $('c-contagem').textContent = tenants.length ? (visiveis.length === tenants.length ? tenants.length + (tenants.length === 1 ? ' cliente' : ' clientes') : visiveis.length + ' de ' + tenants.length) : '';
+    if (tenants.length && !visiveis.length) {
+      var vazio = el('tr'), td0 = el('td', null, 'Nenhum cliente com essa busca ou filtro.');
+      td0.colSpan = 5;
+      vazio.appendChild(td0);
+      tb.appendChild(vazio);
+    }
+    visiveis.forEach(function (t) {
       var tr = el('tr');
       var nome = el('td');
       nome.appendChild(el('strong', null, t.nome));
       var st = situacao(t);
       nome.appendChild(document.createTextNode(' '));
       nome.appendChild(el('span', 'selo selo--' + st.tom, st.texto));
+      nome.appendChild(el('div', 'sub', (t.kentro_instancia || 'Instância não informada') + (t.kentro_instalacao_id != null ? ' · instalação #' + t.kentro_instalacao_id : '')));
       if (t.observacao) nome.appendChild(el('div', 'sub', t.observacao));
       tr.appendChild(nome);
 
@@ -434,18 +491,17 @@
       }
       tr.appendChild(sis);
 
-      var con = el('td', t.tem_credencial ? null : 'falta', t.tem_credencial ? 'Acesso ok' : 'Sem acesso');
-      con.appendChild(el('div', 'sub', t.erp_testado_em ? 'Testado em ' + dataHora(t.erp_testado_em) : 'Não testado'));
-      tr.appendChild(con);
-
-      var inst = el('td');
-      inst.appendChild(el('div', t.kentro_instalacao_id != null ? null : 'falta', t.kentro_instalacao_id != null ? 'Instalação #' + t.kentro_instalacao_id : 'Id não anotado'));
-      inst.appendChild(el('div', 'sub', t.kentro_instancia || 'Instância não informada'));
-      tr.appendChild(inst);
+      var pend = el('td'), lp = pendencias(t);
+      if (!t.ativo) pend.appendChild(el('span', 'sub', '—'));
+      else if (!lp.length) pend.appendChild(el('span', 'selo selo--ok', 'Em dia'));
+      else pend.appendChild(listaDePendencias(lp));
+      tr.appendChild(pend);
 
       tr.appendChild(el('td', null, dataHora(t.ultimo_uso_em)));
       var acao = el('td');
-      acao.appendChild(botao('Abrir', 'Abrir ' + t.nome, function () { abrir(t, true); }));
+      var b = botao('Abrir', 'Abrir ' + t.nome, function () { abrir(t, true); });
+      b.setAttribute('data-id', t.id);
+      acao.appendChild(b);
       tr.appendChild(acao);
       tb.appendChild(tr);
     });
@@ -658,52 +714,111 @@
   }
 
   /* ---------- detalhe ---------- */
+  // Volta para a lista. A ficha some e o foco vai para o "Abrir" do cliente que estava aberto.
   function fechar() {
+    var id = atual && atual.id;
     atual = null;
+    FORMS_CLIENTE.forEach(function (f) { delete fotos[f]; });
+    marcarAbas();
     $('detalhe').hidden = true;
+    $('c-lista').hidden = false;
+    var b = id && document.querySelector('#lista button[data-id="' + id + '"]');
+    if (b) b.focus();
   }
 
   function resumo(t) {
     var dl = $('resumo');
     dl.textContent = '';
-    var ped = pedidoDe(t);
+    var ped = pedidoDe(t), st = situacao(t), d = diasDesde(t.ultimo_uso_em);
+    $('d-situacao').textContent = '';
+    $('d-situacao').appendChild(el('span', 'selo selo--' + st.tom, st.texto));
+    $('d-sub').textContent = [t.kentro_instancia || 'Instância da Kentro não informada', t.implantado_por ? 'implantado por ' + t.implantado_por : ''].filter(Boolean).join(' · ');
     [
-      ['Situação', situacao(t).texto],
-      ['Sistema (ERP)', ped ? ped.sistema + ' (aguardando conector)' : nomeConector(t.erp || 'asa') + (t.sistema_nome ? ' · nas telas: ' + t.sistema_nome : '')],
-      ['Acesso ao sistema', credencial(t)],
-      ['Instalação na Kentro', (t.kentro_instalacao_id != null ? '#' + t.kentro_instalacao_id : 'id não anotado') + ' · ' + (t.kentro_instancia || 'instância não informada')],
-      ['Último uso', dataHora(t.ultimo_uso_em)],
-      ['Criado em', dataHora(t.criado_em) + (t.implantado_por ? ' por ' + t.implantado_por : '')]
+      ['Sistema (ERP)', ped ? ped.sistema : nomeConector(t.erp || 'asa'), ped ? 'Aguardando conector' : t.sistema_nome ? 'Nas telas: ' + t.sistema_nome : '', !!ped],
+      ['Acesso ao sistema', t.tem_credencial ? 'Ok' : 'Sem acesso', t.tem_credencial ? (t.erp_testado_em ? 'Testado em ' + dataHora(t.erp_testado_em) : 'Não testado') : 'Cadastre na aba Sistema', !t.tem_credencial],
+      ['Instalação na Kentro', t.kentro_instalacao_id != null ? '#' + t.kentro_instalacao_id : 'Id não anotado', t.kentro_instancia || '', t.kentro_instalacao_id == null],
+      ['Último uso', t.ultimo_uso_em ? (d === 0 ? 'Hoje' : d === 1 ? 'Ontem' : 'Há ' + d + ' dias') : 'Nunca', t.ultimo_uso_em ? dataHora(t.ultimo_uso_em) : '', !t.ultimo_uso_em && t.ativo],
+      ['Cliente desde', dataHora(t.criado_em).split(' ')[0], '', false]
     ].forEach(function (p) {
-      dl.appendChild(el('dt', null, p[0]));
-      dl.appendChild(el('dd', null, p[1]));
+      var item = el('div');
+      item.appendChild(el('dt', null, p[0]));
+      var dd = el('dd', p[3] ? 'falta' : null, p[1]);
+      if (p[2]) dd.appendChild(el('span', 'sub', p[2]));
+      item.appendChild(dd);
+      dl.appendChild(item);
     });
+    visaoGeral(t);
+  }
+
+  function visaoGeral(t) {
+    var ul = $('g-pend'), lp = pendencias(t);
+    ul.textContent = '';
+    if (!t.ativo) ul.appendChild(el('li', 'sub', 'Cliente desligado.'));
+    else if (!lp.length) ul.appendChild(el('li', 'pendencias__ok', 'Nada pendente: sistema ligado, instalação anotada e em uso.'));
+    lp.forEach(function (p) {
+      var li = el('li', 'pendencias__item' + (p.grave ? ' pendencias__item--grave' : ''));
+      li.appendChild(el('span', null, p.texto));
+      if (p.aba) li.appendChild(botao('Resolver', 'Resolver: ' + p.texto, function () { abaDoCliente(p.aba, true); }));
+      ul.appendChild(li);
+    });
+    var dl = $('g-recursos'), c = t.confirmacao || {};
+    dl.textContent = '';
+    [
+      ['Lançar cobrança', t.financeiro && t.financeiro.ativo, t.financeiro && t.financeiro.ativo ? (t.financeiro.quem === 'todos' ? 'Todos os atendentes' : 'Só administradores') : 'Desligado', 'da-financeiro'],
+      ['Confirmação de véspera', c.ativo, c.ativo ? (c.dias_antes + (c.dias_antes === 1 ? ' dia antes' : ' dias antes') + ' · ' + (c.canal === 'oficial' ? 'WhatsApp oficial' : 'WhatsApp não oficial') + (c.teste && c.teste.ativo ? ' · modo teste' : '')) : 'Desligada', 'da-confirmacao'],
+      ['URL de disparo', !!t.disparo_url, t.disparo_url ? 'Configurada' : 'Não configurada', 'da-confirmacao']
+    ].forEach(function (r) {
+      var item = el('div');
+      item.appendChild(el('dt', null, r[0]));
+      var dd = el('dd');
+      dd.appendChild(el('span', 'selo selo--' + (r[1] ? 'ok' : 'idle'), r[1] ? 'Ligado' : 'Desligado'));
+      dd.appendChild(el('span', 'sub', r[2]));
+      item.appendChild(dd);
+      var ir = botao('Abrir', 'Abrir ' + r[0], function () { abaDoCliente(r[3], true); });
+      item.appendChild(ir);
+      dl.appendChild(item);
+    });
+    if (t.observacao) {
+      var obs = el('div');
+      obs.appendChild(el('dt', null, 'Observação'));
+      obs.appendChild(el('dd', 'recursos__obs', t.observacao));
+      dl.appendChild(obs);
+    }
   }
 
   function abrir(t, mostrar) {
     var outro = !atual || atual.id !== t.id;
+    // Recarregar o mesmo cliente (depois de salvar uma aba) não apaga o que está sendo editado nas outras.
+    var manter = function (f) { return !outro && sujo(f); };
     atual = t;
     if (mostrar && wiz) { wiz = null; $('assistente').hidden = true; }
+    $('c-lista').hidden = true;
     $('detalhe').hidden = false;
     $('h-detalhe').textContent = t.nome;
     $('h-detalhe').tabIndex = -1;
     resumo(t);
-    $('v-nome').value = t.nome;
-    $('v-instancia').value = t.kentro_instancia || '';
-    $('v-instalacao').value = t.kentro_instalacao_id != null ? String(t.kentro_instalacao_id) : '';
-    $('v-instituicao').value = t.asa_instituicao_id || '';
-    $('v-obs').value = t.observacao || '';
+    if (!manter('f-vinculo')) {
+      $('v-nome').value = t.nome;
+      $('v-instancia').value = t.kentro_instancia || '';
+      $('v-instalacao').value = t.kentro_instalacao_id != null ? String(t.kentro_instalacao_id) : '';
+      $('v-instituicao').value = t.asa_instituicao_id || '';
+      $('v-obs').value = t.observacao || '';
+    }
     $('d-manifest').textContent = urlManifest();
-    $('fin-on').checked = !!t.financeiro.ativo;
-    $('fin-quem').value = t.financeiro.quem;
-    $('d-url').value = t.disparo_url || '';
-    preencherConfirmacao(t.confirmacao);
-    if (outro) $('e-erp').value = '';
-    preencherSelectErp();
-    $('e-erp').value = t.erp || 'asa';
-    $('e-nome').value = t.sistema_nome || '';
-    $('e-artigo').value = t.sistema_artigo === 'o' ? 'o' : 'a';
-    trocarErp();
+    if (!manter('f-fin')) {
+      $('fin-on').checked = !!t.financeiro.ativo;
+      $('fin-quem').value = t.financeiro.quem;
+    }
+    if (!manter('f-disparo')) $('d-url').value = t.disparo_url || '';
+    if (!manter('f-conf')) preencherConfirmacao(t.confirmacao);
+    if (!manter('f-erp')) {
+      if (outro) $('e-erp').value = '';
+      preencherSelectErp();
+      $('e-erp').value = t.erp || 'asa';
+      $('e-nome').value = t.sistema_nome || '';
+      $('e-artigo').value = t.sistema_artigo === 'o' ? 'o' : 'a';
+      trocarErp();
+    }
     mostrarCapacidades(t.erp_capacidades, t.erp_testado_em);
     var desligado = !t.ativo && !!t.desligado_em;
     $('f-desligar').hidden = desligado;
@@ -715,11 +830,48 @@
       $('h-nome').value = '';
       $('t-token').value = '';
       $('f-d-doc').reset();
-      abaDoCliente('da-sistema');
+      abaDoCliente('da-geral');
     }
+    FORMS_CLIENTE.forEach(function (f) { if (!manter(f)) fotografar(f); });
+    marcarAbas();
     sistemaDoCliente(t);
-    if (mostrar) { $('detalhe').scrollIntoView({ behavior: 'smooth' }); $('h-detalhe').focus(); }
+    if (mostrar) { window.scrollTo(0, 0); $('h-detalhe').focus(); }
   }
+
+  /* ---------- alterações não salvas ---------- */
+  // "Foto" dos valores de cada formulário logo depois de preenchido. Diferente da foto = alteração não salva.
+  // Campos vazios ficam de fora: campos de acesso que chegam depois (vazios) não contam como alteração.
+  var ABA_DO_FORM = { 'f-erp': 'da-sistema', 'f-token': 'da-sistema', 'f-d-doc': 'da-sistema', 'f-vinculo': 'da-instalacao', 'f-fin': 'da-financeiro', 'f-conf': 'da-confirmacao', 'f-disparo': 'da-confirmacao' };
+  var FORMS_CLIENTE = Object.keys(ABA_DO_FORM);
+  var FORMS_CONECTOR = ['f-cx-dados', 'f-cx-config', 'f-cx-doc'];
+  var fotos = {};
+  function valoresDe(id) {
+    var partes = [];
+    Array.prototype.forEach.call($(id).elements, function (e, i) {
+      if (e.tagName === 'FIELDSET' || e.tagName === 'BUTTON' || e.disabled) return;
+      var v = e.type === 'checkbox' || e.type === 'radio' ? (e.checked ? '1' : '') : e.type === 'file' ? (e.files && e.files.length ? e.files[0].name : '') : e.value;
+      if (v) partes.push((e.id || '#' + i) + '=' + v);
+    });
+    return partes.join('\u0001');
+  }
+  function fotografar(id) { fotos[id] = valoresDe(id); }
+  function sujo(id) { return fotos[id] != null && valoresDe(id) !== fotos[id]; }
+  function marcarAbas() {
+    ABAS_CLIENTE.forEach(function (aba) {
+      var s = FORMS_CLIENTE.some(function (f) { return ABA_DO_FORM[f] === aba && sujo(f); });
+      $(aba).classList.toggle('aba--suja', s);
+      if (s) $(aba).title = 'Alterações não salvas'; else $(aba).removeAttribute('title');
+    });
+  }
+  // Pergunta antes de descartar. Devolve true quando pode seguir.
+  function podeDescartar(forms) {
+    var s = forms.filter(sujo);
+    if (!s.length) return true;
+    var onde = s.map(function (f) { return ABA_DO_FORM[f] ? $(ABA_DO_FORM[f]).textContent.trim() : f === 'f-cx-config' ? 'Configuração' : f === 'f-cx-doc' ? 'Documentação' : 'Dados do conector'; });
+    onde = onde.filter(function (x, i) { return onde.indexOf(x) === i; });
+    return window.confirm('Há alterações não salvas (' + onde.join(', ') + '). Sair sem salvar?');
+  }
+  function salvou(id) { fotografar(id); marcarAbas(); }
 
   /* ---------- aba Sistema: pedido em aberto e documentação ---------- */
   // Para onde vai a documentação: o conector do pedido em aberto; sem pedido, o conector do sistema atual.
@@ -763,6 +915,7 @@
       if (r.status !== 201) throw new Error(erroDe(r));
       msg('m-d-doc', 'ok', 'Anexado.' + (r.body && r.body.limpezas ? ' ' + r.body.limpezas + ' credencial(is) removida(s) do arquivo.' : ''));
       $('f-d-doc').reset();
+      salvou('f-d-doc');
       return carregarConectores();
     }).catch(function (e) { msg('m-d-doc', 'err', e.message); });
   }
@@ -868,6 +1021,7 @@
         return;
       }
       Array.prototype.forEach.call($('e-campos').querySelectorAll('input'), function (i) { i.value = ''; });
+      salvou('f-erp');
       if (r.body.soNome) msg('m-erp', 'ok', 'Nome nas telas salvo.');
       else if (r.body.erp === 'asa') msg('m-erp', 'ok', 'Clínica de volta à Asa. Cadastre o token da Asa abaixo (ou em ClinFy → Configurar, na extensão).');
       else {
@@ -920,7 +1074,11 @@
       ['nav-pedidos-n', 'sx-pedidos-n'].forEach(function (id) { $(id).textContent = String(abertos); $(id).hidden = !abertos; });
       $('nav-sistemas').setAttribute('aria-label', 'Sistemas (ERP)' + (abertos ? ', ' + abertos + (abertos === 1 ? ' pedido aberto' : ' pedidos abertos') : ''));
       desenharLista();
-      if (atual) { preencherSelectErp(); $('e-erp').value = atual.erp || 'asa'; trocarErp(); resumo(atual); sistemaDoCliente(atual); }
+      if (atual) {
+        if (!sujo('f-erp')) { preencherSelectErp(); $('e-erp').value = atual.erp || 'asa'; trocarErp(); fotografar('f-erp'); }
+        resumo(atual);
+        sistemaDoCliente(atual);
+      }
       if (wiz && wiz.etapa === 2) opcoesErp();
     });
   }
@@ -1021,9 +1179,12 @@
   }
 
   function abrirConector(slug) {
+    if (conectorAtual && conectorAtual.slug !== slug && !podeDescartar(FORMS_CONECTOR)) return;
     chamar('GET', '/admin/conectores/' + encodeURIComponent(slug)).then(function (r) {
       if (r.status !== 200 || !r.body) { msg('m-cx', 'err', erroDe(r)); return; }
       var c = r.body;
+      var manter = function (f) { return conectorAtual && conectorAtual.slug === c.slug && sujo(f); };
+      var kDados = manter('f-cx-dados'), kConfig = manter('f-cx-config'), kDoc = manter('f-cx-doc');
       conectorAtual = c;
       irParaConectores();
       $('cx-detalhe').hidden = false;
@@ -1037,12 +1198,14 @@
         ['Atualizado', dataHora(c.atualizado_em)],
         ['Publicado em', dataHora(c.publicado_em)]
       ].forEach(function (p) { dl.appendChild(el('dt', null, p[0])); dl.appendChild(el('dd', null, p[1])); });
-      $('cx-nome').value = c.nome;
-      $('cx-artigo').value = c.artigo;
-      $('cx-situacao').value = c.situacao;
-      $('cx-obs').value = c.observacao || '';
+      if (!kDados) {
+        $('cx-nome').value = c.nome;
+        $('cx-artigo').value = c.artigo;
+        $('cx-situacao').value = c.situacao;
+        $('cx-obs').value = c.observacao || '';
+      }
       var cfg = c.config_efetiva || c.config || (c.tipo === 'codigo' ? null : MODELO_CONECTOR);
-      $('cx-config').value = cfg ? JSON.stringify(cfg, null, 2) : '';
+      if (!kConfig) $('cx-config').value = cfg ? JSON.stringify(cfg, null, 2) : '';
       $('cx-config').disabled = c.tipo === 'codigo' || c.slug === 'padrao';
       $('f-cx-config').querySelector('button').disabled = $('cx-config').disabled;
       $('cx-erros').textContent = '';
@@ -1051,6 +1214,9 @@
       desenharDocs($('cx-docs'), c.documentos || [], c.slug, 'm-cx-doc', function () { abrirConector(c.slug); carregarConectores(); });
       montarCampos($('cx-teste-campos'), c.campos || [], 'cx-t-');
       $('cx-passos').textContent = '';
+      if (!kDados) fotografar('f-cx-dados');
+      if (!kConfig) fotografar('f-cx-config');
+      if (!kDoc) fotografar('f-cx-doc');
       $('cx-titulo').focus();
     });
   }
@@ -1073,6 +1239,7 @@
         return;
       }
       msg('m-cx-dados', 'ok', 'Salvo.');
+      salvou('f-cx-dados');
       carregarConectores().then(function () { abrirConector(c.slug); });
     });
   }
@@ -1093,6 +1260,7 @@
       }
       if (r.status !== 200) { msg('m-cx-config', 'err', erroDe(r)); return; }
       msg('m-cx-config', 'ok', 'Configuração salva: versão ' + r.body.versao + '.');
+      salvou('f-cx-config');
       carregarConectores().then(function () { abrirConector(c.slug); });
     });
   }
@@ -1160,6 +1328,7 @@
         if (r.status !== 201) { msg('m-cx-doc', 'err', erroDe(r)); return; }
         msg('m-cx-doc', 'ok', 'Anexado.' + (r.body.limpezas ? ' ' + r.body.limpezas + ' credencial(is) removida(s) do arquivo.' : ''));
         $('f-cx-doc').reset();
+        salvou('f-cx-doc');
         abrirConector(c.slug);
         carregarConectores();
       });
@@ -1214,6 +1383,7 @@
     chamar('PATCH', rotaDo(atual.id), corpo).then(function (r) {
       if (r.status !== 200) { msg('m-vinculo', 'err', erroDe(r)); return; }
       msg('m-vinculo', 'ok', 'Vínculo salvo.');
+      salvou('f-vinculo');
       carregar();
     });
   }
@@ -1226,6 +1396,7 @@
     chamar('PUT', rotaDo(atual.id, '/credencial'), { token: token }).then(function (r) {
       if (r.status !== 200 || !r.body || !r.body.ok) { msg('m-token', 'err', erroDe(r)); return; }
       $('t-token').value = '';
+      salvou('f-token');
       msg('m-token', 'ok', 'Token gravado. Instituição ' + (r.body.instituicao_id || '?') + ', ' + r.body.prestadores + ' prestador(es) com agenda online.');
       carregar();
     });
@@ -1239,6 +1410,7 @@
     chamar('PUT', rotaDo(atual.id, '/financeiro'), { config: cfg }).then(function (r) {
       if (r.status !== 200 || !r.body || !r.body.ok) { msg('m-fin', 'err', erroDe(r)); return; }
       var c = r.body.config;
+      salvou('f-fin');
       msg('m-fin', 'ok', c.ativo ? 'Salvo. Lançamento ligado para ' + (c.quem === 'todos' ? 'todos os atendentes.' : 'administradores.') + ' Quem estiver com o painel aberto precisa recarregar a Kentro.' : 'Salvo. Lançamento desligado.');
       carregar();
     });
@@ -1281,6 +1453,7 @@
       lista.appendChild(li);
     });
     $('c-param-add').disabled = params.length >= max;
+    marcarAbas();
   }
 
   function canal() {
@@ -1327,6 +1500,7 @@
     chamar('PUT', rotaDo(atual.id, '/confirmacao'), { config: c }).then(function (r) {
       if (r.status !== 200 || !r.body || !r.body.ok) { msg('m-conf', 'err', erroDe(r)); return; }
       var s = r.body.config;
+      salvou('f-conf');
       var descartados = c.teste.telefones.length - s.teste.telefones.length;
       msg('m-conf', 'ok', (s.ativo ? (s.teste.ativo ? 'Salvo. Lembretes ligados em modo teste.' : 'Salvo. Lembretes ligados para todos os pacientes.') : 'Salvo. Lembretes desligados.')
         + (descartados > 0 ? ' ' + descartados + ' telefone(s) fora do formato foram descartados.' : ''));
@@ -1341,6 +1515,7 @@
     chamar('PUT', rotaDo(atual.id, '/disparo'), { url: $('d-url').value.trim() }).then(function (r) {
       if (r.status !== 200) { msg('m-disparo', 'err', erroDe(r)); return; }
       msg('m-disparo', 'ok', r.body.disparo_url ? 'URL salva.' : 'URL removida.');
+      salvou('f-disparo');
       carregar();
     });
   }
@@ -1403,7 +1578,22 @@
   $('dlg-senha').addEventListener('close', function () { $('dlg-nova').value = ''; $('dlg-nova2').value = ''; senhaDe = null; });
   $('b-sair').addEventListener('click', sair);
   $('b-atualizar').addEventListener('click', function () { msg('m-lista', null, 'Atualizando…'); carregar(); });
-  $('b-fechar').addEventListener('click', fechar);
+  $('b-fechar').addEventListener('click', function () { if (podeDescartar(FORMS_CLIENTE)) fechar(); });
+  $('c-busca').addEventListener('input', desenharLista);
+  Array.prototype.forEach.call(document.querySelectorAll('#c-filtros .seg__btn'), function (b) {
+    b.addEventListener('click', function () {
+      filtroClientes = b.getAttribute('data-filtro');
+      Array.prototype.forEach.call(document.querySelectorAll('#c-filtros .seg__btn'), function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+      desenharLista();
+    });
+  });
+  // Qualquer digitação num formulário da ficha atualiza a marca de "não salvo" nas abas.
+  ['input', 'change'].forEach(function (tipo) {
+    $('detalhe').addEventListener(tipo, function (ev) { if (ev.target.form && ABA_DO_FORM[ev.target.form.id]) marcarAbas(); });
+  });
+  window.addEventListener('beforeunload', function (ev) {
+    if (FORMS_CLIENTE.concat(FORMS_CONECTOR).some(sujo)) { ev.preventDefault(); ev.returnValue = ''; }
+  });
   $('b-novo').addEventListener('click', novoCliente);
   $('w-fechar').addEventListener('click', fecharAssistente);
   $('w-1').addEventListener('submit', w1);
@@ -1422,7 +1612,12 @@
   $('f-cx-novo').addEventListener('submit', criarConector);
   $('cx-n-nome').addEventListener('input', function () { if (!$('cx-n-slug').dataset.mexido) $('cx-n-slug').value = slugDe($('cx-n-nome').value); });
   $('cx-n-slug').addEventListener('input', function () { $('cx-n-slug').dataset.mexido = '1'; });
-  $('cx-fechar').addEventListener('click', function () { conectorAtual = null; $('cx-detalhe').hidden = true; });
+  $('cx-fechar').addEventListener('click', function () {
+    if (!podeDescartar(FORMS_CONECTOR)) return;
+    FORMS_CONECTOR.forEach(function (f) { delete fotos[f]; });
+    conectorAtual = null;
+    $('cx-detalhe').hidden = true;
+  });
   $('f-cx-dados').addEventListener('submit', salvarDadosConector);
   $('f-cx-config').addEventListener('submit', salvarConfigConector);
   $('f-cx-doc').addEventListener('submit', anexarDoc);

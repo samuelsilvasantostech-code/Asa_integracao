@@ -65,6 +65,7 @@
   <div id="area" hidden>
     <!-- ==================== CLIENTES ==================== -->
     <section id="v-clientes" class="vista" role="tabpanel" aria-labelledby="nav-clientes">
+      <div class="subvista" id="c-lista">
       <header class="pagina">
         <div class="cabeca">
           <h2 id="h-clientes">Clientes</h2>
@@ -76,11 +77,21 @@
         <p class="pagina__sub">Cada cliente é uma clínica: um sistema (ERP), uma chave de instalação única e as configurações dela.</p>
       </header>
       <section class="cartao" aria-label="Lista de clientes">
+        <div class="filtros">
+          <label class="filtros__busca"><span class="sr">Buscar cliente</span><input id="c-busca" type="search" placeholder="Buscar por nome, sistema ou instância" spellcheck="false" autocomplete="off"></label>
+          <div class="seg" role="group" aria-label="Mostrar" id="c-filtros">
+            <button type="button" class="seg__btn" data-filtro="todos" aria-pressed="true">Todos <span class="seg__n" data-n="todos"></span></button>
+            <button type="button" class="seg__btn" data-filtro="pendentes" aria-pressed="false">Com pendência <span class="seg__n" data-n="pendentes"></span></button>
+            <button type="button" class="seg__btn" data-filtro="ativos" aria-pressed="false">Ativos <span class="seg__n" data-n="ativos"></span></button>
+            <button type="button" class="seg__btn" data-filtro="desligados" aria-pressed="false">Desligados <span class="seg__n" data-n="desligados"></span></button>
+          </div>
+          <span class="filtros__n" id="c-contagem" role="status"></span>
+        </div>
         <div class="tabela-rolagem">
           <table class="tabela">
             <caption class="sr">Clínicas cadastradas no Conector</caption>
             <thead>
-              <tr><th scope="col">Cliente</th><th scope="col">Sistema (ERP)</th><th scope="col">Conexão</th><th scope="col">Instalação na Kentro</th><th scope="col">Último uso</th><th scope="col"><span class="sr">Ações</span></th></tr>
+              <tr><th scope="col">Cliente</th><th scope="col">Sistema (ERP)</th><th scope="col">Pendências</th><th scope="col">Último uso</th><th scope="col"><span class="sr">Ações</span></th></tr>
             </thead>
             <tbody id="lista"></tbody>
           </table>
@@ -97,6 +108,7 @@
           </ol>
         </details>
       </section>
+      </div>
 
       <!-- Assistente de novo cliente -->
       <section class="cartao" id="assistente" aria-labelledby="h-assistente" hidden>
@@ -165,23 +177,43 @@
       </section>
 
       <!-- Detalhe do cliente -->
-      <section class="cartao" id="detalhe" aria-labelledby="h-detalhe" hidden>
-        <div class="cabeca">
-          <h2 id="h-detalhe">Cliente</h2>
-          <button type="button" class="btn" id="b-fechar">Fechar</button>
-        </div>
-        <dl class="resumo" id="resumo"></dl>
+      <section class="subvista" id="detalhe" aria-labelledby="h-detalhe" hidden>
+        <header class="pagina">
+          <button type="button" class="voltar" id="b-fechar">← Clientes</button>
+          <div class="cabeca cabeca--inicio">
+            <h2 id="h-detalhe">Cliente</h2>
+            <span id="d-situacao"></span>
+          </div>
+          <p class="pagina__sub" id="d-sub"></p>
+        </header>
+        <dl class="resumo-cartoes" id="resumo"></dl>
 
-        <div class="abas" role="tablist" aria-label="Configurações do cliente" id="d-abas">
-          <button type="button" class="aba" role="tab" id="da-sistema" aria-controls="dp-sistema" aria-selected="true">Sistema (ERP)</button>
+        <div class="cartao">
+        <div class="abas abas--cartao" role="tablist" aria-label="Configurações do cliente" id="d-abas">
+          <button type="button" class="aba" role="tab" id="da-geral" aria-controls="dp-geral" aria-selected="true">Visão geral</button>
+          <button type="button" class="aba" role="tab" id="da-sistema" aria-controls="dp-sistema" aria-selected="false" tabindex="-1">Sistema (ERP)</button>
           <button type="button" class="aba" role="tab" id="da-instalacao" aria-controls="dp-instalacao" aria-selected="false" tabindex="-1">Instalação</button>
           <button type="button" class="aba" role="tab" id="da-financeiro" aria-controls="dp-financeiro" aria-selected="false" tabindex="-1">Financeiro</button>
           <button type="button" class="aba" role="tab" id="da-confirmacao" aria-controls="dp-confirmacao" aria-selected="false" tabindex="-1">Confirmação</button>
           <button type="button" class="aba" role="tab" id="da-avancado" aria-controls="dp-avancado" aria-selected="false" tabindex="-1">Avançado</button>
         </div>
 
+        <!-- Visão geral -->
+        <div class="painel-aba" id="dp-geral" role="tabpanel" aria-labelledby="da-geral">
+          <div class="geral">
+            <section aria-labelledby="g-h-pend">
+              <h3 id="g-h-pend">Pendências</h3>
+              <ul class="pendencias" id="g-pend"></ul>
+            </section>
+            <section aria-labelledby="g-h-rec">
+              <h3 id="g-h-rec">Recursos</h3>
+              <dl class="recursos" id="g-recursos"></dl>
+            </section>
+          </div>
+        </div>
+
         <!-- Sistema -->
-        <div class="painel-aba" id="dp-sistema" role="tabpanel" aria-labelledby="da-sistema">
+        <div class="painel-aba" id="dp-sistema" role="tabpanel" aria-labelledby="da-sistema" hidden>
           <div id="d-pedido" class="caixa-aviso" hidden></div>
 
           <form id="f-erp" class="bloco" autocomplete="off">
@@ -354,6 +386,7 @@
             </div>
             <p class="msg" id="m-historico" role="status"></p>
           </form>
+        </div>
         </div>
       </section>
     </section>
