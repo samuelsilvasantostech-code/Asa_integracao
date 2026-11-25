@@ -127,8 +127,9 @@
       if (semLote || list.length === 1) return Promise.all(list.map(umDia));
       var itens = list.map(function (it) { return it.prest + ':' + it.day; }).join(',');
       return request('GET', '/v1/agenda/colunas' + query({ itens: itens }), null, 45000).then(function (r) {
-        // Conector antigo, sem a rota em lote: um dia por chamada (o freio segura o ritmo).
-        if (r.status === 404 && !(r.body && r.body.erro)) { semLote = true; return Promise.all(list.map(umDia)); }
+        // Conector antigo, sem a rota em lote (404, com ou sem {erro:"NAO_ENCONTRADO"}; a rota em si nunca
+        // responde 404): um dia por chamada (o freio segura o ritmo).
+        if (r.status === 404) { semLote = true; return Promise.all(list.map(umDia)); }
         if (!(r.status === 200 && r.body && Array.isArray(r.body.colunas) && r.body.colunas.length === list.length)) {
           return list.map(function () { return r; });
         }
