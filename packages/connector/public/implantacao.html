@@ -8,24 +8,26 @@
 <link rel="stylesheet" href="/implantacao/implantacao.css">
 </head>
 <body>
-<header class="topo">
-  <div class="topo__marca">
-    <h1>Implantação · ClinFy</h1>
-    <p>Clínicas, sistemas (ERP) e chaves de instalação do Conector.</p>
+<header class="lateral">
+  <div class="lateral__marca">
+    <span class="logo" aria-hidden="true">C</span>
+    <div><h1>ClinFy</h1><p>Implantação</p></div>
   </div>
-  <nav class="topo__nav" id="nav" role="tablist" aria-label="Áreas da implantação" hidden>
-    <button type="button" class="topo__aba" role="tab" id="nav-clientes" aria-controls="v-clientes" aria-selected="true">Clientes</button>
-    <button type="button" class="topo__aba" role="tab" id="nav-uso" aria-controls="v-uso" aria-selected="false" tabindex="-1">Uso</button>
-    <button type="button" class="topo__aba" role="tab" id="nav-sistemas" aria-controls="v-sistemas" aria-selected="false" tabindex="-1">Sistemas (ERP)</button>
-    <button type="button" class="topo__aba" role="tab" id="nav-pedidos" aria-controls="v-pedidos" aria-selected="false" tabindex="-1">Pedidos <span class="contador" id="nav-pedidos-n" hidden></span></button>
-    <button type="button" class="topo__aba" role="tab" id="nav-usuarios" aria-controls="v-usuarios" aria-selected="false" tabindex="-1">Usuários</button>
-    <span class="topo__quem" id="quem"></span>
-    <button type="button" class="btn btn--claro" id="b-sair" hidden>Sair</button>
+  <nav class="lateral__nav" id="nav" role="tablist" aria-label="Áreas da implantação" aria-orientation="vertical" hidden>
+    <button type="button" class="lateral__item" role="tab" id="nav-clientes" aria-controls="v-clientes" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-5h6v5"/><path d="M9 9h.01M15 9h.01M9 12.5h.01M15 12.5h.01"/></svg><span>Clientes</span></button>
+    <button type="button" class="lateral__item" role="tab" id="nav-uso" aria-controls="v-uso" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7 16v-4M12 16V7M17 16v-7"/></svg><span>Uso</span></button>
+    <button type="button" class="lateral__item" role="tab" id="nav-sistemas" aria-controls="v-sistemas" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg><span>Sistemas (ERP)</span><span class="contador" id="nav-pedidos-n" hidden></span></button>
+    <button type="button" class="lateral__item" role="tab" id="nav-usuarios" aria-controls="v-usuarios" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span>Usuários</span></button>
   </nav>
+  <div class="lateral__pe">
+    <span class="lateral__quem" id="quem"></span>
+    <button type="button" class="btn btn--claro" id="b-sair" hidden>Sair</button>
+  </div>
 </header>
 
 <main>
   <section class="cartao cartao--acesso" id="acesso" aria-labelledby="h-acesso">
+    <p class="acesso__marca"><span class="logo" aria-hidden="true">C</span><span><strong>ClinFy</strong> Implantação</span></p>
     <h2 id="h-acesso">Entrar</h2>
     <form id="f-login" class="grade" autocomplete="on">
       <label class="campo"><span>Usuário</span><input id="l-usuario" name="username" autocomplete="username" spellcheck="false" autocapitalize="none" required></label>
@@ -36,8 +38,8 @@
 
     <form id="f-primeiro" class="bloco grade" autocomplete="off" hidden>
       <h3>Primeiro acesso</h3>
-      <p class="dica campo--largo">Ainda não há nenhum usuário. Crie o seu: informe a <strong>chave de administrador</strong> (a <code>ADMIN_KEY</code> das variáveis de ambiente do Conector no Doca) só desta vez, e escolha usuário e senha. Depois, os outros acessos são criados na aba Usuários.</p>
-      <label class="campo campo--largo"><span>Chave de administrador (ADMIN_KEY)</span><input id="p-chave" type="password" autocomplete="off" spellcheck="false" required></label>
+      <p class="dica campo--largo">Ainda não há nenhum usuário. Crie o seu: informe a <strong>chave de administrador</strong> do Conector (quem instalou o servidor tem) só desta vez, e escolha usuário e senha. Depois, os outros acessos são criados na aba Usuários.</p>
+      <label class="campo campo--largo"><span>Chave de administrador</span><input id="p-chave" type="password" autocomplete="off" spellcheck="false" required></label>
       <label class="campo"><span>Seu nome</span><input id="p-nome" maxlength="120" autocomplete="name" required></label>
       <label class="campo"><span>Usuário (ou e-mail)</span><input id="p-usuario" maxlength="80" autocomplete="username" spellcheck="false" autocapitalize="none" required></label>
       <label class="campo"><span>Senha (mínimo 10 caracteres)</span><input id="p-senha" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
@@ -50,7 +52,7 @@
       <summary>Entrar com a chave de administrador (emergência)</summary>
       <form id="f-acesso" class="linha" autocomplete="off">
         <label class="campo">
-          <span>Chave de administrador (ADMIN_KEY)</span>
+          <span>Chave de administrador</span>
           <input id="admin-key" type="password" autocomplete="off" spellcheck="false" required>
         </label>
         <button type="submit" class="btn" id="b-entrar">Entrar com a chave</button>
@@ -63,7 +65,7 @@
   <div id="area" hidden>
     <!-- ==================== CLIENTES ==================== -->
     <section id="v-clientes" class="vista" role="tabpanel" aria-labelledby="nav-clientes">
-      <section class="cartao" aria-labelledby="h-clientes">
+      <header class="pagina">
         <div class="cabeca">
           <h2 id="h-clientes">Clientes</h2>
           <div class="acoes">
@@ -71,7 +73,9 @@
             <button type="button" class="btn btn--primario" id="b-novo">+ Novo cliente</button>
           </div>
         </div>
-        <p class="dica">Cada cliente é uma clínica: um sistema (ERP), uma chave de instalação única e as configurações dela.</p>
+        <p class="pagina__sub">Cada cliente é uma clínica: um sistema (ERP), uma chave de instalação única e as configurações dela.</p>
+      </header>
+      <section class="cartao" aria-label="Lista de clientes">
         <div class="tabela-rolagem">
           <table class="tabela">
             <caption class="sr">Clínicas cadastradas no Conector</caption>
@@ -356,12 +360,24 @@
 
     <!-- ==================== SISTEMAS (ERP) ==================== -->
     <section id="v-sistemas" class="vista" role="tabpanel" aria-labelledby="nav-sistemas" hidden>
-      <section class="cartao" id="central" aria-labelledby="h-central">
+      <header class="pagina">
         <div class="cabeca">
           <h2 id="h-central">Sistemas (ERP)</h2>
           <button type="button" class="btn" id="cx-atualizar">Atualizar</button>
         </div>
-        <p class="dica">Um conector por sistema: ele traduz as rotas da especificação ClinFy para as do sistema. Caminho: <strong>rascunho</strong> → <strong>homologação</strong> (uma clínica liga para testar) → <strong>publicado</strong> (aparece para todas as clínicas).</p>
+        <p class="pagina__sub">Os conectores de cada sistema de gestão e os pedidos de sistemas que ainda não têm conector.</p>
+        <details class="como">
+          <summary>Como funciona</summary>
+          <p>Um conector por sistema: ele traduz as rotas da especificação ClinFy para as do sistema. Caminho: <strong>rascunho</strong> → <strong>homologação</strong> (uma clínica liga para testar) → <strong>publicado</strong> (aparece para todas as clínicas).</p>
+          <p>Os pedidos chegam das clínicas (Outro / não encontrei) e do assistente de novo cliente. Crie o conector a partir do pedido, anexe a documentação e acompanhe até publicar.</p>
+        </details>
+      </header>
+      <div class="abas abas--pagina" role="tablist" aria-label="Sistemas (ERP)">
+        <button type="button" class="aba" role="tab" id="sx-conectores" aria-controls="sp-conectores" aria-selected="true">Conectores</button>
+        <button type="button" class="aba" role="tab" id="sx-pedidos" aria-controls="sp-pedidos" aria-selected="false" tabindex="-1">Pedidos <span class="contador" id="sx-pedidos-n" hidden></span></button>
+      </div>
+      <div class="subvista" id="sp-conectores" role="tabpanel" aria-labelledby="sx-conectores">
+      <section class="cartao" id="central" aria-label="Conectores do catálogo">
         <div class="tabela-rolagem">
           <table class="tabela">
             <caption class="sr">Conectores do catálogo</caption>
@@ -434,13 +450,11 @@
           <ul class="passos" id="cx-passos"></ul>
         </form>
       </section>
-    </section>
+      </div>
 
-    <!-- ==================== PEDIDOS ==================== -->
-    <section id="v-pedidos" class="vista" role="tabpanel" aria-labelledby="nav-pedidos" hidden>
-      <section class="cartao" aria-labelledby="h-pedidos">
-        <h2 id="h-pedidos">Pedidos de sistemas</h2>
-        <p class="dica">Sistemas que ainda não têm conector: pedidos das clínicas (Outro / não encontrei) e os abertos no assistente de novo cliente. Crie o conector, anexe a documentação e acompanhe até publicar.</p>
+      <div class="subvista" id="sp-pedidos" role="tabpanel" aria-labelledby="sx-pedidos" hidden>
+      <section class="cartao" aria-label="Pedidos de sistemas">
+        <p class="dica">Sistemas que ainda não têm conector. "Criar conector" já preenche o nome; "Abrir conector" leva direto a ele.</p>
         <div class="tabela-rolagem">
           <table class="tabela">
             <caption class="sr">Pedidos de sistemas fora do catálogo</caption>
@@ -449,11 +463,12 @@
           </table>
         </div>
       </section>
+      </div>
     </section>
 
     <!-- ==================== USO ==================== -->
     <section id="v-uso" class="vista" role="tabpanel" aria-labelledby="nav-uso" hidden>
-      <section class="cartao" aria-labelledby="h-uso">
+      <header class="pagina">
         <div class="cabeca">
           <h2 id="h-uso">Uso das clínicas</h2>
           <div class="acoes">
@@ -465,7 +480,13 @@
             <button type="button" class="btn" id="uso-atualizar">Atualizar</button>
           </div>
         </div>
-        <p class="dica">O que cada clínica fez pelo ClinFy: marcações, presença, tempo de espera, cobranças e confirmações. O "uso no período" soma as ações na agenda, as cobranças e os atendimentos com tempo de espera. Mede só o que passou pela extensão, não a agenda inteira da clínica. Atendentes distintos valem só para os últimos 90 dias (a retenção apaga os nomes depois disso). Buscas de paciente, telas abertas, falhas do sistema (ERP) e a versão da extensão são contados desde a versão 0.35.0.</p>
+        <p class="pagina__sub">O que cada clínica fez pelo ClinFy: marcações, presença, tempo de espera, cobranças e confirmações.</p>
+        <details class="como">
+          <summary>Como funciona</summary>
+          <p>O "uso no período" soma as ações na agenda, as cobranças e os atendimentos com tempo de espera. Mede só o que passou pela extensão, não a agenda inteira da clínica. Atendentes distintos valem só para os últimos 90 dias (a retenção apaga os nomes depois disso). Buscas de paciente, telas abertas, falhas do sistema (ERP) e a versão da extensão são contados desde a versão 0.35.0.</p>
+        </details>
+      </header>
+      <section class="cartao" aria-label="Uso por clínica">
         <dl class="kpis" id="uso-kpis" aria-live="polite"></dl>
         <div class="tabela-rolagem">
           <table class="tabela tabela--uso">
@@ -482,12 +503,18 @@
 
     <!-- ==================== USUÁRIOS ==================== -->
     <section id="v-usuarios" class="vista" role="tabpanel" aria-labelledby="nav-usuarios" hidden>
-      <section class="cartao" aria-labelledby="h-usuarios">
+      <header class="pagina">
         <div class="cabeca">
-          <h2 id="h-usuarios">Usuários da implantação</h2>
+          <h2 id="h-usuarios">Usuários</h2>
           <button type="button" class="btn" id="u-atualizar">Atualizar</button>
         </div>
-        <p class="dica">Quem entra nesta página com usuário e senha. Todos têm o mesmo acesso. Desativar ou trocar a senha encerra as sessões abertas daquele usuário. Cada sessão dura 12 horas.</p>
+        <p class="pagina__sub">Quem entra nesta página com usuário e senha. Todos têm o mesmo acesso.</p>
+        <details class="como">
+          <summary>Como funciona</summary>
+          <p>Desativar um usuário ou trocar a senha dele encerra as sessões abertas daquele usuário. Cada sessão dura 12 horas.</p>
+        </details>
+      </header>
+      <section class="cartao" aria-label="Lista de usuários">
         <div class="tabela-rolagem">
           <table class="tabela">
             <caption class="sr">Usuários da implantação</caption>
@@ -518,6 +545,21 @@
     </section>
   </div>
 </main>
+
+<dialog class="dialogo" id="dlg-senha" aria-labelledby="dlg-senha-t">
+  <form id="f-dlg-senha" autocomplete="off">
+    <h2 id="dlg-senha-t">Nova senha</h2>
+    <p class="dica" id="dlg-senha-quem"></p>
+    <input type="text" id="dlg-senha-usuario" autocomplete="username" hidden>
+    <label class="campo"><span>Nova senha (mínimo 10 caracteres)</span><input id="dlg-nova" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
+    <label class="campo"><span>Repita a nova senha</span><input id="dlg-nova2" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
+    <p class="msg" id="m-dlg-senha" role="status"></p>
+    <div class="acoes acoes--fim">
+      <button type="button" class="btn" id="dlg-cancelar">Cancelar</button>
+      <button type="submit" class="btn btn--primario">Definir senha</button>
+    </div>
+  </form>
+</dialog>
 <script src="/implantacao/implantacao.js"></script>
 </body>
 </html>

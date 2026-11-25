@@ -75,11 +75,21 @@
     if (tom) n.setAttribute('data-tom', tom); else n.removeAttribute('data-tom');
     n.textContent = texto || '';
   }
+  // Texto para a tela. Código sem tradução vai só para o console (quem depura vê; a tela não).
   function erroDe(r) {
-    var e = r.body && r.body.erro;
+    var e = r.body && r.body.erro, s = r.status;
     if (e && ERROS[e]) return ERROS[e];
-    if (r.status === 0) return 'O Conector não respondeu.';
-    return 'Não deu certo' + (e ? ' (' + e + ')' : '') + (r.status > 0 ? ' · HTTP ' + r.status : '') + '.';
+    if (e && window.console) console.warn('Conector: erro sem texto na tela', e, s);
+    if (s === 0) return 'O Conector não respondeu. Confira a internet e tente de novo.';
+    if (s === 400) return 'Algum dado está fora do formato. Confira os campos e tente de novo.';
+    if (s === 401) return ERROS.NAO_AUTORIZADO;
+    if (s === 403) return 'Sem permissão para isso.';
+    if (s === 404) return 'Não encontrado. Atualize a página e tente de novo.';
+    if (s === 409) return 'Os dados mudaram nesse meio-tempo. Atualize e tente de novo.';
+    if (s === 413) return 'O arquivo é grande demais.';
+    if (s === 429) return 'Muitas tentativas seguidas. Aguarde um pouco e tente de novo.';
+    if (s >= 500) return 'O Conector teve um erro interno. Tente de novo em instantes.';
+    return 'Não deu certo. Tente de novo.';
   }
   function dataHora(v) {
     if (!v) return '—';
@@ -135,8 +145,8 @@
     box.appendChild(s);
   }
 
-  /* ---------- abas (topo e detalhe do cliente) ---------- */
-  // Um grupo de abas = botões role=tab cujo aria-controls aponta o painel. Setas mudam de aba.
+  /* ---------- abas (barra lateral, Sistemas e detalhe do cliente) ---------- */
+  // Um grupo de abas = botões role=tab cujo aria-controls aponta o painel. Setas (as quatro), Home e End mudam de aba.
   function ligarAbas(ids, aoTrocar) {
     function ativar(id, foco) {
       ids.forEach(function (outro) {
@@ -151,18 +161,26 @@
     ids.forEach(function (id, i) {
       $(id).addEventListener('click', function () { ativar(id); });
       $(id).addEventListener('keydown', function (ev) {
-        var d = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0;
-        if (!d) return;
+        var k = ev.key, alvo = null;
+        if (k === 'ArrowRight' || k === 'ArrowDown') alvo = ids[(i + 1) % ids.length];
+        else if (k === 'ArrowLeft' || k === 'ArrowUp') alvo = ids[(i - 1 + ids.length) % ids.length];
+        else if (k === 'Home') alvo = ids[0];
+        else if (k === 'End') alvo = ids[ids.length - 1];
+        if (!alvo) return;
         ev.preventDefault();
-        ativar(ids[(i + d + ids.length) % ids.length], true);
+        ativar(alvo, true);
       });
     });
     return ativar;
   }
-  var irPara = ligarAbas(['nav-clientes', 'nav-uso', 'nav-sistemas', 'nav-pedidos', 'nav-usuarios'], function (id) {
+  var irPara = ligarAbas(['nav-clientes', 'nav-uso', 'nav-sistemas', 'nav-usuarios'], function (id) {
+    window.scrollTo(0, 0);
     if (id === 'nav-usuarios') carregarUsuarios();
     if (id === 'nav-uso') carregarUso();
   });
+  // Sistemas (ERP) tem duas sub-abas: conectores e pedidos. Ir a um conector sempre mostra a primeira.
+  var abaDeSistemas = ligarAbas(['sx-conectores', 'sx-pedidos']);
+  function irParaConectores() { irPara('nav-sistemas'); abaDeSistemas('sx-conectores'); }
   var abaDoCliente = ligarAbas(['da-sistema', 'da-instalacao', 'da-financeiro', 'da-confirmacao', 'da-avancado']);
 
   function urlManifest() { return location.origin + '/extensao/manifest.json'; }
@@ -171,6 +189,7 @@
   var eu = null; // usuário da sessão; null quando entrou pela chave
 
   function abrirArea() {
+    document.body.classList.add('com-sessao');
     $('acesso').hidden = true;
     $('area').hidden = false;
     $('nav').hidden = false;
@@ -249,6 +268,8 @@
     tenants = []; atual = null; wiz = null;
     conectores = []; pedidos = []; conectorAtual = null;
     ['lista', 's-chaves', 'w-chave', 'cx-lista', 'cx-pedidos', 'd-docs', 'u-lista', 'quem'].forEach(function (id) { $(id).textContent = ''; });
+    if ($('dlg-senha').open) $('dlg-senha').close();
+    document.body.classList.remove('com-sessao');
     $('area').hidden = true;
     $('nav').hidden = true;
     $('b-sair').hidden = true;
@@ -286,10 +307,7 @@
         var acao = el('td');
         if (!(eu && eu.id === u.id)) {
           acao.appendChild(botao(u.ativo ? 'Desativar' : 'Reativar', null, function () { mudarUsuario(u, { ativo: !u.ativo }, u.ativo ? 'Desativar ' + u.nome + '? As sessões dele são encerradas.' : null); }));
-          acao.appendChild(botao('Nova senha', 'Definir nova senha para ' + u.nome, function () {
-            var s = window.prompt('Nova senha para ' + u.nome + ' (mínimo 10 caracteres):');
-            if (s) mudarUsuario(u, { senha: s }, null);
-          }));
+          acao.appendChild(botao('Nova senha', 'Definir nova senha para ' + u.nome, function () { abrirNovaSenha(u); }));
         }
         tr.appendChild(acao);
         tb.appendChild(tr);
@@ -302,6 +320,30 @@
     chamar('PATCH', '/admin/usuarios/' + encodeURIComponent(u.id), corpo).then(function (r) {
       if (r.status !== 200) { msg('m-usuarios', 'err', erroDe(r)); return; }
       msg('m-usuarios', 'ok', corpo.senha ? 'Senha de ' + u.nome + ' trocada.' : 'Salvo.');
+      carregarUsuarios();
+    });
+  }
+
+  var senhaDe = null; // usuário cuja senha o diálogo está trocando
+  function abrirNovaSenha(u) {
+    senhaDe = u;
+    $('dlg-senha-quem').textContent = 'Para ' + u.nome + ' (' + u.usuario + '). As sessões abertas desse usuário são encerradas.';
+    $('dlg-senha-usuario').value = u.usuario;
+    msg('m-dlg-senha', null, '');
+    $('dlg-senha').showModal();
+    $('dlg-nova').focus();
+  }
+  function definirNovaSenha(ev) {
+    ev.preventDefault();
+    var u = senhaDe, a = $('dlg-nova').value;
+    if (!u) return;
+    if (a.length < 10) { msg('m-dlg-senha', 'err', ERROS.SENHA_FRACA); $('dlg-nova').focus(); return; }
+    if (a !== $('dlg-nova2').value) { msg('m-dlg-senha', 'err', 'As duas senhas não são iguais.'); $('dlg-nova2').focus(); return; }
+    msg('m-dlg-senha', null, 'Salvando…');
+    chamar('PATCH', '/admin/usuarios/' + encodeURIComponent(u.id), { senha: a }).then(function (r) {
+      if (r.status !== 200) { msg('m-dlg-senha', 'err', erroDe(r)); return; }
+      $('dlg-senha').close();
+      msg('m-usuarios', 'ok', 'Senha de ' + u.nome + ' trocada.');
       carregarUsuarios();
     });
   }
@@ -694,7 +736,7 @@
     if (d.pedido) {
       caixa.appendChild(el('strong', null, 'Sistema pedido: ' + d.pedido.sistema));
       caixa.appendChild(el('p', 'dica', 'Este sistema ainda não tem conector publicado (pedido ' + (PEDIDOS[d.pedido.situacao] || d.pedido.situacao).toLowerCase() + ' desde ' + dataHora(d.pedido.criado_em) + '). A documentação anexada abaixo vai para o conector dele; quando ele for publicado, escolha-o aqui em "Sistema" e preencha o acesso.'));
-      if (d.pedido.conector_slug) caixa.appendChild(botao('Abrir em Sistemas (ERP)', null, function () { irPara('nav-sistemas'); abrirConector(d.pedido.conector_slug); }));
+      if (d.pedido.conector_slug) caixa.appendChild(botao('Abrir em Sistemas (ERP)', null, function () { abrirConector(d.pedido.conector_slug); }));
     }
     $('d-doc-destino').textContent = d.slug ? 'Destino: conector ' + nomeConector(d.slug) + ' (' + d.slug + ').' : 'Destino: o conector de ' + d.pedido.sistema + ' é criado como rascunho ao anexar.';
     $('d-docs').textContent = '';
@@ -875,8 +917,8 @@
       msg('m-cx', null, '');
       desenharCentral();
       var abertos = pedidos.filter(function (p) { return p.situacao === 'aberto' || p.situacao === 'em_andamento'; }).length;
-      $('nav-pedidos-n').textContent = String(abertos);
-      $('nav-pedidos-n').hidden = !abertos;
+      ['nav-pedidos-n', 'sx-pedidos-n'].forEach(function (id) { $(id).textContent = String(abertos); $(id).hidden = !abertos; });
+      $('nav-sistemas').setAttribute('aria-label', 'Sistemas (ERP)' + (abertos ? ', ' + abertos + (abertos === 1 ? ' pedido aberto' : ' pedidos abertos') : ''));
       desenharLista();
       if (atual) { preencherSelectErp(); $('e-erp').value = atual.erp || 'asa'; trocarErp(); resumo(atual); sistemaDoCliente(atual); }
       if (wiz && wiz.etapa === 2) opcoesErp();
@@ -950,7 +992,7 @@
 
   function comecarPeloPedido(p) {
     pedidoAtual = p;
-    irPara('nav-sistemas');
+    irParaConectores();
     $('cx-n-nome').value = p.sistema;
     $('cx-n-slug').value = slugDe(p.sistema);
     msg('m-cx-novo', null, 'Criando o conector do pedido de ' + (p.clinica || 'uma clínica') + '. Confira o nome e o identificador.');
@@ -983,7 +1025,7 @@
       if (r.status !== 200 || !r.body) { msg('m-cx', 'err', erroDe(r)); return; }
       var c = r.body;
       conectorAtual = c;
-      irPara('nav-sistemas');
+      irParaConectores();
       $('cx-detalhe').hidden = false;
       $('cx-titulo').textContent = c.slug === 'padrao' ? 'Sistema próprio (padrão Kentro)' : c.nome;
       var dl = $('cx-resumo');
@@ -1093,7 +1135,7 @@
   // O arquivo vem como download (nunca aberto como página deste endereço).
   function baixarDoc(slug, d, msgId) {
     fetch('/admin/conectores/' + encodeURIComponent(slug) + '/documentos/' + encodeURIComponent(d.id), { headers: cabecalhos(), credentials: 'same-origin' })
-      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+      .then(function (r) { if (!r.ok) { var x = new Error(erroDe({ status: r.status, body: null })); x.nosso = true; throw x; } return r.blob(); })
       .then(function (blob) {
         var url = URL.createObjectURL(blob);
         var a = el('a');
@@ -1103,7 +1145,7 @@
         a.click();
         a.remove();
         setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
-      }, function (e) { msg(msgId, 'err', 'Não deu para baixar (' + e.message + ').'); });
+      }, function (e) { msg(msgId, 'err', 'Não deu para baixar. ' + (e && e.nosso ? e.message : 'O Conector não respondeu.')); });
   }
 
   function anexarDoc(ev) {
@@ -1355,6 +1397,10 @@
   $('u-atualizar').addEventListener('click', carregarUsuarios);
   $('f-u-novo').addEventListener('submit', novoUsuario);
   $('f-u-senha').addEventListener('submit', trocarMinhaSenha);
+  $('f-dlg-senha').addEventListener('submit', definirNovaSenha);
+  $('dlg-cancelar').addEventListener('click', function () { $('dlg-senha').close(); });
+  // Fechar (Esc, Cancelar ou depois de salvar) apaga o que foi digitado.
+  $('dlg-senha').addEventListener('close', function () { $('dlg-nova').value = ''; $('dlg-nova2').value = ''; senhaDe = null; });
   $('b-sair').addEventListener('click', sair);
   $('b-atualizar').addEventListener('click', function () { msg('m-lista', null, 'Atualizando…'); carregar(); });
   $('b-fechar').addEventListener('click', fechar);

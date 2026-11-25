@@ -57,32 +57,61 @@ body { margin: 0; min-height: 100vh; background: var(--surface); }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 ::selection { background: var(--brand-soft); }
 
-/* ---------- Topo ---------- */
-.topo { background: var(--deep); color: var(--on-deep); padding: var(--s4) var(--s6) 0; border-bottom: 1px solid var(--on-deep-line); }
-.topo__marca { max-width: 1280px; margin: 0 auto; padding-bottom: var(--s3); display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; }
-.topo h1 { margin: 0; font-family: var(--display); font-size: 18px; font-weight: 650; letter-spacing: -.01em; }
-.topo p { margin: 0; color: var(--on-deep-muted); font-size: 13px; }
-.topo__nav { max-width: 1280px; margin: 0 auto; display: flex; gap: var(--s1); align-items: center; flex-wrap: wrap; }
-.topo__aba { position: relative; font: inherit; font-weight: 600; color: var(--on-deep-muted); background: transparent; border: 0; border-radius: var(--r-sm) var(--r-sm) 0 0; padding: 10px 14px 12px; cursor: pointer; }
-.topo__aba:hover { color: var(--on-deep); background: rgba(255, 255, 255, .06); }
-.topo__aba[aria-selected="true"] { color: var(--on-deep); }
-.topo__aba[aria-selected="true"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: #7fdcc4; }
-.topo__aba:focus-visible { outline: 3px solid #7fdcc4; outline-offset: -3px; }
-.topo__quem { margin: 0 var(--s2) 0 auto; font-size: 13px; color: var(--on-deep-muted); }
-.topo__nav #b-sair { margin: 0 0 var(--s1); }
+/* ---------- Barra lateral (com sessão) ---------- */
+.lateral { display: none; }
+body.com-sessao { display: grid; grid-template-columns: 232px minmax(0, 1fr); }
+body.com-sessao .lateral { display: flex; flex-direction: column; gap: var(--s6); position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: var(--s5) var(--s3); background: var(--deep); color: var(--on-deep); border-right: 1px solid var(--on-deep-line); }
+.logo { display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 9px; background: #7fdcc4; color: #0a3d36; font-family: var(--display); font-weight: 700; font-size: 17px; line-height: 1; }
+.lateral__marca { display: flex; align-items: center; gap: var(--s3); padding: 0 var(--s2); }
+.lateral h1 { margin: 0; font-family: var(--display); font-size: 16px; font-weight: 650; line-height: 1.2; letter-spacing: -.01em; }
+.lateral__marca p { margin: 0; font-size: 12px; color: var(--on-deep-muted); }
+.lateral__nav { display: flex; flex-direction: column; gap: 2px; }
+.lateral__item { position: relative; display: flex; align-items: center; gap: var(--s3); width: 100%; padding: 9px var(--s3); font: inherit; font-weight: 600; text-align: left; color: var(--on-deep-muted); background: transparent; border: 0; border-radius: var(--r-sm); cursor: pointer; }
+.lateral__item svg { width: 18px; height: 18px; flex: none; }
+.lateral__item:hover { color: var(--on-deep); background: rgba(255, 255, 255, .06); }
+.lateral__item[aria-selected="true"] { color: var(--on-deep); background: rgba(255, 255, 255, .1); }
+.lateral__item[aria-selected="true"]::before { content: ""; position: absolute; left: calc(-1 * var(--s3)); top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: #7fdcc4; }
+.lateral__item:focus-visible { outline: 3px solid #7fdcc4; outline-offset: -3px; }
+.lateral__item .contador { margin-left: auto; }
+.lateral__pe { margin-top: auto; display: grid; gap: var(--s2); justify-items: start; padding: var(--s4) var(--s2) 0; border-top: 1px solid var(--on-deep-line); }
+.lateral__quem { font-size: 13px; color: var(--on-deep-muted); overflow-wrap: anywhere; }
+.lateral__quem:empty { display: none; }
 .contador { display: inline-block; min-width: 1.6em; padding: 0 6px; margin-left: 6px; border-radius: 999px; background: #f5c886; color: #3a2606; font-size: 12px; line-height: 1.5; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* ---------- Entrar (sem sessão): tela cheia ---------- */
+body:not(.com-sessao) { background: var(--deep); }
+body:not(.com-sessao) main { min-height: 100vh; align-content: center; }
+.acesso__marca { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s6); color: var(--muted); }
+.acesso__marca strong { color: var(--text); font-family: var(--display); font-size: 17px; font-weight: 650; margin-right: 4px; }
 
 /* ---------- Página ---------- */
 main { max-width: 1280px; margin: 0 auto; padding: var(--s6) var(--s4) 64px; display: grid; gap: var(--s4); }
-#area, .vista { display: grid; gap: var(--s4); }
-#area, .vista, .vista > .cartao { min-width: 0; } /* a tabela larga rola dentro da caixa, não a página */
+#area, .vista, .subvista { display: grid; gap: var(--s4); }
+#area, .vista, .subvista, .vista > .cartao, .subvista > .cartao { min-width: 0; } /* a tabela larga rola dentro da caixa, não a página */
 
 .cartao { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s5) var(--s6); box-shadow: var(--lift); }
 .cartao h2 { margin: 0 0 var(--s3); font-family: var(--display); font-size: 18px; font-weight: 650; letter-spacing: -.01em; }
-.cartao--acesso { max-width: 520px; width: 100%; justify-self: center; margin-top: 6vh; padding: var(--s8); }
+.cartao--acesso { max-width: 480px; width: 100%; justify-self: center; padding: var(--s8); box-shadow: 0 12px 40px rgba(0, 0, 0, .25); }
 .cartao--acesso h2 { font-size: 22px; margin-bottom: var(--s5); }
 .cabeca { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
 .cabeca h2 { margin: 0; }
+
+/* ---------- Cabeçalho de página ---------- */
+.pagina { display: grid; gap: var(--s1); padding: var(--s2) 0 0; }
+.pagina h2 { margin: 0; font-family: var(--display); font-size: 24px; font-weight: 650; letter-spacing: -.015em; line-height: 1.25; }
+.pagina__sub { margin: 0; color: var(--muted); max-width: 80ch; }
+.como { max-width: 80ch; }
+.como summary { width: fit-content; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--brand); border-radius: 4px; }
+.como summary:hover { text-decoration: underline; }
+.como p { margin: var(--s2) 0 0; color: var(--muted); font-size: 13px; }
+.abas.abas--pagina { margin: 0; }
+
+/* ---------- Diálogo ---------- */
+.dialogo { width: min(440px, calc(100vw - 32px)); padding: var(--s6); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg); color: var(--text); box-shadow: 0 16px 48px rgba(0, 0, 0, .3); }
+.dialogo::backdrop { background: rgba(6, 26, 23, .6); }
+.dialogo h2 { margin: 0 0 var(--s1); font-family: var(--display); font-size: 18px; font-weight: 650; }
+.dialogo form { display: grid; gap: var(--s2); }
+.acoes--fim { justify-content: flex-end; }
 .bloco { border-top: 1px solid var(--border); padding-top: var(--s5); margin-top: var(--s5); }
 .bloco h3 { margin: 0 0 var(--s2); font-size: 15px; font-weight: 650; }
 .perigo { border: 1px solid color-mix(in srgb, var(--err) 35%, var(--border)); background: color-mix(in srgb, var(--err-soft) 55%, var(--bg)); border-radius: var(--r-md); padding: var(--s4) var(--s5); }
@@ -246,13 +275,24 @@ a:hover { color: var(--brand-hover); }
 .barras__b:hover { background: var(--brand-hover); }
 
 /* ---------- Telas estreitas ---------- */
+@media (max-width: 900px) {
+  body.com-sessao { display: block; }
+  body.com-sessao .lateral { z-index: 5; height: auto; flex-direction: row; align-items: center; gap: var(--s3); padding: var(--s2) var(--s3); overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--on-deep-line); }
+  .lateral__marca { padding: 0; }
+  .lateral__marca p, .lateral__quem { display: none; }
+  .lateral__nav { flex-direction: row; }
+  .lateral__item { width: auto; white-space: nowrap; padding: 8px 10px; }
+  .lateral__item[aria-selected="true"]::before { left: 10px; right: 10px; top: auto; bottom: calc(-1 * var(--s2)); width: auto; height: 3px; border-radius: 3px 3px 0 0; }
+  .lateral__pe { margin: 0 0 0 auto; padding: 0; border: 0; }
+}
+@media (max-width: 560px) {
+  .lateral__item svg, .lateral h1 { display: none; }
+}
 @media (max-width: 700px) {
-  .topo { padding: var(--s3) var(--s4) 0; }
-  .topo p { display: none; }
-  .topo__aba { padding: 8px 10px 10px; }
   main { padding: var(--s4) var(--s3) 48px; }
   .cartao { padding: var(--s4); }
-  .cartao--acesso { padding: var(--s5); margin-top: var(--s2); }
+  .cartao--acesso { padding: var(--s5); }
+  .pagina h2 { font-size: 20px; }
   .etapas li { font-size: 0; gap: 0; } /* só os números; o nome da etapa está no título */
   .etapas li::before { font-size: 13px; }
 }
