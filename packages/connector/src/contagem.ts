@@ -12,6 +12,7 @@ export const EVENTOS: Readonly<Record<string, string>> = {
   "GET /v1/paciente": "busca_paciente",
   "POST /v1/pacientes": "cadastro_paciente",
   "GET /v1/agenda/dia": "agenda_dia",
+  "GET /v1/agenda/colunas": "agenda_dia",
   "GET /v1/agenda/horarios": "horarios",
   "GET /v1/exames": "exames",
   "GET /v1/painel/resumo": "painel",

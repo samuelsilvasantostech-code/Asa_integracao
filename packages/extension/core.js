@@ -44,6 +44,7 @@
         default: return { tone: 'err', pill: 'Sistema fora do ar', text: nome + ': ' + sis('a') + ' não respondeu agora.', retry: true };
       }
     }
+    if (body && body.erro === 'LIMITE_KENTRO') return { tone: 'warn', pill: 'Aguarde', text: LIMITE_TEXTO, retry: true };
     if (status === 401) return { tone: 'err', pill: 'Chave inválida', text: 'A chave da instalação não foi reconhecida. Fale com a implantação.', retry: false };
     if (status === -1) return { tone: 'warn', pill: 'Sem chave', text: 'A chave da instalação ainda não foi cadastrada. Um superusuário cadastra em Administração de extensões, no campo "Chave da instalação".', retry: true };
     return { tone: 'err', pill: 'Fora do ar', text: serverDown(status), retry: true };
@@ -98,6 +99,10 @@
     return d.length === 11 ? d : null;
   }
 
+  // A Kentro limita as chamadas de cada instalação por minuto; a extensão já espera a vez, mas várias telas
+  // ou atendentes juntos ainda podem passar do limite.
+  var LIMITE_TEXTO = 'Muitas consultas ao ClinFy em pouco tempo (limite da Kentro). Aguarde alguns segundos e clique em Atualizar.';
+
   // Sem resposta do servidor do ClinFy (rede, proxy do host) ou falha dele.
   function serverDown(status) {
     return !(status > 0)
@@ -124,6 +129,7 @@
     if (erro === 'TELEFONE_INVALIDO') return ('O telefone do contato não está num formato que ' + sis('a') + ' aceite.');
     if (erro === 'CPF_INVALIDO') return 'Informe um CPF com 11 dígitos.';
     if (erro === 'MUITAS_BUSCAS') return 'Muitas buscas de paciente em pouco tempo. Aguarde um minuto e tente de novo.';
+    if (erro === 'LIMITE_KENTRO') return LIMITE_TEXTO;
     if (typeof erro === 'string' && PEDIDO_INVALIDO.test(erro)) return 'O pedido saiu com algum dado fora do formato. Atualize a tela e tente de novo.';
     if (erro === 'CHAVE_AUSENTE' || erro === 'CHAVE_INVALIDA' || status === 401) return 'A chave da instalação não foi reconhecida. Fale com a implantação.';
     if (erro === 'HOST_NAO_PERMITIDO') return 'O endereço do servidor do ClinFy está errado nesta instalação. Fale com a implantação.';

@@ -11,7 +11,7 @@
   // Colunas na tela: {prest, day, data: {data, agendados, livres} | null, erro}. Dia = 1 coluna,
   // semana = 7 (um profissional), lado a lado = os profissionais da especialidade num dia.
   var cols = [], viewSeq = 0;
-  var MAX_LADO = 8, PARALELO = 3;           // colunas no lado a lado; pedidos simultâneos ao Conector
+  var MAX_LADO = 8;                        // colunas no lado a lado (um pedido só ao Conector)
   var pac = null;                           // paciente buscado: {paciente, consultas, busca}
   var pacSeq = 0, notFound = null;          // busca em andamento; a busca que não achou (preenche o cadastro)
   var newPatientKey = null;                 // idempotência do cadastro sem consulta
@@ -155,17 +155,8 @@
     return sel.prest ? [{ prest: sel.prest, day: sel.day }] : [];
   }
 
-  // Roda fn em cada item, no máximo n de cada vez (cada coluna custa 2 chamadas à Asa).
-  function queue(items, n, fn) {
-    var i = 0;
-    function next() {
-      if (i >= items.length) return null;
-      return Promise.resolve(fn(items[i++])).then(next, next);
-    }
-    for (var k = 0; k < Math.min(n, items.length); k++) next();
-  }
-
-  function loadView() {
+  // force = buscar agora, sem a cópia guardada (botão Atualizar).
+  function loadView(force) {
     renderDayLabel();
     var s = ++viewSeq, list = columns(), multi = sel.view !== 'dia';
     cols = list;
@@ -183,14 +174,15 @@
     status('day-status', 'Carregando a agenda…');
     if (multi) list.forEach(function (c) { $('grid').appendChild(colNode(c)); });
     else $('sheet').setAttribute('aria-busy', 'true');
-    queue(list, PARALELO, function (c) {
-      if (s !== viewSeq) return null; // a visão mudou: o resto da fila não é mais pedido
-      return api.day(c.prest, c.day).then(function (r) {
-        if (s !== viewSeq) return;
+    // Todas as colunas num pedido só (semana: 7; lado a lado: até 8): a Kentro limita as chamadas por minuto.
+    api.columns(list.map(function (c) { return { prest: c.prest, day: c.day }; }), force === true).then(function (rs) {
+      if (s !== viewSeq) return; // a visão mudou enquanto carregava
+      list.forEach(function (c, i) {
+        var r = rs[i];
         if (r.status === 200 && r.body) { c.data = r.body; syncClock(r.body.agora); } else c.erro = C.readError(r.status, r.body);
         renderCol(c);
-        if (list.every(function (x) { return x.data || x.erro; })) viewStatus();
       });
+      viewStatus();
     });
   }
 
@@ -702,9 +694,11 @@
       });
     });
     if (!waiting.length) return;
-    Promise.all(waiting.map(function (c) {
-      var gen = c.gen || 0;
-      return api.day(c.prest, c.day).then(function (r) {
+    // Um pedido só para todas as colunas esperando, sempre fresco (sem a cópia guardada).
+    var gens = waiting.map(function (c) { return c.gen || 0; });
+    api.columns(waiting.map(function (c) { return { prest: c.prest, day: c.day }; }), true).then(function (rs) {
+      waiting.forEach(function (c, i) {
+        var gen = gens[i], r = rs[i];
         if (s !== viewSeq || r.status !== 200 || !r.body) return;
         // Uma ação gravou nesta coluna enquanto a leitura estava a caminho: a leitura pode ser anterior a ela.
         if (c.busy || (c.gen || 0) !== gen) return;
@@ -721,7 +715,8 @@
         var fresh = here && find(r.body.agendados || [], old.id);
         if (fresh && !$('s-appt').querySelector('.item__ask, button:disabled, form')) showAppt(fresh, c);
       });
-    })).then(function () { if (s === viewSeq) viewStatus(); });
+      if (s === viewSeq) viewStatus();
+    });
   }
 
   // Função, não constante: o nome do sistema só chega depois que o script carrega.
@@ -1261,7 +1256,7 @@
     $('sr-back').addEventListener('click', function () { side('s-book'); });
     $('sd-close').addEventListener('click', closeSide);
     $('g-retry').addEventListener('click', function () { connect(true); });
-    $('day-refresh').addEventListener('click', loadView);
+    $('day-refresh').addEventListener('click', function () { loadView(true); });
 
     setView(recall('view'));
     side('s-empty');

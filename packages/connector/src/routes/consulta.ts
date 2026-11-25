@@ -2,13 +2,15 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { pool } from "../db.js";
 import { hojeEm } from "../confirmacao.js";
 import type { FalhaErp, Resultado } from "../erp/index.js";
-import { telefoneNacional, type Consulta } from "../erp/modelo.js";
+import { telefoneNacional, type Agendado, type Consulta, type Horario } from "../erp/modelo.js";
 import { Limite } from "../limite.js";
 import { Cache, chaveDaClinica, guardavel } from "../cache.js";
 import { marcarErroErp } from "../contagem.js";
 import { atendimentosDe } from "./atendimento.js";
 import { lembrarAgendados } from "../atendimento.js";
-import { erpDaRequisicao, tenantComErp } from "../tenant-auth.js";
+import { tenantComErp } from "../tenant-auth.js";
+import type { ErpAdapter } from "../erp/index.js";
+import type { FastifyRequest } from "fastify";
 
 // Rotas de LEITURA do ERP da clínica para o painel. Nada aqui grava no ERP.
 
@@ -27,6 +29,56 @@ export function falha(reply: FastifyReply, r: FalhaErp) {
 // O ERP respondeu "não achei" (cada adaptador sabe reconhecer o dele).
 export function naoEncontrado(r: Resultado<unknown> | null): boolean {
   return !!r && !r.ok && r.naoEncontrado;
+}
+
+// Hora atual (HH:MM) no fuso da clínica.
+export function horaEm(agora: Date, fuso = "America/Sao_Paulo"): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: fuso, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(agora);
+}
+
+// Consulta que ainda ocupa o horário: cancelada e desistência liberam (o mesmo critério da marcação).
+export const ocupaHorario = (a: Agendado) => !!a.hora && !/cancel|desist/.test(a.status ?? "");
+
+// Horários livres que dá para oferecer de verdade. O ERP (a Asa, por exemplo) pode devolver como livre:
+// - horário de hoje que já passou;
+// - horário que já tem consulta ativa (agenda com vários agenda_id, ou leitura fora de sincronia);
+// - o mesmo horário repetido (um por agenda_id).
+// Em agenda de ordem de chegada vários pacientes dividem o turno, que segue aberto depois de começar:
+// ali só sai o repetido. Sem saber o tipo da agenda, sai o passado e o repetido.
+// Só a leitura passa por aqui; a marcação continua conferindo no ERP antes de gravar.
+export function filtrarLivres(
+  livres: Horario[],
+  agendados: Agendado[] | null,
+  data: string,
+  agora: Date,
+  opcoes: { passados?: boolean; ocupados?: boolean } = {},
+): Horario[] {
+  const limite = opcoes.passados !== false && data === hojeEm(agora) ? horaEm(agora) : null;
+  const ocupadas = new Set(opcoes.ocupados !== false && agendados ? agendados.filter(ocupaHorario).map((a) => a.hora!) : []);
+  const vistos = new Set<string>();
+  return livres.filter((h) => {
+    if (vistos.has(h.horario)) return false;
+    vistos.add(h.horario);
+    if (limite && h.horario <= limite) return false;
+    return !ocupadas.has(h.horario);
+  });
+}
+
+// Itens do pedido em lote: "prestador:data" separados por vírgula, sem repetir, até MAX_COLUNAS.
+export const MAX_COLUNAS = 8;
+export function lerColunas(bruto: unknown): { prestador_id: string; data: string }[] | null {
+  if (typeof bruto !== "string" || !bruto) return null;
+  const vistos = new Set<string>();
+  const itens: { prestador_id: string; data: string }[] = [];
+  for (const parte of bruto.split(",")) {
+    const i = parte.lastIndexOf(":");
+    const prestador_id = parte.slice(0, i), data = parte.slice(i + 1);
+    if (i < 1 || !idValido(prestador_id) || !dataValida(data)) return null;
+    if (vistos.has(parte)) continue;
+    vistos.add(parte);
+    itens.push({ prestador_id, data });
+  }
+  return itens.length && itens.length <= MAX_COLUNAS ? itens : null;
 }
 
 // Busca de paciente por clínica: o painel busca ao abrir cada conversa, então 300 por minuto cobre uma
@@ -52,6 +104,64 @@ async function confirmacoesDe(tenantId: string, ids: string[]) {
     else if (r.origem === "manual" && r.estado === "falhou") mapa.set(r.agendamento_id, { estado: "falhou", resposta: null });
   }
   return mapa;
+}
+
+type Ctx = { tenant: { id: string; erp: string; credencial: Buffer | null }; erp: ErpAdapter };
+
+// Profissional de ordem de chegada? Vem da lista de profissionais (a mesma da rota /v1/agenda, em cache).
+// Sem resposta, null: quem chama não esconde horário ocupado, só o passado e o repetido.
+async function ordemDeChegada(ctx: Ctx, prestadorId: string): Promise<boolean | null> {
+  const r = await cacheAgenda.obter(chaveDaClinica(ctx.tenant) + "agenda", () => ctx.erp.especialidadesEPrestadores(), (x) => x.ok)
+    .catch(() => null) as Awaited<ReturnType<ErpAdapter["especialidadesEPrestadores"]>> | null;
+  if (!r || !r.ok) return null;
+  const p = r.dados.prestadores.find((x) => x.id === prestadorId);
+  return p ? p.ordem_chegada : null;
+}
+
+// Falha do ERP como resposta (status + corpo), para a rota de um dia e para cada coluna do lote.
+function respostaDeFalha(req: FastifyRequest, r: FalhaErp) {
+  if (!r.recusa) marcarErroErp(req, r.erro);
+  return { status: r.credencialInvalida ? 422 : 502, corpo: { erro: r.erro, msg: r.recusa ? r.msg : undefined } as Record<string, unknown> };
+}
+
+// Um dia de um prestador para a agenda: consultas marcadas e horários livres que dá para oferecer.
+// Horários livres de dia passado não são pedidos (a Asa recusa): só de hoje em diante.
+async function montarDia(req: FastifyRequest, ctx: Ctx, prestador_id: string, data: string): Promise<{ status: number; corpo: Record<string, unknown> }> {
+  const { erp } = ctx;
+  const agora = new Date();
+  const hoje = hojeEm(agora);
+  const futuro = data >= hoje;
+  const [ra, rl, oc] = await Promise.all([
+    erp.agendaDoDia(prestador_id, data),
+    futuro ? erp.horariosLivres(prestador_id, data) : null,
+    futuro ? ordemDeChegada(ctx, prestador_id) : null,
+  ]);
+  if (!ra.ok && !naoEncontrado(ra)) return respostaDeFalha(req, ra);
+  const agendados = ra.ok ? ra.dados : [];
+  // Horários livres indisponíveis não derrubam a agenda: as consultas marcadas ainda servem.
+  const livres = rl && rl.ok ? filtrarLivres(rl.dados, ra.ok ? agendados : null, data, agora, { passados: oc !== true, ocupados: oc === false }) : [];
+  const ids = agendados.map((x) => x.id);
+  if (ra.ok && data === hoje) lembrarAgendados(ctx.tenant.id, prestador_id, data, ids);
+  // Tempo de espera (chegada, chamada, fim) só existe para hoje.
+  const [conf, atend] = await Promise.all([confirmacoesDe(ctx.tenant.id, ids), data === hoje ? atendimentosDe(ctx.tenant.id, ids) : null]);
+  return {
+    status: 200,
+    corpo: {
+      data,
+      // Hora do Conector: os cronômetros das telas contam a partir dela (o relógio do computador pode errar).
+      agora: agora.toISOString(),
+      agendados: agendados.map((x) => {
+        const extra: Record<string, unknown> = {};
+        if (conf.has(x.id)) extra.confirmacao = conf.get(x.id);
+        if (atend?.has(x.id)) extra.atendimento = atend.get(x.id);
+        return Object.keys(extra).length ? { ...x, ...extra } : x;
+      }),
+      livres,
+      livres_ok: !rl || rl.ok || naoEncontrado(rl),
+      // O profissional não atende neste dia: a tela diz isso em vez de "nenhuma consulta".
+      ...(!ra.ok && ra.semExpediente && !agendados.length ? { sem_atendimento: true } : {}),
+    },
+  };
 }
 
 export async function consultaRoutes(app: FastifyInstance) {
@@ -119,51 +229,51 @@ export async function consultaRoutes(app: FastifyInstance) {
   });
 
   // Dia de um prestador para a agenda em tela cheia: consultas marcadas e horários livres.
-  // Horários livres de dia passado não são pedidos (a Asa recusa): só de hoje em diante.
   app.get<{ Querystring: { prestador_id?: string; data?: string } }>("/v1/agenda/dia", async (req, reply) => {
     const { prestador_id, data } = req.query;
     if (!idValido(prestador_id)) return reply.code(400).send({ erro: "PRESTADOR_INVALIDO" });
     if (!data || !dataValida(data)) return reply.code(400).send({ erro: "DATA_INVALIDA" });
     const ctx = await tenantComErp(req, reply);
     if (!ctx) return;
-    const { erp } = ctx;
-    const futuro = data >= hojeEm(new Date());
-    const [ra, rl] = await Promise.all([erp.agendaDoDia(prestador_id, data), futuro ? erp.horariosLivres(prestador_id, data) : null]);
-    if (!ra.ok && !naoEncontrado(ra)) return falha(reply, ra);
-    const agendados = ra.ok ? ra.dados : [];
-    // Horários livres indisponíveis não derrubam a agenda: as consultas marcadas ainda servem.
-    const livres = rl && rl.ok ? rl.dados : [];
-    const ids = agendados.map((x) => x.id);
-    if (ra.ok && data === hojeEm(new Date())) lembrarAgendados(ctx.tenant.id, prestador_id, data, ids);
-    // Tempo de espera (chegada, chamada, fim) só existe para hoje.
-    const [conf, atend] = await Promise.all([confirmacoesDe(ctx.tenant.id, ids), data === hojeEm(new Date()) ? atendimentosDe(ctx.tenant.id, ids) : null]);
-    return {
-      data,
-      // Hora do Conector: os cronômetros das telas contam a partir dela (o relógio do computador pode errar).
-      agora: new Date().toISOString(),
-      agendados: agendados.map((x) => {
-        const extra: Record<string, unknown> = {};
-        if (conf.has(x.id)) extra.confirmacao = conf.get(x.id);
-        if (atend?.has(x.id)) extra.atendimento = atend.get(x.id);
-        return Object.keys(extra).length ? { ...x, ...extra } : x;
-      }),
-      livres,
-      livres_ok: !rl || rl.ok || naoEncontrado(rl),
-      // O profissional não atende neste dia: a tela diz isso em vez de "nenhuma consulta".
-      ...(!ra.ok && ra.semExpediente && !agendados.length ? { sem_atendimento: true } : {}),
-    };
+    const r = await montarDia(req, ctx, prestador_id, data);
+    return reply.code(r.status).send(r.corpo);
   });
 
-  // Horários livres do prestador num dia.
+  // Várias colunas (semana, lado a lado, ocupação do painel) numa requisição só: o proxy da Kentro conta
+  // cada chamada da extensão (30 por minuto por instalação). Cada coluna responde sozinha, com o mesmo
+  // corpo de /v1/agenda/dia ou {erro}; no máximo 2 colunas por vez no ERP.
+  app.get<{ Querystring: { itens?: string } }>("/v1/agenda/colunas", async (req, reply) => {
+    const itens = lerColunas(req.query.itens);
+    if (!itens) return reply.code(400).send({ erro: "PARAMETROS_INVALIDOS", max: MAX_COLUNAS });
+    const ctx = await tenantComErp(req, reply);
+    if (!ctx) return;
+    const colunas: Record<string, unknown>[] = new Array(itens.length);
+    let i = 0;
+    const trabalhador = async () => {
+      while (i < itens.length) {
+        const k = i++, it = itens[k];
+        const r = await montarDia(req, ctx, it.prestador_id, it.data).catch(() => ({ status: 500, corpo: { erro: "ERRO_INTERNO" } as Record<string, unknown> }));
+        colunas[k] = { prestador_id: it.prestador_id, ...r.corpo, data: it.data, status: r.status };
+      }
+    };
+    await Promise.all([trabalhador(), trabalhador()]);
+    return { agora: new Date().toISOString(), colunas };
+  });
+
+  // Horários livres do prestador num dia (marcação pelo painel). Passa pelo mesmo filtro da agenda.
   app.get<{ Querystring: { prestador_id?: string; data?: string } }>("/v1/agenda/horarios", async (req, reply) => {
     const { prestador_id, data } = req.query;
     if (!idValido(prestador_id)) return reply.code(400).send({ erro: "PRESTADOR_INVALIDO" });
     if (!data || !dataValida(data)) return reply.code(400).send({ erro: "DATA_INVALIDA" });
-    const erp = await erpDaRequisicao(req, reply);
-    if (!erp) return;
-    const r = await erp.horariosLivres(prestador_id, data);
+    const ctx = await tenantComErp(req, reply);
+    if (!ctx) return;
+    const [r, ra, oc] = await Promise.all([
+      ctx.erp.horariosLivres(prestador_id, data),
+      ctx.erp.agendaDoDia(prestador_id, data).catch(() => null),
+      ordemDeChegada(ctx, prestador_id),
+    ]);
     if (naoEncontrado(r)) return { horarios: [] };
     if (!r.ok) return falha(reply, r);
-    return { horarios: r.dados };
+    return { horarios: filtrarLivres(r.dados, ra && ra.ok ? ra.dados : null, data, new Date(), { passados: oc !== true, ocupados: oc === false }) };
   });
 }

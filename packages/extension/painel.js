@@ -412,22 +412,27 @@
     if (!profs.length) { status('oc-status', 'Nenhum profissional nessa especialidade.'); return; }
     status('oc-status', 'Carregando 0 de ' + profs.length + '…');
     $('ocup-sub').textContent = 'Consultas marcadas e horários livres de cada profissional em ' + C.formatDay(day, true) + '.';
+    // De 8 em 8 profissionais por pedido (a Kentro limita as chamadas por minuto), um lote depois do outro.
     var i = 0;
     function next() {
-      if (s !== ocSeq || i >= profs.length) return null;
-      var p = profs[i++];
-      return dayWithRetry(p.id, day).then(function (r) {
+      if (s !== ocSeq || i >= profs.length) return;
+      var parte = profs.slice(i, i + 8);
+      i += parte.length;
+      api.columns(parte.map(function (p) { return { prest: p.id, day: day }; })).then(function (rs) {
         if (s !== ocSeq) return;
-        done++;
-        if (r.status === 200 && r.body) {
-          var t = C.daySummary(r.body.agendados, r.body.livres);
-          if (t.consultas + t.livres) rows.push({ nome: p.nome, consultas: t.consultas, livres: t.livres, confirmadas: t.confirmadas });
-        } else {
-          falhas++;
-          ultimaFalha = r;
-        }
+        parte.forEach(function (p, j) {
+          var r = rs[j];
+          done++;
+          if (r.status === 200 && r.body) {
+            var t = C.daySummary(r.body.agendados, r.body.livres);
+            if (t.consultas + t.livres) rows.push({ nome: p.nome, consultas: t.consultas, livres: t.livres, confirmadas: t.confirmadas });
+          } else {
+            falhas++;
+            ultimaFalha = r;
+          }
+        });
         drawOccupancy(rows);
-        if (done < profs.length) { status('oc-status', 'Carregando ' + done + ' de ' + profs.length + '…'); return; }
+        if (done < profs.length) { status('oc-status', 'Carregando ' + done + ' de ' + profs.length + '…'); next(); return; }
         var corte = cut ? ' Mostrando os ' + MAX_PROF + ' primeiros: filtre pela especialidade.' : '';
         if (falhas) {
           status('oc-status', (falhas === profs.length ? 'Nenhum profissional carregou. ' : plural(falhas, 'profissional não carregou', 'profissionais não carregaram') + '. ')
@@ -435,18 +440,9 @@
           return;
         }
         status('oc-status', (rows.length ? plural(rows.length, 'profissional com agenda', 'profissionais com agenda') + ' no dia.' : 'Ninguém tem agenda neste dia.') + corte);
-      }).then(next, next);
+      });
     }
-    for (var k = 0; k < Math.min(3, profs.length); k++) next();
-  }
-
-  // Um dia de um profissional. Se o sistema pedir intervalo (muitas chamadas seguidas), espera e tenta uma vez mais.
-  function dayWithRetry(id, day) {
-    return api.day(id, day).then(function (r) {
-      var limite = r.status === 429 || (r.body && /_LIMITE$/.test(String(r.body.erro || '')));
-      if (!limite) return r;
-      return new Promise(function (ok) { setTimeout(ok, 2500); }).then(function () { return api.day(id, day); });
-    });
+    next();
   }
 
   function drawOccupancy(rows) {

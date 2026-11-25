@@ -14,6 +14,9 @@ import { usoAdmin } from "./uso.js";
 import { gravarCredencial } from "./tenant.js";
 import { decifrar } from "../crypto.js";
 import { chamarAsaBruto, type CredencialAsa } from "../erp/asa/cliente.js";
+import * as NAsa from "../erp/asa/normalizar.js";
+import { hojeEm } from "../confirmacao.js";
+import { filtrarLivres, horaEm, ocupaHorario } from "./consulta.js";
 
 const hash = (valor: string) => createHash("sha256").update(valor).digest("hex");
 
@@ -196,8 +199,10 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // Diagnóstico da agenda na Asa: o que a Asa responde, cru, para um profissional num dia. Sem prestador_id,
-  // lista os profissionais. Só leitura. Numa resposta boa devolve só contagens (nada de paciente); numa
-  // recusa devolve o texto, que é a mensagem de erro da Asa.
+  // lista os profissionais. Só leitura. Numa resposta boa devolve contagens, os horários livres (com os
+  // campos que a Asa mandar em cada um), as consultas só como {id, hora, status} e o cruzamento entre
+  // eles (o que a agenda do ClinFy esconde e por quê). Nada de paciente. Numa recusa devolve o texto,
+  // que é a mensagem de erro da Asa.
   app.get<{ Params: { id: string }; Querystring: { prestador_id?: string; data?: string } }>("/admin/tenants/:id/diagnostico/asa", async (req, reply) => {
     const { rows } = await pool!.query<{ erp: string; asa_credencial_cifrada: Buffer | null }>(
       "SELECT erp, asa_credencial_cifrada FROM tenants WHERE id = $1",
@@ -234,9 +239,39 @@ export async function adminRoutes(app: FastifyInstance) {
       chamarAsaBruto(cred, "api-agendamento-dias-atendimento", { prestador_id }),
     ]);
     const diasLidos = json(dias.texto);
+    const agora = new Date();
+    const cAg = agendados.http === 200 ? json(agendados.texto) : null;
+    const cHo = horarios.http === 200 ? json(horarios.texto) : null;
+    const chavesDe = (itens: any[]) => [...new Set(itens.slice(0, 50).flatMap((x) => (x && typeof x === "object" ? Object.keys(x) : [])))].sort();
+    const brutosHo = cHo && cHo.status !== "error" ? lista(cHo.horarios) : [];
+    const brutosAg = cAg && cAg.status !== "error" ? lista(cAg.agendamentos ?? cAg) : [];
+    const consultas = cAg && cAg.status !== "error" ? NAsa.agendados(cAg) : [];
+    const livres = cHo && cHo.status !== "error" ? NAsa.horarios(cHo) : [];
+    const ativas = new Set(consultas.filter(ocupaHorario).map((a) => a.hora));
+    const contagem = new Map<string, number>();
+    livres.forEach((h) => contagem.set(h.horario, (contagem.get(h.horario) ?? 0) + 1));
+    const hoje = hojeEm(agora), agoraHm = horaEm(agora);
+    // Campos extras de cada horário livre (status, bloqueio...): só valores simples e curtos.
+    const extras = (h: any) => Object.fromEntries(Object.entries(h && typeof h === "object" ? h : {})
+      .filter(([k, v]) => k !== "horario" && k !== "agenda_id" && (v === null || ["string", "number", "boolean"].includes(typeof v)))
+      .map(([k, v]) => [k, typeof v === "string" ? v.slice(0, 40) : v]));
+    const cruzamento = {
+      hoje_sp: hoje,
+      hora_sp: agoraHm,
+      livres_da_asa: livres.length,
+      livres_mostrados: filtrarLivres(livres, consultas, data, agora).length,
+      livres_passados: data === hoje ? livres.filter((h) => h.horario <= agoraHm).map((h) => h.horario) : [],
+      livres_sobre_consulta_ativa: [...new Set(livres.filter((h) => ativas.has(h.horario)).map((h) => h.horario))],
+      livres_repetidos: [...contagem].filter(([, n]) => n > 1).map(([h, n]) => ({ horario: h, vezes: n })),
+    };
     return {
       prestador_id,
       data,
+      cruzamento,
+      livres: brutosHo.slice(0, 80).map((h: any) => ({ horario: String(h?.horario ?? "").slice(0, 19), agenda_id: h?.agenda_id ?? null, ...extras(h) })),
+      livres_chaves: chavesDe(brutosHo),
+      consultas: consultas.slice(0, 80).map((a) => ({ id: a.id, hora: a.hora, status: a.status })),
+      consultas_chaves: chavesDe(brutosAg),
       horarios_agendados: resumo(agendados, (c) => lista(c.agendamentos ?? c).length),
       horarios_atendimento: resumo(horarios, (c) => lista(c.horarios).length),
       dias_atendimento: dias.http === 200 && diasLidos && diasLidos.status !== "error"
