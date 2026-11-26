@@ -7,7 +7,7 @@ process.env.ADMIN_KEY = CHAVE;
 delete process.env.DATABASE_URL;
 delete process.env.POSTGRES_URL;
 const { adminRoutes } = await import("../src/routes/admin.js");
-const { alertasDe, montarUso, periodoUso, saudeDe, situacaoDe, versaoAtrasada } = await import("../src/uso.js");
+const { alertasDe, emExpediente, montarUso, periodoUso, saudeDe, situacaoDe, versaoAtrasada } = await import("../src/uso.js");
 
 const AGORA = new Date("2026-11-24T15:00:00Z");
 const diasAtras = (n: number) => new Date(AGORA.getTime() - n * 86400000).toISOString();
@@ -164,4 +164,22 @@ test("rota /admin/uso exige a chave e para no banco ausente", async () => {
   assert.equal((await app.inject({ method: "GET", url: "/admin/uso" })).statusCode, 401);
   assert.equal((await app.inject({ method: "GET", url: "/admin/uso?dias=7", headers: { "x-admin-key": CHAVE } })).statusCode, 503);
   await app.close();
+});
+
+test("alerta sem uso no expediente: clínica de uso diário, 3 h sem chamada, de segunda a sexta, das 10h às 18h de SP", () => {
+  const horasAtras = (agora: Date, h: number) => new Date(agora.getTime() - h * 3600000).toISOString();
+  const diaria = { total: 0, chamadas: 30 * 20, principais: [] }; // 20 chamadas por dia no período de 30
+  const em = (agora: Date, h: number, erros_erp = diaria) => alertasDe({ ...base, erros_erp, ultimo_uso_em: horasAtras(agora, h) }, P, agora.getTime()).map((a) => a.tipo);
+  const terca12h = new Date("2026-11-24T15:00:00Z"); // terça, 12h em SP
+  assert.deepEqual(em(terca12h, 2), []);
+  assert.deepEqual(em(terca12h, 3), ["sem_uso_expediente"]);
+  assert.deepEqual(em(terca12h, 20), ["sem_uso_expediente"]); // parou ontem à tarde e não voltou hoje
+  assert.deepEqual(em(terca12h, 20, { total: 0, chamadas: 30 * 3, principais: [] }), []); // uso eventual (apresentação, teste)
+  assert.deepEqual(em(new Date("2026-11-24T12:30:00Z"), 15), []); // 9h30: cedo demais
+  assert.deepEqual(em(new Date("2026-11-24T21:30:00Z"), 5), []); // 18h30: fora do expediente
+  assert.deepEqual(em(new Date("2026-11-28T15:00:00Z"), 20), []); // sábado
+  // Parada há dias: vale o alerta de parada, sem repetir.
+  assert.deepEqual(em(terca12h, 24 * 4), ["parada"]);
+  assert.equal(emExpediente(new Date("2026-11-24T13:00:00Z").getTime()), true); // 10h
+  assert.equal(emExpediente(new Date("2026-11-24T21:00:00Z").getTime()), false); // 18h
 });

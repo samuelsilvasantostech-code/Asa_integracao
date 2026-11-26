@@ -56,6 +56,19 @@ function diasDesde(v: Date | string | null | undefined, agora: number) {
   return Number.isNaN(t) ? NaN : Math.floor((agora - t) / DIA_MS);
 }
 
+// Expediente de clínica em São Paulo: segunda a sexta, das 10h às 18h (duas horas depois de abrir, para
+// não acender logo cedo). Fora disso, ficar sem chamadas é normal.
+const fmtSP = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", weekday: "short", hour: "numeric", hourCycle: "h23" });
+export function emExpediente(agora: number): boolean {
+  const partes = Object.fromEntries(fmtSP.formatToParts(new Date(agora)).map((x) => [x.type, x.value]));
+  const hora = Number(partes.hour);
+  return !["Sat", "Sun"].includes(partes.weekday) && hora >= 10 && hora < 18;
+}
+export const HORAS_SEM_USO = 3;
+// Clínica de uso diário: pelo menos isso de chamadas ao Conector por dia, na média do período (Avelar e
+// Medular fazem 30–40). A de apresentação e as de teste ficam de fora: ficar um dia sem uso é normal nelas.
+export const USO_DIARIO = 15;
+
 // "0.33.6" < "0.34.0": a clínica está uma versão menor (ou maior) atrás. Diferença só de correção não conta.
 export function versaoAtrasada(v: string | null | undefined, atual: string | null | undefined): boolean {
   const a = /^(\d+)\.(\d+)\./.exec(v ?? ""), b = /^(\d+)\.(\d+)\./.exec(atual ?? "");
@@ -230,6 +243,12 @@ export function alertasDe(c: BaseAlerta, p: PeriodoUso, agora: number): Alerta[]
     if (diasDesde(c.criado_em, agora) >= 3) a.push({ tipo: "nunca_usou", nivel: "aviso", texto: "Cadastrada há mais de 3 dias e a extensão nunca chamou o Conector." });
   } else if (parado >= 7) a.push({ tipo: "parada", nivel: "critico", texto: `Sem uso há ${parado} dias.` });
   else if (parado >= 3) a.push({ tipo: "parada", nivel: "aviso", texto: `Sem uso há ${parado} dias.` });
+  else if (emExpediente(agora) && (c.erros_erp?.chamadas ?? 0) / p.dias >= USO_DIARIO) {
+    // Clínica em uso que de repente para no meio do expediente: extensão que não abre (endereço, instalação)
+    // ou Conector fora do ar para ela. Pega em horas o que o alerta de parada só veria em dias.
+    const horas = Math.floor((agora - ms(c.ultimo_uso_em)) / 3600000);
+    if (horas >= HORAS_SEM_USO) a.push({ tipo: "sem_uso_expediente", nivel: "aviso", texto: `Nenhuma chamada há ${horas} h, em horário de expediente. Confira se o ClinFy abre na Kentro da clínica.` });
+  }
   if (!c.tem_credencial) a.push({ tipo: "sem_credencial", nivel: "critico", texto: "Sem o acesso ao sistema (ERP) cadastrado." });
 
   const ok = Object.values(c.acoes).reduce((s, n) => s + n, 0);

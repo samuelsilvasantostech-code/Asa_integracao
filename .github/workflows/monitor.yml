@@ -1,0 +1,120 @@
+# Teste externo do ClinFy em produção, a cada 15 min.
+# E-mail no máximo uma vez por dia: o GitHub só avisa quando a execução falha, e só a primeira falha do dia
+# (horário de São Paulo) falha de verdade. As seguintes, no mesmo dia, terminam com um aviso no resumo.
+# O repositório é público e este registro também: nada de nome de clínica, chave ou dado de paciente na saída.
+name: Monitor de produção
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  producao:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CONECTOR: https://clinfy-integracao-samuels.kentro.com.br
+      IMPLANTACAO: https://clinfy-implantacao.vercel.app
+    steps:
+      - name: Conector, extensão e implantação respondem
+        id: servicos
+        run: |
+          set -u
+          falhas=0
+          pede() { curl -sS -m 20 --retry 2 --retry-delay 10 -o /tmp/corpo -w '%{http_code}' "$1" || echo 000; }
+          confere() { # nome, url, código esperado
+            c=$(pede "$2")
+            if [ "$c" = "$3" ]; then echo "ok    $1 ($c)"; else echo "FALHA $1: HTTP $c, esperado $3"; falhas=$((falhas+1)); fi
+          }
+
+          c=$(pede "$CONECTOR/health")
+          if [ "$c" = 200 ] && jq -e '.status == "ok" and .banco == "ok"' /tmp/corpo >/dev/null; then
+            versao=$(jq -r .versao /tmp/corpo); echo "ok    conector /health (versão $versao)"
+          else
+            echo "FALHA conector /health: HTTP $c $(head -c 120 /tmp/corpo)"; falhas=$((falhas+1)); versao=""
+          fi
+
+          # Manifest da extensão: é por ele que a Kentro das clínicas carrega o ClinFy (o 421 de domínio não liberado pega aqui).
+          c=$(pede "$CONECTOR/extensao/manifest.json")
+          if [ "$c" = 200 ] && [ "$(jq -r .version /tmp/corpo)" = "$versao" ]; then echo "ok    manifest da extensão (versão igual ao conector)"
+          else echo "FALHA manifest da extensão: HTTP $c, versão $(jq -r .version /tmp/corpo 2>/dev/null)"; falhas=$((falhas+1)); fi
+
+          confere "rota da agenda (sem parâmetros)" "$CONECTOR/v1/agenda/colunas" 400
+          confere "site de implantação" "$CONECTOR/implantacao" 200
+          confere "implantação pela Vercel" "$IMPLANTACAO/implantacao" 200
+          confere "manifest pela Vercel" "$IMPLANTACAO/extensao/manifest.json" 200
+
+          echo "falhas=$falhas" >> "$GITHUB_OUTPUT"
+          [ "$falhas" = 0 ] || echo "- $falhas verificação(ões) do Conector, da extensão ou da implantação falharam." >> /tmp/problemas
+
+      - name: Clínica parada em horário de expediente
+        id: clinicas
+        # Só roda com o segredo ADMIN_KEY cadastrado no repositório (Settings → Secrets → Actions).
+        env:
+          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+        run: |
+          set -u
+          if [ -z "$ADMIN_KEY" ]; then echo "sem o segredo ADMIN_KEY: pulado"; exit 0; fi
+          c=$(curl -sS -m 30 -o /tmp/uso -w '%{http_code}' -H "x-admin-key: $ADMIN_KEY" "$CONECTOR/admin/uso?dias=7" || echo 000)
+          if [ "$c" != 200 ]; then echo "- /admin/uso respondeu HTTP $c." >> /tmp/problemas; exit 0; fi
+          # Só a contagem por tipo de alerta: nomes de clínica não saem neste registro público.
+          jq -r '[.clinicas[] | select(.ativo) | .alertas[] | select(.tipo == "sem_uso_expediente" or .tipo == "erp_erro_alto") | .tipo]
+                 | group_by(.) | map("\(.[0]): \(length)") | .[]' /tmp/uso > /tmp/alertas
+          if [ -s /tmp/alertas ]; then
+            echo "Alertas (veja a tela Uso da implantação):"; cat /tmp/alertas
+            { echo "- Clínica parada no expediente ou com muitas falhas do sistema (ERP):"; sed 's/^/  - /' /tmp/alertas; } >> /tmp/problemas
+          else
+            echo "ok    nenhuma clínica parada no expediente nem com muitas falhas do sistema (ERP)"
+          fi
+
+      - name: Resultado
+        id: resultado
+        run: |
+          dia=$(TZ=America/Sao_Paulo date +%F)
+          echo "dia=$dia" >> "$GITHUB_OUTPUT"
+          if [ -s /tmp/problemas ]; then
+            echo "problema=1" >> "$GITHUB_OUTPUT"
+            { echo "### Problemas encontrados"; cat /tmp/problemas; } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "problema=0" >> "$GITHUB_OUTPUT"
+            echo "Tudo certo." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Já avisou hoje? A marca do dia fica no cache do Actions.
+      - name: Procurar aviso de hoje
+        if: steps.resultado.outputs.problema == '1'
+        id: avisado
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/avisado
+          key: monitor-avisado-${{ steps.resultado.outputs.dia }}
+          lookup-only: true
+
+      - name: Marcar aviso de hoje
+        if: steps.resultado.outputs.problema == '1' && steps.avisado.outputs.cache-hit != 'true'
+        run: echo "${{ steps.resultado.outputs.dia }}" > /tmp/avisado
+
+      - name: Guardar marca
+        if: steps.resultado.outputs.problema == '1' && steps.avisado.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/avisado
+          key: monitor-avisado-${{ steps.resultado.outputs.dia }}
+
+      - name: Avisar (uma vez por dia)
+        if: steps.resultado.outputs.problema == '1'
+        run: |
+          cat /tmp/problemas
+          if [ "${{ steps.avisado.outputs.cache-hit }}" = "true" ]; then
+            echo "::warning::Problema continua, mas o e-mail de hoje já foi enviado. Veja o resumo desta execução."
+          else
+            echo "::error::Problema em produção (primeiro aviso de hoje). Veja o resumo desta execução."
+            exit 1
+          fi
