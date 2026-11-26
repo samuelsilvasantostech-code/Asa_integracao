@@ -4,10 +4,10 @@
     { "source": "/", "destination": "/implantacao", "permanent": false }
   ],
   "rewrites": [
-    { "source": "/implantacao", "destination": "https://asa-integracao-samuels.kentro.com.br/implantacao" },
-    { "source": "/implantacao/:path*", "destination": "https://asa-integracao-samuels.kentro.com.br/implantacao/:path*" },
-    { "source": "/admin/:path*", "destination": "https://asa-integracao-samuels.kentro.com.br/admin/:path*" },
-    { "source": "/extensao/:path*", "destination": "https://asa-integracao-samuels.kentro.com.br/extensao/:path*" }
+    { "source": "/implantacao", "destination": "https://clinfy-integracao-samuels.kentro.com.br/implantacao" },
+    { "source": "/implantacao/:path*", "destination": "https://clinfy-integracao-samuels.kentro.com.br/implantacao/:path*" },
+    { "source": "/admin/:path*", "destination": "https://clinfy-integracao-samuels.kentro.com.br/admin/:path*" },
+    { "source": "/extensao/:path*", "destination": "https://clinfy-integracao-samuels.kentro.com.br/extensao/:path*" }
   ],
   "headers": [
     {

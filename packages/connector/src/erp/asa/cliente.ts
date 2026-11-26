@@ -17,7 +17,7 @@ export type RespostaAsa<T> = { ok: true; dados: T } | { ok: false; erro: ErroAsa
 
 const BASE = "https://sistema.asasaude.app.br/api";
 // O Cloudflare da Asa bloqueia User-Agent de biblioteca (403 "error code: 1010").
-const USER_AGENT = `Kentro-Asa-Connector/${config.version} (+https://asa-integracao-samuels.kentro.com.br)`;
+const USER_AGENT = `Kentro-Asa-Connector/${config.version} (+https://clinfy-integracao-samuels.kentro.com.br)`;
 
 export function authorization(c: CredencialAsa): string {
   if ("token" in c) return c.token;

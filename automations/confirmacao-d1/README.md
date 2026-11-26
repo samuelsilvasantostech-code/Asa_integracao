@@ -15,7 +15,7 @@ Os quatro foram validados na Kentro (`automations_validate_elements`) em 29/10/2
 
 | Marcador | O que entra |
 |---|---|
-| `%%CONECTOR_URL%%` | `https://asa-integracao-samuels.kentro.com.br` |
+| `%%CONECTOR_URL%%` | `https://clinfy-integracao-samuels.kentro.com.br` |
 | `%%CHAVE_AUTOMACAO%%` | Saída de `POST /admin/tenants/<id>/chave-automacao`. Gerar de novo invalida a anterior |
 | `%%FILA_ID%%` | Fila por onde os lembretes saem. Precisa ser do mesmo tipo do modelo |
 | `%%URA_RESPOSTA_ID%%` | Id da URA de resposta, criada **antes** da automação |

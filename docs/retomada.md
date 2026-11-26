@@ -139,7 +139,7 @@ Pedido do usuário: o administrador com **um ícone só**.
     - o `clinfy.html` é **montado** por `packages/connector/tools/montar-clinfy.ts` a partir de `agenda.html`, `painel.html`, `config.html` e `confirmacao.html`. **Mudou uma dessas telas, rode o montador**; o teste `test/clinfy.test.ts` falha se esquecer;
     - os três ids repetidos entre telas (`pill`, `pill-text`, `conn-text`) ganham prefixo por seção. O mapa fica em `hub.js`, e cada tela o consulta na própria função `$`.
 - Conferido no navegador com a Kentro simulada: abas, Agenda, Configurar e a situação de cada seção sem interferência.
-- Endereço da implantação (clientes, sistema de cada clínica e Central de conectores): https://asa-integracao-samuels.kentro.com.br/implantacao, com a `ADMIN_KEY`.
+- Endereço da implantação (clientes, sistema de cada clínica e Central de conectores): https://clinfy-integracao-samuels.kentro.com.br/implantacao, com a `ADMIN_KEY`.
 
 ## 12/11: conectores, partes A a D (0.23.0, no ar)
 

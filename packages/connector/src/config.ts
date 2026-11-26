@@ -25,7 +25,7 @@ export const config = {
   version: versao(),
   // Domínios aceitos (separados por vírgula). Requisição por outro host, como o IP:porta direto do
   // Doca em HTTP puro, é recusada, exceto /health. Vazio desliga a checagem.
-  allowedHosts: (process.env.ALLOWED_HOSTS ?? "asa-integracao-samuels.kentro.com.br,localhost,127.0.0.1")
+  allowedHosts: (process.env.ALLOWED_HOSTS ?? "clinfy-integracao-samuels.kentro.com.br,asa-integracao-samuels.kentro.com.br,localhost,127.0.0.1")
     .split(",")
     .map((h) => h.trim().toLowerCase())
     .filter(Boolean),

@@ -2,7 +2,7 @@
 
 Este projeto da Vercel é **só um proxy**. Ele não tem cópia da página.
 
-- `/implantacao`, `/admin/*` e `/extensao/*` são repassados ao Conector no Doca (`asa-integracao-samuels.kentro.com.br`).
+- `/implantacao`, `/admin/*` e `/extensao/*` são repassados ao Conector no Doca (`clinfy-integracao-samuels.kentro.com.br`).
 - A página mostrada é sempre a que está no ar no Doca. Mudou a página: faça o deploy no Doca. Não precisa redeploy aqui.
 - `/` redireciona para `/implantacao`.
 

@@ -2,7 +2,9 @@
 (function (root) {
   'use strict';
 
-  var DEFAULT_URL = 'https://asa-integracao-samuels.kentro.com.br';
+  var DEFAULT_URL = 'https://clinfy-integracao-samuels.kentro.com.br';
+  // Endereço antigo do Conector (até 26/11/2026): instalações que guardaram ele passam a usar o novo.
+  var URL_ANTIGA = /^https?:\/\/asa-integracao-samuels\.kentro\.com\.br$/i;
   // Versão da extensão (o ?v= deste script): vai em cada chamada, para a implantação ver quem está desatualizado.
   var VERSAO = (function () {
     var s = root.document && root.document.currentScript;
@@ -80,7 +82,8 @@
   function connected(r) { return r.status === 200 && r.body && r.body.tenant && (r.body.conexao || r.body.asa) === 'ok'; }
 
   function create(cfg, key) {
-    var base = String(cfg.apiUrl || DEFAULT_URL).replace(/\/+$/, '');
+    var base = String(cfg.apiUrl || DEFAULT_URL).trim().replace(/\/+$/, '');
+    if (URL_ANTIGA.test(base)) base = DEFAULT_URL;
     var configured = !!(base && usable(key));
     var ns = base + '|' + (configured ? key.trim() : '') + '|';
 

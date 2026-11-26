@@ -34,8 +34,8 @@ conversa com o paciente e, num painel ao lado, faz o seguinte:
 
 **Endereços**
 
-- Conector: https://asa-integracao-samuels.kentro.com.br
-- Manifest da extensão: https://asa-integracao-samuels.kentro.com.br/extensao/manifest.json
+- Conector: https://clinfy-integracao-samuels.kentro.com.br
+- Manifest da extensão: https://clinfy-integracao-samuels.kentro.com.br/extensao/manifest.json
 
 A extensão é servida **pelo Conector**, e não pelo tipo "Extensão" do Doca. O Doca responde com
 `X-Frame-Options: DENY`, e a Kentro carrega o painel num iframe: servido pelo Doca, o painel ficava em branco.

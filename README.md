@@ -22,7 +22,7 @@ Na subida o Conector aplica as migrações de `migrations/` em ordem.
 ### Cadastrar uma clínica
 
 ```bash
-curl -X POST https://asa-integracao-samuels.kentro.com.br/admin/tenants   -H "x-admin-key: $ADMIN_KEY" -H "content-type: application/json"   -d '{"nome":"Clínica X"}'
+curl -X POST https://clinfy-integracao-samuels.kentro.com.br/admin/tenants   -H "x-admin-key: $ADMIN_KEY" -H "content-type: application/json"   -d '{"nome":"Clínica X"}'
 ```
 
 A resposta traz `chave_instalacao` uma única vez: é o valor do campo "Chave da instalação" da extensão.
@@ -31,7 +31,7 @@ A resposta traz `chave_instalacao` uma única vez: é o valor do campo "Chave da
 
 Sem build: os arquivos de `packages/extension` são servidos como estão e o host injeta o SDK `omni`.
 
-**Quem serve é o Conector**, em `https://asa-integracao-samuels.kentro.com.br/extensao/manifest.json`. O tipo
+**Quem serve é o Conector**, em `https://clinfy-integracao-samuels.kentro.com.br/extensao/manifest.json`. O tipo
 "Extensão" do Doca manda `X-Frame-Options: DENY`, e o host da Kentro carrega as telas num iframe, então ali o
 painel fica em branco. O `Dockerfile` da raiz põe Conector e extensão na mesma imagem; no Doca o projeto usa
 pasta `.` e build "Dockerfile do próprio repositório".

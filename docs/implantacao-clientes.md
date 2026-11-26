@@ -4,7 +4,7 @@ Aberto em **30/10/2026** como tema a desenhar; construído em **03/11/2026** (0.
 
 ## Página de implantação
 
-`https://asa-integracao-samuels.kentro.com.br/implantacao`
+`https://clinfy-integracao-samuels.kentro.com.br/implantacao`
 
 - Também em https://clinfy-implantacao.vercel.app, que é só um proxy para o Doca.
 - **Entrada por usuário e senha** (desde 13/11/2026):
@@ -33,7 +33,7 @@ Aberto em **30/10/2026** como tema a desenhar; construído em **03/11/2026** (0.
 1. **Criar o cliente** na página: nome, instância da Kentro (ex.: `clinicadagente.atenderbem.com`) e instituição da Asa (o número antes dos dois-pontos no token decodificado; a clínica ou a Asa informam).
    - Copie a **chave da instalação** (`asa_…`). Ela não aparece de novo; se perder, gere outra.
    - Com a instituição preenchida, o Conector recusa token de outra instituição (`INSTITUICAO_DIVERGENTE`), antes de chamar a Asa.
-2. **Instalar a extensão na Kentro da clínica** pela URL do manifest: `https://asa-integracao-samuels.kentro.com.br/extensao/manifest.json`.
+2. **Instalar a extensão na Kentro da clínica** pela URL do manifest: `https://clinfy-integracao-samuels.kentro.com.br/extensao/manifest.json`.
    - Na instalação: cole a chave em `apiKey` e preencha `queueIds` (filas atendidas).
    - **Restrinja o público** da instalação a quem vai testar.
 3. Anote na página o **id da instalação** (Editar vínculo). Uma instalação só pode estar ligada a um cliente.
