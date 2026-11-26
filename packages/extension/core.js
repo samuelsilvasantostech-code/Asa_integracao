@@ -319,6 +319,42 @@
     return t;
   }
 
+  // Tela Início: o dia de todos os profissionais (colunas de /v1/agenda/colunas) → números e próximos pacientes.
+  // cols = [{ prestador, agendados }]; now = relógio do Conector (ms). Próximos = ainda não chegou, não foi
+  // atendido nem faltou, com hora de agora (menos 30 min de tolerância para atraso) em diante.
+  var PROXIMOS_TOLERANCIA = 30, PROXIMOS_MAX = 8;
+  function minutesOf(hhmm) { var m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
+  function todayOverview(cols, now) {
+    var t = { consultas: 0, confirmadas: 0, aguardando: 0, em_consulta: 0, atendidas: 0, proximos: [] };
+    var agora = minutesOf(nowClock(new Date(now)));
+    (cols || []).forEach(function (c) {
+      (c.agendados || []).forEach(function (a) {
+        var i = statusInfo(a.status);
+        if (!i.active) return;
+        t.consultas++;
+        var cf = a.confirmacao, porMensagem = cf && cf.estado === 'respondido' && cf.resposta === 'confirmar';
+        if (i.key === 'confirmado' || (porMensagem && i.key === 'agendado')) t.confirmadas++;
+        var st = attendanceState(a.atendimento, now);
+        if (st && st.stage === 'chegada') t.aguardando++;
+        else if (st && st.stage === 'chamada') t.em_consulta++;
+        if (i.key === 'atendido' || (st && st.stage === 'fim')) { t.atendidas++; return; }
+        if (st || i.key === 'ausente') return;
+        var h = minutesOf(a.hora);
+        if (h == null || agora == null || h < agora - PROXIMOS_TOLERANCIA) return;
+        var conf = confirmationState(cf);
+        t.proximos.push({
+          hora: a.hora, nome: (a.paciente && a.paciente.nome) || 'Paciente sem nome', prestador: c.prestador || '',
+          atrasado: h < agora,
+          selo: i.key === 'agendado' && conf ? { label: conf.label, tone: conf.tone } : { label: i.label, tone: i.tone }
+        });
+      });
+    });
+    t.proximos.sort(function (x, y) { return x.hora < y.hora ? -1 : x.hora > y.hora ? 1 : 0; });
+    t.mais = Math.max(0, t.proximos.length - PROXIMOS_MAX);
+    t.proximos = t.proximos.slice(0, PROXIMOS_MAX);
+    return t;
+  }
+
   // Busca digitada (CPF ou telefone) → buscas a tentar, em ordem. 11 dígitos podem ser os dois:
   // com pontuação de CPF é CPF; com cara de celular (DDD + 9) tenta telefone e depois CPF.
   function lookupsFrom(raw) {
@@ -494,7 +530,7 @@
 
   var api = { el: el, option: option, button: button, fact: fact, setSistema: setSistema, sis: sis, applySistema: applySistema, queueList: queueList, formatMoney: formatMoney, newKey: newKey, newPatient: newPatient, newPatientError: newPatientError, formatCpf: formatCpf,bookingError: bookingError, confirmationState: confirmationState, confirmationError: confirmationError, confirmationSent: confirmationSent, initials: initials, contactPhone: contactPhone, formatPhone: formatPhone, connectionState: connectionState, credentialSaveState: credentialSaveState,
     formatDay: formatDay, formatBirth: formatBirth, age: age, maskCpf: maskCpf, cpfDigits: cpfDigits, readError: readError,
-    todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, weekDays: weekDays, weekLabel: weekLabel, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, lookupsFrom: lookupsFrom,
+    todayIso: todayIso, shiftDay: shiftDay, longDay: longDay, weekDays: weekDays, weekLabel: weekLabel, statusInfo: statusInfo, dayRows: dayRows, daySummary: daySummary, todayOverview: todayOverview, lookupsFrom: lookupsFrom,
     clockOf: clockOf, nowClock: nowClock, duration: duration, attendanceState: attendanceState, attendanceNext: attendanceNext, attendanceDone: attendanceDone, attendanceError: attendanceError, stageName: stageName,
     fold: fold, paymentLabel: paymentLabel, parseMoney: parseMoney, userType: userType, canCharge: canCharge, chargeError: chargeError, uncertain: uncertain, cancelError: cancelError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AsaCore = api;

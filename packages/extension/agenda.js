@@ -830,6 +830,14 @@
     });
   }
 
+  // Tela única: busca digitada no Início. Só roda com a Agenda conectada; antes disso, fica para o connect().
+  function buscaDoInicio() {
+    var hub = root.ClinFyHub, t = hub && api && !$('q-form').hidden ? hub.tomarBusca() : null;
+    if (!t) return;
+    $('q-input').value = t;
+    findPatient(C.lookupsFrom(t));
+  }
+
   function searchPatient(ev) {
     ev.preventDefault();
     findPatient(C.lookupsFrom($('q-input').value));
@@ -1204,6 +1212,7 @@
       }
       $('ws').hidden = false;
       $('q-form').hidden = false;
+      buscaDoInicio();
       if (!fin) loadFinance();
       if (!sched) loadSchedule(); else loadView();
     });
@@ -1240,6 +1249,7 @@
     $('d-today').addEventListener('click', function () { setDay(C.todayIso()); });
     $('d-pick').addEventListener('change', function () { setDay($('d-pick').value); });
     $('q-form').addEventListener('submit', searchPatient);
+    document.addEventListener('clinfy:buscar', buscaDoInicio);
     $('sp-new-open').addEventListener('click', openNewPatient);
     $('spn').addEventListener('submit', submitNewPatient);
     $('spn-cancel').addEventListener('click', function () { closeNewPatient(); $('sp-new-open').hidden = !notFound; });

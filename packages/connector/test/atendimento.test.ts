@@ -74,9 +74,24 @@ test("relatório: médias, faixas e atraso da clínica", () => {
   assert.equal(r.consulta_media, 25); // (30 + 20 + 25) / 3
   assert.equal(r.pacientes_atrasados, 1);
   assert.deepEqual(r.faixas.map((f) => f.n), [1, 1, 0, 1]);
-  assert.deepEqual(r.por_dia, [{ dia: "2026-11-20", n: 2, media: 13 }, { dia: "2026-11-21", n: 1, media: 65 }]);
+  assert.deepEqual(r.por_dia, [{ dia: "2026-11-20", n: 2, media: 13, mediana: 13 }, { dia: "2026-11-21", n: 1, media: 65, mediana: 65 }]);
+  assert.equal(r.espera_p90, null); // 3 pacientes: pouco para dizer "9 em cada 10"
   assert.equal(r.por_profissional[0].prestador_id, "101");
   assert.equal(r.por_profissional[0].pacientes, 2);
+});
+
+test("relatório: mediana e p90, no geral e por profissional (com 5 pacientes ou mais)", () => {
+  // Profissional 101: esperas de 5, 10, 10, 15, 20, 25, 30, 40, 60 e 90 min (10 pacientes).
+  const esperas = [5, 10, 10, 15, 20, 25, 30, 40, 60, 90];
+  const linhas = esperas.map((m) => linha("2026-11-20", null, "08:00", `${String(8 + Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`, null, "101"));
+  // Profissional 102: 2 pacientes, esperas de 50 e 70 (mediana maior, p90 nulo).
+  linhas.push(linha("2026-11-20", null, "08:00", "08:50", null, "102"), linha("2026-11-20", null, "08:00", "09:10", null, "102"));
+  const r = resumoEspera(linhas, "2026-11-23");
+  assert.equal(r.espera_mediana, 28); // 12 tempos: (25 + 30) / 2 = 27,5
+  assert.equal(r.espera_p90, 70);     // posição 11 de 12 (ceil(0,9 × 12))
+  const [a, b] = r.por_profissional;
+  assert.deepEqual([a.prestador_id, a.espera_mediana, a.espera_p90], ["102", 60, null]); // mediana 60 vem primeiro
+  assert.deepEqual([b.prestador_id, b.espera_mediana, b.espera_p90, b.espera_media], ["101", 23, 60, 31]); // p90: posição 9 de 10
 });
 
 test("relatório: cronômetro aberto não conta; fora do normal é descartado", () => {

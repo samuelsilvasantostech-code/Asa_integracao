@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import { lerConfig } from "./confirmacao.js";
+import { hojeEm, lerConfig } from "./confirmacao.js";
 import { lerFinanceiro } from "./financeiro.js";
 
 // Uso do ClinFy por todas as clínicas (aba "Uso" da implantação). Lê só as trilhas do Conector:
@@ -56,15 +56,16 @@ function diasDesde(v: Date | string | null | undefined, agora: number) {
   return Number.isNaN(t) ? NaN : Math.floor((agora - t) / DIA_MS);
 }
 
-// Expediente de clínica em São Paulo: segunda a sexta, das 10h às 18h (duas horas depois de abrir, para
-// não acender logo cedo). Fora disso, ficar sem chamadas é normal.
+// Dia útil depois das 14h em São Paulo: a partir daí, uma clínica de uso diário que ainda não chamou o
+// Conector no dia está com problema (extensão que não abre, endereço errado, Conector fora para ela).
+// Antes disso não se sabe: há clínica que só usa em alguns momentos do dia.
 const fmtSP = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", weekday: "short", hour: "numeric", hourCycle: "h23" });
 export function emExpediente(agora: number): boolean {
   const partes = Object.fromEntries(fmtSP.formatToParts(new Date(agora)).map((x) => [x.type, x.value]));
   const hora = Number(partes.hour);
-  return !["Sat", "Sun"].includes(partes.weekday) && hora >= 10 && hora < 18;
+  return !["Sat", "Sun"].includes(partes.weekday) && hora >= HORA_CORTE && hora < 18;
 }
-export const HORAS_SEM_USO = 3;
+export const HORA_CORTE = 14;
 // Clínica de uso diário: pelo menos isso de chamadas ao Conector por dia, na média do período (Avelar e
 // Medular fazem 30–40). A de apresentação e as de teste ficam de fora: ficar um dia sem uso é normal nelas.
 export const USO_DIARIO = 15;
@@ -244,10 +245,13 @@ export function alertasDe(c: BaseAlerta, p: PeriodoUso, agora: number): Alerta[]
   } else if (parado >= 7) a.push({ tipo: "parada", nivel: "critico", texto: `Sem uso há ${parado} dias.` });
   else if (parado >= 3) a.push({ tipo: "parada", nivel: "aviso", texto: `Sem uso há ${parado} dias.` });
   else if (emExpediente(agora) && (c.erros_erp?.chamadas ?? 0) / p.dias >= USO_DIARIO) {
-    // Clínica em uso que de repente para no meio do expediente: extensão que não abre (endereço, instalação)
-    // ou Conector fora do ar para ela. Pega em horas o que o alerta de parada só veria em dias.
-    const horas = Math.floor((agora - ms(c.ultimo_uso_em)) / 3600000);
-    if (horas >= HORAS_SEM_USO) a.push({ tipo: "sem_uso_expediente", nivel: "aviso", texto: `Nenhuma chamada há ${horas} h, em horário de expediente. Confira se o ClinFy abre na Kentro da clínica.` });
+    // Clínica de uso diário que não chamou o Conector hoje: pega na mesma tarde o que o alerta de parada
+    // só veria em dias.
+    const hoje = hojeEm(new Date(agora));
+    if (hojeEm(new Date(ms(c.ultimo_uso_em))) < hoje) {
+      const ultima = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(ms(c.ultimo_uso_em)));
+      a.push({ tipo: "sem_uso_expediente", nivel: "aviso", texto: `Nenhuma chamada hoje; a última foi em ${ultima.replace(", ", " às ")}. Confira se o ClinFy abre na Kentro da clínica.` });
+    }
   }
   if (!c.tem_credencial) a.push({ tipo: "sem_credencial", nivel: "critico", texto: "Sem o acesso ao sistema (ERP) cadastrado." });
 

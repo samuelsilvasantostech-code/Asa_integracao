@@ -709,3 +709,15 @@ body.com-toast .body { padding-bottom: 72px; }
 .stat[data-tone="warn"] strong { color: var(--remind); }
 .table td[data-tone="warn"] { color: var(--remind); font-weight: 650; }
 @media (max-width: 860px) { .esp__grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Tela Início (primeira aba do ClinFy): resumo de hoje, próximos pacientes e atalhos. */
+.lookup--block { flex: none; margin: 0; }
+.lookup--block .btn--primary { align-self: auto; }
+.shortcuts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.shortcuts .btn { margin-top: 0; }
+.shortcuts__msg { margin: 6px 0 0; font-size: 12.5px; }
+.shortcuts__msg:empty { display: none; }
+.page-dash .hd #in-refresh { margin-left: auto; margin-top: 0; }
+.todo__item[data-late="true"] .todo__when strong { color: var(--remind); }
+@media (max-width: 700px) { #in-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } #in-kpis .kpi__value { font-size: 24px; } }
+@media (max-width: 480px) { .hub__bar .hd__title { display: none; } .hub__bar { gap: 8px; } .hub__tab { padding: 0 9px; } }

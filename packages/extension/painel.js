@@ -323,7 +323,16 @@
       if (tip) hint(c, tip);
       stats.appendChild(c);
     }
-    stat(minutes(e.espera_media), 'Espera média', 'Da chegada até a chamada para a consulta. Metade dos pacientes esperou até ' + minutes(e.espera_mediana) + '.');
+    // A espera típica é a mediana: metade esperou menos, metade mais. A média sobe com poucos casos longos.
+    // Servidor anterior à 0.46 só manda a média.
+    var tipica = e.espera_mediana != null ? e.espera_mediana : e.espera_media;
+    stat(minutes(tipica), 'Espera típica', 'Da chegada até a chamada para a consulta. Metade dos pacientes esperou até ' + minutes(tipica)
+      + (e.espera_media != null ? '; a média, que pesa os casos longos, é ' + minutes(e.espera_media) : '') + '.', tipica >= 30 ? 'warn' : null);
+    if (e.espera_p90 !== undefined) {
+      stat(minutes(e.espera_p90), '9 em cada 10 esperaram até', e.espera_p90 == null
+        ? 'Aparece com 5 pacientes chamados ou mais.'
+        : 'O tempo que só 1 em cada 10 pacientes passou: mostra os dias ruins que a espera típica esconde.', e.espera_p90 >= 45 ? 'warn' : null);
+    }
     stat(pct(e.acima_30, e.esperas_medidas) + '%', 'Esperaram 30 min ou mais', plural(e.acima_30, 'paciente', 'pacientes') + ' de ' + e.esperas_medidas + '.', e.acima_30 ? 'warn' : null);
     stat(minutes(e.atraso_medio), 'Atraso da clínica', 'Do horário marcado (ou da chegada, se o paciente chegou depois) até a chamada. Chegar cedo não conta.');
     stat(minutes(e.consulta_media), 'Consulta média', e.consultas_medidas ? 'Da chamada até o fim, em ' + plural(e.consultas_medidas, 'consulta finalizada', 'consultas finalizadas') + '.' : 'Nenhuma consulta finalizada no período.');
@@ -343,19 +352,22 @@
     if (multi) {
       var byDay = {};
       e.por_dia.forEach(function (r) { byDay[r.dia] = r; });
-      var days = fillDays(d.periodo, e.por_dia, function (r) { return { total: r.media }; });
+      var tipDia = function (r) { return r.mediana != null ? r.mediana : r.media; };
+      var days = fillDays(d.periodo, e.por_dia, function (r) { return { total: tipDia(r) }; });
       columns($('esp-days'), days, function (x) {
         var r = byDay[x.dia];
-        return shortDay(x.dia) + ': ' + (r ? 'espera média de ' + minutes(r.media) + ' (' + plural(r.n, 'paciente', 'pacientes') + ')' : 'sem chegadas marcadas');
+        return shortDay(x.dia) + ': ' + (r ? 'espera típica de ' + minutes(tipDia(r)) + ' (' + plural(r.n, 'paciente', 'pacientes') + ')' : 'sem chegadas marcadas');
       });
     }
 
     var tb = $('esp-prof');
     tb.textContent = '';
     var head = el('tr');
-    ['Profissional', 'Pacientes', 'Espera média', 'Atraso', 'Consulta'].forEach(function (h, i) {
+    var comP90 = e.por_profissional.some(function (p) { return p.espera_mediana !== undefined; });
+    (comP90 ? ['Profissional', 'Pacientes', 'Espera típica', '9 em 10 até', 'Atraso', 'Consulta'] : ['Profissional', 'Pacientes', 'Espera média', 'Atraso', 'Consulta']).forEach(function (h, i) {
       var th = el('th', i ? 'num' : null, h);
       th.scope = 'col';
+      if (h === '9 em 10 até') th.title = '9 em cada 10 pacientes esperaram até esse tempo. Aparece com 5 pacientes ou mais.';
       head.appendChild(th);
     });
     tb.appendChild(el('thead')).appendChild(head);
@@ -365,8 +377,13 @@
       th.scope = 'row';
       tr.appendChild(th);
       tr.appendChild(el('td', 'num', String(p.pacientes)));
-      var w = tr.appendChild(el('td', 'num', minutes(p.espera_media)));
-      if (p.espera_media >= 30) w.setAttribute('data-tone', 'warn');
+      var tip = comP90 ? p.espera_mediana : p.espera_media;
+      var w = tr.appendChild(el('td', 'num', minutes(tip)));
+      if (tip >= 30) w.setAttribute('data-tone', 'warn');
+      if (comP90) {
+        var q = tr.appendChild(el('td', 'num' + (p.espera_p90 == null ? ' zero' : ''), minutes(p.espera_p90)));
+        if (p.espera_p90 >= 45) q.setAttribute('data-tone', 'warn');
+      }
       tr.appendChild(el('td', 'num', minutes(p.atraso_medio)));
       tr.appendChild(el('td', 'num' + (p.consulta_media == null ? ' zero' : ''), minutes(p.consulta_media)));
       body.appendChild(tr);
@@ -374,6 +391,7 @@
 
     var note = [];
     if (e.esquecidos) note.push(plural(e.esquecidos, 'cronômetro ficou aberto', 'cronômetros ficaram abertos') + ' em dias anteriores (sem chamada ou sem fim), fora das médias.');
+    if (e.espera_p90 !== undefined) note.push('Espera típica = mediana: metade dos pacientes esperou menos que isso.');
     if (e.descartadas) note.push(plural(e.descartadas, 'tempo fora do normal foi descartado', 'tempos fora do normal foram descartados') + ' (espera acima de 4 h, ou consulta abaixo de 1 min ou acima de 4 h).');
     $('esp-note').textContent = note.join(' ');
     $('esp-note').hidden = !note.length;

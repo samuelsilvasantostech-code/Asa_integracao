@@ -4,21 +4,69 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClinFy</title>
-<link rel="stylesheet" href="styles.css?v=0.45.2">
+<link rel="stylesheet" href="styles.css?v=0.46.0">
 </head>
 <body class="page-hub">
-<!-- Gerado por packages/connector/tools/montar-clinfy.ts a partir de agenda, painel, config e confirmacao. Não editar à mão. -->
+<!-- Gerado por packages/connector/tools/montar-clinfy.ts a partir de inicio, agenda, painel, config e confirmacao. Não editar à mão. -->
 <header class="hub__bar">
   <div class="hd__brand">
     <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
     <h1 class="hd__title">ClinFy<span class="hd__sis" data-sis="marca"></span></h1>
   </div>
   <nav class="hub__tabs" role="tablist" aria-label="Seções do ClinFy">
+    <button type="button" class="hub__tab" role="tab" id="tab-inicio" aria-controls="sec-inicio" aria-selected="false" tabindex="-1">Início</button>
     <button type="button" class="hub__tab" role="tab" id="tab-agenda" aria-controls="sec-agenda" aria-selected="false" tabindex="-1">Agenda</button>
     <button type="button" class="hub__tab" role="tab" id="tab-painel" aria-controls="sec-painel" aria-selected="false" tabindex="-1">Painel</button>
     <button type="button" class="hub__tab" role="tab" id="tab-configurar" aria-controls="sec-configurar" aria-selected="false" tabindex="-1">Configurar</button>
   </nav>
 </header>
+<section class="hub__sec page-dash" id="sec-inicio" role="tabpanel" aria-labelledby="tab-inicio" hidden>
+<div class="app">
+  <header class="hd">
+    <div class="hd__brand">
+      <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
+      <div>
+        <h2 class="hd__title">ClinFy<span class="hd__sis" data-sis="marca"></span></h2>
+        <div class="hd__sub" id="in-dia">Hoje na clínica</div>
+      </div>
+    </div>
+    <button class="btn" id="in-refresh" type="button">Atualizar</button>
+    <span class="pill" id="in-pill" data-tone="idle"><i class="dot"></i><span id="in-pill-text">Carregando</span></span>
+  </header>
+
+  <main class="dash">
+    <p class="muted" id="in-status" role="status">Carregando a agenda de hoje…</p>
+
+    <section class="kpis kpis--hero" id="in-kpis" aria-label="Resumo de hoje" hidden></section>
+
+    <div class="dash__grid">
+      <section class="panel panel--wide" aria-labelledby="h-prox">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-prox">Próximos pacientes</h2>
+          <p class="panel__sub">Consultas de hoje que ainda não chegaram, em ordem de horário. Quem já chegou aparece na Agenda, na sala de espera.</p>
+        </header>
+        <ul class="todo" id="in-prox"></ul>
+      </section>
+
+      <section class="panel" aria-labelledby="h-atalhos">
+        <header class="panel__hd">
+          <h2 class="panel__title" id="h-atalhos">Atalhos</h2>
+        </header>
+        <form class="lookup lookup--block" id="in-q-form" autocomplete="off" role="search">
+          <label class="sr" for="in-q">Buscar paciente por CPF ou telefone</label>
+          <input id="in-q" inputmode="numeric" maxlength="18" placeholder="Buscar paciente: CPF ou telefone">
+          <button class="btn btn--primary" type="submit">Buscar</button>
+        </form>
+        <p class="muted shortcuts__msg" id="in-q-msg" role="status"></p>
+        <div class="shortcuts" id="in-atalhos">
+          <button class="btn" type="button" data-aba="agenda">Abrir a Agenda</button>
+          <button class="btn" type="button" data-aba="painel">Abrir o Painel</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</section>
 <section class="hub__sec page-agenda" id="sec-agenda" role="tabpanel" aria-labelledby="tab-agenda" hidden>
 <div class="app">
   <header class="hd">
@@ -288,7 +336,7 @@
             <div>
               <h3 class="panel__h3">Quanto os pacientes esperaram</h3>
               <div class="hbars" id="esp-faixas"></div>
-              <h3 class="panel__h3" id="esp-days-h">Espera média por dia (min)</h3>
+              <h3 class="panel__h3" id="esp-days-h">Espera típica por dia (min)</h3>
               <div class="cols" id="esp-days"></div>
             </div>
             <div>
@@ -484,14 +532,15 @@
 </div>
 </div>
 </section>
-<script src="core.js?v=0.45.2"></script>
-<script src="api.js?v=0.45.2"></script>
-<script src="bridge.js?v=0.45.2"></script>
-<script src="cobranca.js?v=0.45.2"></script>
-<script src="hub.js?v=0.45.2"></script>
-<script src="agenda.js?v=0.45.2"></script>
-<script src="painel.js?v=0.45.2"></script>
-<script src="config.js?v=0.45.2"></script>
-<script src="confirmacao.js?v=0.45.2"></script>
+<script src="core.js?v=0.46.0"></script>
+<script src="api.js?v=0.46.0"></script>
+<script src="bridge.js?v=0.46.0"></script>
+<script src="cobranca.js?v=0.46.0"></script>
+<script src="hub.js?v=0.46.0"></script>
+<script src="inicio.js?v=0.46.0"></script>
+<script src="agenda.js?v=0.46.0"></script>
+<script src="painel.js?v=0.46.0"></script>
+<script src="config.js?v=0.46.0"></script>
+<script src="confirmacao.js?v=0.46.0"></script>
 </body>
 </html>

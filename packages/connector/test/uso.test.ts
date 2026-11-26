@@ -166,20 +166,23 @@ test("rota /admin/uso exige a chave e para no banco ausente", async () => {
   await app.close();
 });
 
-test("alerta sem uso no expediente: clínica de uso diário, 3 h sem chamada, de segunda a sexta, das 10h às 18h de SP", () => {
-  const horasAtras = (agora: Date, h: number) => new Date(agora.getTime() - h * 3600000).toISOString();
+test("alerta sem uso no expediente: clínica de uso diário sem chamada hoje, de segunda a sexta, das 14h às 18h de SP", () => {
   const diaria = { total: 0, chamadas: 30 * 20, principais: [] }; // 20 chamadas por dia no período de 30
-  const em = (agora: Date, h: number, erros_erp = diaria) => alertasDe({ ...base, erros_erp, ultimo_uso_em: horasAtras(agora, h) }, P, agora.getTime()).map((a) => a.tipo);
-  const terca12h = new Date("2026-11-24T15:00:00Z"); // terça, 12h em SP
-  assert.deepEqual(em(terca12h, 2), []);
-  assert.deepEqual(em(terca12h, 3), ["sem_uso_expediente"]);
-  assert.deepEqual(em(terca12h, 20), ["sem_uso_expediente"]); // parou ontem à tarde e não voltou hoje
-  assert.deepEqual(em(terca12h, 20, { total: 0, chamadas: 30 * 3, principais: [] }), []); // uso eventual (apresentação, teste)
-  assert.deepEqual(em(new Date("2026-11-24T12:30:00Z"), 15), []); // 9h30: cedo demais
-  assert.deepEqual(em(new Date("2026-11-24T21:30:00Z"), 5), []); // 18h30: fora do expediente
-  assert.deepEqual(em(new Date("2026-11-28T15:00:00Z"), 20), []); // sábado
+  const em = (agora: Date, ultimo: string, erros_erp = diaria) => alertasDe({ ...base, erros_erp, ultimo_uso_em: ultimo }, P, agora.getTime());
+  const tipos2 = (agora: Date, ultimo: string, e = diaria) => em(agora, ultimo, e).map((a) => a.tipo);
+  const terca15h = new Date("2026-11-24T18:00:00Z"); // terça, 15h em SP
+  const ontem17h = "2026-11-23T20:07:00Z"; // segunda, 17h07 em SP
+  assert.deepEqual(tipos2(terca15h, ontem17h), ["sem_uso_expediente"]);
+  assert.equal(em(terca15h, ontem17h)[0].texto, "Nenhuma chamada hoje; a última foi em 23/11 às 17:07. Confira se o ClinFy abre na Kentro da clínica.");
+  assert.deepEqual(tipos2(terca15h, "2026-11-24T11:30:00Z"), []); // usou hoje às 8h30, mesmo que 6 h atrás
+  assert.deepEqual(tipos2(new Date("2026-11-24T16:30:00Z"), ontem17h), []); // 13h30: ainda cedo (há quem use só à tarde)
+  assert.deepEqual(tipos2(new Date("2026-11-24T21:30:00Z"), ontem17h), []); // 18h30: fora do expediente
+  assert.deepEqual(tipos2(new Date("2026-11-28T18:00:00Z"), "2026-11-27T20:00:00Z"), []); // sábado
+  assert.deepEqual(tipos2(terca15h, ontem17h, { total: 0, chamadas: 30 * 3, principais: [] }), []); // uso eventual (apresentação, teste)
+  // Usou ontem às 22h30 de SP (já 25/11 em UTC): conta como ontem, não como hoje.
+  assert.deepEqual(tipos2(new Date("2026-11-25T18:00:00Z"), "2026-11-25T01:30:00Z"), ["sem_uso_expediente"]);
   // Parada há dias: vale o alerta de parada, sem repetir.
-  assert.deepEqual(em(terca12h, 24 * 4), ["parada"]);
-  assert.equal(emExpediente(new Date("2026-11-24T13:00:00Z").getTime()), true); // 10h
-  assert.equal(emExpediente(new Date("2026-11-24T21:00:00Z").getTime()), false); // 18h
+  assert.deepEqual(tipos2(terca15h, "2026-11-19T18:00:00Z"), ["parada"]);
+  assert.equal(emExpediente(new Date("2026-11-24T17:00:00Z").getTime()), true); // 14h
+  assert.equal(emExpediente(new Date("2026-11-24T16:59:00Z").getTime()), false); // 13h59
 });

@@ -1,5 +1,5 @@
-/* Tela única do administrador (clinfy.html): Agenda, Painel e Configurar numa página só. As telas de sempre
-   (agenda.js, painel.js, config.js, confirmacao.js) rodam aqui sem mudança; este arquivo, carregado antes
+/* Tela única do administrador (clinfy.html): Início, Agenda, Painel e Configurar numa página só. As telas de sempre
+   (inicio.js, agenda.js, painel.js, config.js, confirmacao.js) rodam aqui sem mudança; este arquivo, carregado antes
    delas, só diz a cada uma quais ids repetidos ela usa com prefixo, e troca as abas.
    A página é montada por packages/connector/tools/montar-clinfy.ts a partir das telas. */
 (function (root) {
@@ -7,7 +7,7 @@
 
   // Ids que mais de uma tela usa: na tela única, cada seção tem os seus com prefixo.
   var REPETIDOS = ['pill', 'pill-text', 'conn-text'];
-  var PREFIXOS = { agenda: 'ag-', painel: 'pn-', config: 'cf-', confirmacao: 'cc-' };
+  var PREFIXOS = { inicio: 'in-', agenda: 'ag-', painel: 'pn-', config: 'cf-', confirmacao: 'cc-' };
   var ids = {};
   Object.keys(PREFIXOS).forEach(function (tela) {
     ids[tela] = {};
@@ -15,13 +15,12 @@
   });
   root.ClinFyIds = ids;
 
-  var ABAS = ['agenda', 'painel', 'configurar'];
-  var CHAVE = 'clinfy.aba';
+  var ABAS = ['inicio', 'agenda', 'painel', 'configurar'];
 
   // Cada tela só começa (e só faz os pedidos dela ao Conector) quando a aba dela aparece pela primeira vez.
   // Antes as quatro começavam juntas ao abrir a página, e Painel e Configurar disputavam a rede com a Agenda.
   // O host chama omni.ready uma vez para todas; o início de cada tela fica guardado até a aba abrir.
-  var ABA_DO_SCRIPT = { 'agenda.js': 'agenda', 'painel.js': 'painel', 'config.js': 'configurar', 'confirmacao.js': 'configurar' };
+  var ABA_DO_SCRIPT = { 'inicio.js': 'inicio', 'agenda.js': 'agenda', 'painel.js': 'painel', 'config.js': 'configurar', 'confirmacao.js': 'configurar' };
   var aberta = {}, esperando = {};
   function abaDoScript() {
     var src = root.document && root.document.currentScript && root.document.currentScript.src;
@@ -47,7 +46,7 @@
   }
 
   function mostrar(aba) {
-    if (ABAS.indexOf(aba) < 0) aba = 'agenda';
+    if (ABAS.indexOf(aba) < 0) aba = 'inicio';
     ABAS.forEach(function (a) {
       var sec = document.getElementById('sec-' + a);
       var btn = document.getElementById('tab-' + a);
@@ -56,12 +55,26 @@
       if (btn) btn.tabIndex = a === aba ? 0 : -1;
     });
     abrirTela(aba);
-    try { root.localStorage.setItem(CHAVE, aba); } catch (e) { /* sem armazenamento: abre na Agenda da próxima vez */ }
+    avisar('clinfy:aba', aba);
   }
 
+  function avisar(nome, detalhe) {
+    var ev;
+    try { ev = new root.CustomEvent(nome, { detail: detalhe }); } catch (e) { return; }
+    document.dispatchEvent(ev);
+  }
+
+  // Busca de paciente pedida no Início: a Agenda faz a busca assim que estiver conectada (tomarBusca).
+  var buscaPendente = null;
+  function buscar(texto) {
+    buscaPendente = texto;
+    mostrar('agenda');
+    avisar('clinfy:buscar', texto);
+  }
+  function tomarBusca() { var t = buscaPendente; buscaPendente = null; return t; }
+  root.ClinFyHub = { mostrar: mostrar, buscar: buscar, tomarBusca: tomarBusca };
+
   function iniciar() {
-    var guardada = null;
-    try { guardada = root.localStorage.getItem(CHAVE); } catch (e) { /* idem */ }
     ABAS.forEach(function (a, i) {
       var btn = document.getElementById('tab-' + a);
       if (!btn) return;
@@ -74,7 +87,8 @@
         document.getElementById('tab-' + prox).focus();
       });
     });
-    mostrar(guardada || 'agenda');
+    // O ClinFy sempre abre no Início (página de abertura), não na última aba usada.
+    mostrar('inicio');
   }
 
   if (root.document && root.document.readyState !== 'loading') iniciar();

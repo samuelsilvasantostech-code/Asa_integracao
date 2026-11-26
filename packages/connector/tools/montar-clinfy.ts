@@ -1,5 +1,5 @@
 // Monta a tela única do administrador (packages/extension/clinfy.html) a partir das telas de sempre:
-// agenda.html, painel.html, config.html e confirmacao.html. Cada tela entra como uma seção, com os ids que se
+// inicio.html, agenda.html, painel.html, config.html e confirmacao.html. Cada tela entra como uma seção, com os ids que se
 // repetem entre telas prefixados (o mapa igual está em hub.js). Assim a página única nunca é editada à mão:
 // mudou uma tela, rode de novo.
 //
@@ -12,12 +12,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPETIDOS = ["pill", "pill-text", "conn-text"];
 const TELAS = [
+  { arquivo: "inicio.html", prefixo: "in-" },
   { arquivo: "agenda.html", prefixo: "ag-" },
   { arquivo: "painel.html", prefixo: "pn-" },
   { arquivo: "config.html", prefixo: "cf-" },
   { arquivo: "confirmacao.html", prefixo: "cc-" },
 ] as const;
-const SCRIPTS = ["core.js", "api.js", "bridge.js", "cobranca.js", "hub.js", "agenda.js", "painel.js", "config.js", "confirmacao.js"];
+const SCRIPTS = ["core.js", "api.js", "bridge.js", "cobranca.js", "hub.js", "inicio.js", "agenda.js", "painel.js", "config.js", "confirmacao.js"];
 
 export const DIR_EXTENSAO = resolve(dirname(fileURLToPath(import.meta.url)), "../../extension");
 
@@ -36,9 +37,9 @@ function lerTela(dir: string, arquivo: string, prefixo: string) {
 }
 
 export function montarClinfy(dir = DIR_EXTENSAO): string {
-  const [agenda, painel, config, confirmacao] = TELAS.map((t) => lerTela(dir, t.arquivo, t.prefixo));
+  const [inicio, agenda, painel, config, confirmacao] = TELAS.map((t) => lerTela(dir, t.arquivo, t.prefixo));
   const v = agenda.versao;
-  for (const t of [painel, config, confirmacao]) if (t.versao !== v) throw new Error(`versões diferentes entre as telas: ${v} e ${t.versao}`);
+  for (const t of [inicio, painel, config, confirmacao]) if (t.versao !== v) throw new Error(`versões diferentes entre as telas: ${v} e ${t.versao}`);
   const aba = (id: string, rotulo: string) =>
     `    <button type="button" class="hub__tab" role="tab" id="tab-${id}" aria-controls="sec-${id}" aria-selected="false" tabindex="-1">${rotulo}</button>`;
   return `<!doctype html>
@@ -50,18 +51,22 @@ export function montarClinfy(dir = DIR_EXTENSAO): string {
 <link rel="stylesheet" href="styles.css?v=${v}">
 </head>
 <body class="page-hub">
-<!-- Gerado por packages/connector/tools/montar-clinfy.ts a partir de agenda, painel, config e confirmacao. Não editar à mão. -->
+<!-- Gerado por packages/connector/tools/montar-clinfy.ts a partir de inicio, agenda, painel, config e confirmacao. Não editar à mão. -->
 <header class="hub__bar">
   <div class="hd__brand">
     <span class="hd__logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
     <h1 class="hd__title">ClinFy<span class="hd__sis" data-sis="marca"></span></h1>
   </div>
   <nav class="hub__tabs" role="tablist" aria-label="Seções do ClinFy">
+${aba("inicio", "Início")}
 ${aba("agenda", "Agenda")}
 ${aba("painel", "Painel")}
 ${aba("configurar", "Configurar")}
   </nav>
 </header>
+<section class="hub__sec ${inicio.classe}" id="sec-inicio" role="tabpanel" aria-labelledby="tab-inicio" hidden>
+${inicio.conteudo}
+</section>
 <section class="hub__sec ${agenda.classe}" id="sec-agenda" role="tabpanel" aria-labelledby="tab-agenda" hidden>
 ${agenda.conteudo}
 </section>

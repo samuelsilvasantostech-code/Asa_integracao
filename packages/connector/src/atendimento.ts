@@ -105,6 +105,14 @@ function mediana(v: number[]) {
   const o = [...v].sort((a, b) => a - b), m = o.length >> 1;
   return Math.round(o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2);
 }
+// Percentil 90 (posição mais próxima): 9 em cada 10 pacientes esperaram até esse tempo. Com menos de
+// P90_MIN tempos ele não diz nada (com 3 pacientes seria só o maior), e fica nulo.
+export const P90_MIN = 5;
+function p90(v: number[]) {
+  if (v.length < P90_MIN) return null;
+  const o = [...v].sort((a, b) => a - b);
+  return Math.round(o[Math.ceil(0.9 * o.length) - 1]);
+}
 
 // Minutos, em números inteiros para a tela. `hoje` separa os cronômetros de hoje ainda abertos (quem está
 // na sala agora) dos esquecidos em dias anteriores.
@@ -159,6 +167,7 @@ export function resumoEspera(linhas: LinhaEspera[], hoje: string) {
     esperas_medidas: esperas.length,
     espera_media: media(esperas),
     espera_mediana: mediana(esperas),
+    espera_p90: p90(esperas),
     acima_30: esperas.filter((e) => e >= 30).length,
     consultas_medidas: consultas.length,
     consulta_media: media(consultas),
@@ -166,13 +175,15 @@ export function resumoEspera(linhas: LinhaEspera[], hoje: string) {
     antecedencia_media: media(antecedencias),
     pacientes_atrasados: atrasados,
     faixas,
-    por_dia: [...dias.keys()].sort().map((dia) => ({ dia, n: dias.get(dia)!.length, media: media(dias.get(dia)!)! })),
+    por_dia: [...dias.keys()].sort().map((dia) => ({ dia, n: dias.get(dia)!.length, media: media(dias.get(dia)!)!, mediana: mediana(dias.get(dia)!)! })),
     por_profissional: [...prof.entries()]
       .map(([prestador_id, v]) => ({
-        prestador_id, pacientes: v.esperas.length, espera_media: media(v.esperas), atraso_medio: media(v.atrasos), consulta_media: media(v.consultas),
+        prestador_id, pacientes: v.esperas.length, espera_media: media(v.esperas), espera_mediana: mediana(v.esperas), espera_p90: p90(v.esperas),
+        atraso_medio: media(v.atrasos), consulta_media: media(v.consultas),
       }))
       .filter((x) => x.pacientes)
-      .sort((a, b) => (b.espera_media ?? 0) - (a.espera_media ?? 0)),
+      // Maior espera típica primeiro; a média desempata (ela pesa os casos longos).
+      .sort((a, b) => (b.espera_mediana ?? 0) - (a.espera_mediana ?? 0) || (b.espera_media ?? 0) - (a.espera_media ?? 0)),
     agora: { aguardando, em_consulta: emConsulta },
     esquecidos,
     descartadas,
