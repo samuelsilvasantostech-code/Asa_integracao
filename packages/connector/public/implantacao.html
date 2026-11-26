@@ -35,6 +35,7 @@
     <form id="f-login" class="grade" autocomplete="on">
       <label class="campo"><span>Usuário</span><input id="l-usuario" name="username" autocomplete="username" spellcheck="false" autocapitalize="none" required></label>
       <label class="campo"><span>Senha</span><input id="l-senha" name="password" type="password" autocomplete="current-password" required></label>
+      <label class="marca mostrar-senha"><input type="checkbox" data-mostrar="l-senha"> <span>Mostrar senha</span></label>
       <div class="acoes"><button type="submit" class="btn btn--primario" id="b-login">Entrar</button></div>
     </form>
     <p class="msg" id="m-login" role="status"></p>
@@ -47,6 +48,7 @@
       <label class="campo"><span>Usuário (ou e-mail)</span><input id="p-usuario" maxlength="80" autocomplete="username" spellcheck="false" autocapitalize="none" required></label>
       <label class="campo"><span>Senha (mínimo 10 caracteres)</span><input id="p-senha" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
       <label class="campo"><span>Repita a senha</span><input id="p-senha2" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
+      <label class="marca mostrar-senha campo--largo"><input type="checkbox" data-mostrar="p-senha p-senha2"> <span>Mostrar senhas</span></label>
       <div class="acoes"><button type="submit" class="btn btn--primario">Criar meu acesso</button></div>
       <p class="msg" id="m-primeiro" role="status"></p>
     </form>
@@ -195,8 +197,7 @@
           <button type="button" class="aba" role="tab" id="da-geral" aria-controls="dp-geral" aria-selected="true">Visão geral</button>
           <button type="button" class="aba" role="tab" id="da-sistema" aria-controls="dp-sistema" aria-selected="false" tabindex="-1">Sistema (ERP)</button>
           <button type="button" class="aba" role="tab" id="da-instalacao" aria-controls="dp-instalacao" aria-selected="false" tabindex="-1">Instalação</button>
-          <button type="button" class="aba" role="tab" id="da-financeiro" aria-controls="dp-financeiro" aria-selected="false" tabindex="-1">Financeiro</button>
-          <button type="button" class="aba" role="tab" id="da-confirmacao" aria-controls="dp-confirmacao" aria-selected="false" tabindex="-1">Confirmação</button>
+          <button type="button" class="aba" role="tab" id="da-recursos" aria-controls="dp-recursos" aria-selected="false" tabindex="-1">Recursos</button>
           <button type="button" class="aba" role="tab" id="da-avancado" aria-controls="dp-avancado" aria-selected="false" tabindex="-1">Avançado</button>
         </div>
 
@@ -300,8 +301,13 @@
           </div>
         </div>
 
-        <!-- Financeiro -->
-        <div class="painel-aba" id="dp-financeiro" role="tabpanel" aria-labelledby="da-financeiro" hidden>
+        <!-- Recursos: financeiro, confirmação de véspera e URL de disparo -->
+        <div class="painel-aba" id="dp-recursos" role="tabpanel" aria-labelledby="da-recursos" hidden>
+          <nav class="recursos-atalhos" aria-label="Recursos">
+            <a href="#f-fin">Financeiro</a>
+            <a href="#f-conf">Confirmação de véspera</a>
+            <a href="#f-disparo">URL de disparo</a>
+          </nav>
           <form id="f-fin" class="bloco" autocomplete="off">
             <h3>Financeiro</h3>
             <p class="dica">Permite lançar conta a receber do paciente no sistema da clínica pelo painel (só se o sistema tiver essas rotas). Na Asa, a conta criada não pode ser editada nem excluída pela Kentro. "Quem pode lançar" é só uma regra da tela da extensão: o Conector não sabe quem é o usuário da Kentro.</p>
@@ -312,10 +318,8 @@
             <div class="acoes"><button type="submit" class="btn btn--primario">Salvar financeiro</button></div>
             <p class="msg" id="m-fin" role="status"></p>
           </form>
-        </div>
 
-        <!-- Confirmação -->
-        <div class="painel-aba" id="dp-confirmacao" role="tabpanel" aria-labelledby="da-confirmacao" hidden>
+          <div class="conf-layout">
           <form id="f-conf" class="bloco" autocomplete="off">
             <h3>Confirmação de véspera</h3>
             <fieldset>
@@ -364,6 +368,14 @@
             <div class="acoes"><button type="submit" class="btn btn--primario">Salvar confirmação</button></div>
             <p class="msg" id="m-conf" role="status"></p>
           </form>
+
+          <aside class="previa-conf" id="c-previa" aria-labelledby="c-previa-h">
+            <h3 id="c-previa-h">Prévia</h3>
+            <p class="dica" id="c-previa-sub">Como o paciente recebe, com uma consulta de exemplo. Atualiza enquanto você edita; nada é gravado.</p>
+            <div id="c-previa-corpo" aria-live="polite"></div>
+            <p class="msg" id="m-previa" role="status"></p>
+          </aside>
+          </div>
 
           <form id="f-disparo" class="bloco" autocomplete="off">
             <h3>URL de disparo</h3>
@@ -506,8 +518,59 @@
         <section class="cartao" id="cxp-config" role="tabpanel" aria-labelledby="cxa-config" hidden>
           <form id="f-cx-config" autocomplete="off">
             <h3 class="cartao__h3">Configuração</h3>
-            <p class="dica">JSON do conector: autenticação, campos que a clínica preenche e a tradução de cada rota da especificação. É validado antes de gravar; cada gravação sobe a versão, e as clínicas passam a usar a nova em até 30 segundos.</p>
-            <label class="campo"><span class="sr">Configuração em JSON</span><textarea id="cx-config" class="mono" rows="24" spellcheck="false"></textarea></label>
+            <p class="dica">Endereço, acesso e campos que a clínica preenche ficam no formulário; a tradução de cada rota da especificação fica no JSON completo, logo abaixo. Os dois andam juntos: o que muda num aparece no outro. Tudo é validado antes de gravar; cada gravação sobe a versão, e as clínicas passam a usar a nova em até 30 segundos.</p>
+            <p class="msg" id="cxg-aviso" data-tone="warn" hidden>O JSON abaixo está com erro de sintaxe: corrija-o para voltar a usar o formulário.</p>
+            <div class="cxg" id="cxg">
+              <fieldset>
+                <legend>Endereço da API</legend>
+                <label class="marca"><input type="radio" name="cxg-base-modo" id="cxg-base-fixo" value="fixo"> <span>Fixo, igual para todas as clínicas</span></label>
+                <label class="campo cxg-base"><span class="sr">Endereço fixo da API</span><input id="cxg-base" type="url" spellcheck="false" placeholder="https://api.sistema.com.br/v1"></label>
+                <label class="marca"><input type="radio" name="cxg-base-modo" id="cxg-base-clinica" value="clinica"> <span>Cada clínica informa o seu (campo <code>base_url</code>)</span></label>
+              </fieldset>
+              <fieldset>
+                <legend>Autenticação</legend>
+                <div class="grade">
+                  <label class="campo"><span>Tipo</span>
+                    <select id="cxg-aut">
+                      <option value="nenhuma">Nenhuma</option>
+                      <option value="bearer">Bearer (Authorization: Bearer …)</option>
+                      <option value="header">Cabeçalho próprio</option>
+                      <option value="basic">Usuário e senha (Basic)</option>
+                      <option value="query">Parâmetro na URL</option>
+                    </select>
+                  </label>
+                  <label class="campo" data-aut="header"><span>Nome do cabeçalho</span><input id="cxg-aut-header" spellcheck="false" placeholder="Authorization"></label>
+                  <label class="campo" data-aut="query"><span>Nome do parâmetro</span><input id="cxg-aut-param" spellcheck="false" placeholder="token"></label>
+                  <label class="campo" data-aut="bearer header query"><span>Campo com o token</span><select id="cxg-aut-campo"></select></label>
+                  <label class="campo" data-aut="basic"><span>Campo do usuário</span><select id="cxg-aut-usuario"></select></label>
+                  <label class="campo" data-aut="basic"><span>Campo da senha</span><select id="cxg-aut-senha"></select></label>
+                </div>
+                <p class="dica" id="cxg-aut-dica"></p>
+              </fieldset>
+              <fieldset>
+                <legend>Campos que a clínica preenche</legend>
+                <p class="dica">Aparecem na tela de acesso da clínica. A chave é o nome usado no JSON (<code>{{cred.chave}}</code>): letras minúsculas, dígitos e _. Campo do tipo segredo fica guardado cifrado e nunca volta para a tela.</p>
+                <div class="cxg-campos" id="cxg-campos"></div>
+                <button type="button" class="btn" id="cxg-campo-add">Adicionar campo</button>
+              </fieldset>
+              <fieldset>
+                <legend>Comportamento</legend>
+                <label class="campo"><span>Chave de idempotência (evita marcação em dobro quando o pedido se repete)</span>
+                  <select id="cxg-idem">
+                    <option value="padrao">Cabeçalho padrão (Idempotency-Key)</option>
+                    <option value="outro">Outro cabeçalho</option>
+                    <option value="nenhum">O sistema não aceita</option>
+                  </select>
+                </label>
+                <label class="campo" id="cxg-idem-nome-caixa"><span>Nome do cabeçalho</span><input id="cxg-idem-nome" spellcheck="false" placeholder="X-Request-Id"></label>
+                <label class="marca"><input type="checkbox" id="cxg-espec"> <span>O sistema segue a especificação Kentro: rota que o JSON não traduz vai como está</span></label>
+                <p class="dica" id="cxg-rotas"></p>
+              </fieldset>
+            </div>
+            <details class="como" id="cx-avancado">
+              <summary>JSON completo (rotas, cabeçalhos e erros)</summary>
+              <label class="campo"><span class="sr">Configuração em JSON</span><textarea id="cx-config" class="mono" rows="24" spellcheck="false"></textarea></label>
+            </details>
             <div class="acoes"><button type="submit" class="btn btn--primario">Validar e salvar</button></div>
             <p class="msg" id="m-cx-config" role="status"></p>
             <ul class="erros" id="cx-erros"></ul>
@@ -545,10 +608,17 @@
               <button type="button" class="seg__btn" data-dias="7" aria-pressed="false">7 dias</button>
               <button type="button" class="seg__btn" data-dias="30" aria-pressed="true">30 dias</button>
               <button type="button" class="seg__btn" data-dias="90" aria-pressed="false">90 dias</button>
+              <button type="button" class="seg__btn" id="uso-p-abrir" aria-pressed="false" aria-expanded="false" aria-controls="f-uso-periodo">Escolher datas</button>
             </div>
             <button type="button" class="btn" id="uso-atualizar">Atualizar</button>
           </div>
         </div>
+        <form class="uso-datas" id="f-uso-periodo" autocomplete="off" hidden>
+          <label class="campo"><span>De</span><input type="date" id="uso-p-inicio" required></label>
+          <label class="campo"><span>Até</span><input type="date" id="uso-p-fim" required></label>
+          <button type="submit" class="btn btn--primario">Ver período</button>
+          <p class="dica">Até 400 dias para trás, o quanto o banco guarda.</p>
+        </form>
         <p class="pagina__sub" id="uso-sub">O que cada clínica fez pelo ClinFy.</p>
         <details class="como" id="uso-como">
           <summary>Como funciona</summary>
@@ -556,6 +626,11 @@
         </details>
       </header>
       <p class="msg" id="m-uso" role="status"></p>
+      <div class="uso-exportar" id="uso-exportar" hidden>
+        <span>Exportar o período (todas as clínicas):</span>
+        <button type="button" class="btn" id="uso-csv-clinicas">CSV por clínica</button>
+        <button type="button" class="btn" id="uso-csv-dias">CSV por dia</button>
+      </div>
 
       <div class="uso-pagina" id="uso-geral">
         <div class="kpis2" id="uso-kpis" aria-live="polite"></div>
@@ -644,6 +719,7 @@
     <input type="text" id="dlg-senha-usuario" autocomplete="username" hidden>
     <label class="campo"><span>Nova senha (mínimo 10 caracteres)</span><input id="dlg-nova" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
     <label class="campo"><span>Repita a nova senha</span><input id="dlg-nova2" type="password" minlength="10" maxlength="200" autocomplete="new-password" required></label>
+    <label class="marca mostrar-senha"><input type="checkbox" data-mostrar="dlg-nova dlg-nova2"> <span>Mostrar senhas</span></label>
     <p class="msg" id="m-dlg-senha" role="status"></p>
     <div class="acoes acoes--fim">
       <button type="button" class="btn" id="dlg-cancelar">Cancelar</button>

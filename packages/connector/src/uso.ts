@@ -25,6 +25,18 @@ export function periodoUso(hoje: string, dias: unknown): PeriodoUso {
   return { dias: n, inicio, fim: hoje, anterior_inicio: somaDias(inicio, -n) };
 }
 
+// Período escolhido pela implantação (de/até, inclusive). O banco guarda até MAX_DIAS_USO dias: o início
+// não pode ser mais antigo que isso, o fim não passa de hoje. Fora disso, null (a rota responde 400).
+export const MAX_DIAS_USO = 400;
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+export function periodoPersonalizado(hoje: string, inicio: unknown, fim: unknown): PeriodoUso | null {
+  if (typeof inicio !== "string" || typeof fim !== "string" || !ISO.test(inicio) || !ISO.test(fim)) return null;
+  if (somaDias(inicio, 0) !== inicio || somaDias(fim, 0) !== fim) return null; // 2026-02-30 e afins
+  if (inicio > fim || fim > hoje || inicio < somaDias(hoje, -(MAX_DIAS_USO - 1))) return null;
+  const n = Math.round((Date.parse(fim) - Date.parse(inicio)) / DIA_MS) + 1;
+  return { dias: n, inicio, fim, anterior_inicio: somaDias(inicio, -n) };
+}
+
 /* ---------- linhas vindas do banco ---------- */
 export type TenantUso = {
   id: string; nome: string; ativo: boolean; erp: string | null; criado_em: Date | string;

@@ -2,7 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { usuarioDaSessao } from "../admin-acesso.js";
 import { config, problemaDeConfig } from "../config.js";
-import { CAMPOS, lerConfig, MAX_PARAMETROS, TEXTOS_PADRAO } from "../confirmacao.js";
+import { CAMPOS, lerConfig, MAX_PARAMETROS, previaConfirmacao, TEXTOS_PADRAO } from "../confirmacao.js";
 import { pool } from "../db.js";
 import { FORMAS, lerFinanceiro } from "../financeiro.js";
 import { disparoUrlValida, idTenantValido, lerDadosTenant, type CampoTenant } from "../implantacao.js";
@@ -146,6 +146,16 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!rowCount) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
     req.log.info({ tenant: req.params.id, ativo: cfg.ativo, teste: cfg.teste.ativo }, "confirmação: configuração gravada pela implantação");
     return { ok: true, config: cfg };
+  });
+
+  // Prévia do que a tela está editando (sem gravar), com o nome da clínica: a implantação vê a mensagem
+  // como o paciente recebe antes de salvar.
+  app.post<{ Params: { id: string }; Body: { config?: unknown } }>("/admin/tenants/:id/confirmacao/previa", async (req, reply) => {
+    const bruto = configDoCorpo(req.body);
+    if (!bruto) return reply.code(400).send({ erro: "DADOS_INVALIDOS" });
+    const { rows } = await pool!.query<{ nome: string }>("SELECT nome FROM tenants WHERE id = $1", [req.params.id]);
+    if (!rows[0]) return reply.code(404).send({ erro: "TENANT_NAO_ENCONTRADO" });
+    return previaConfirmacao(lerConfig(bruto), rows[0].nome, new Date());
   });
 
   // Financeiro (lançar conta a receber no ERP; na Asa, sem volta). Só a implantação liga, e só se o ERP tem.

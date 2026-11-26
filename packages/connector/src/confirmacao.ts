@@ -232,3 +232,19 @@ export function acaoDoBotao(recebido: unknown, sinonimos?: Partial<Record<Acao, 
   if (/^(cancel|desmarc|3$)/.test(s)) return "cancelar";
   return null;
 }
+
+// Prévia com uma consulta de exemplo, sem gravar: a mensagem, as respostas e as variáveis do template como
+// saem para o paciente. Usada pela extensão e pela implantação (ficha do cliente, aba Recursos).
+export function previaConfirmacao(cfg: ConfigConfirmacao, clinica: string, agora: Date) {
+  const hoje = hojeEm(agora);
+  const data = datasAlvo(hoje, cfg).inicio;
+  const v = varsDa(
+    { paciente: "Maria Aparecida Souza", data, hora: "08:30", prestador: "Dra. Ana Lima", clinica: null, especialidade: "Cardiologia", procedimento: "Consulta", endereco: "Rua das Flores, 100" },
+    hoje,
+    clinica,
+  );
+  // As respostas saem com os dados que a rota de resposta realmente tem.
+  const vr = varsResposta({ data, hora: "08:30", prestador: "Dra. Ana Lima" }, "Maria", hoje, clinica);
+  const textos = Object.fromEntries(Object.entries(cfg.textos).map(([k, t]) => [k, preencher(t, k === "mensagem" ? v : vr)]));
+  return { config: cfg, textos, template: variaveisTemplate(v, cfg.template.parametros) };
+}

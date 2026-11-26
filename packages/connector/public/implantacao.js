@@ -191,7 +191,7 @@
   var abaDeSistemas = ligarAbas(['sx-conectores', 'sx-pedidos']);
   // O detalhe do conector tem quatro abas: dados, documentação, configuração e teste.
   var abaDoConector = ligarAbas(['cxa-dados', 'cxa-docs', 'cxa-config', 'cxa-teste']);
-  var ABAS_CLIENTE = ['da-geral', 'da-sistema', 'da-instalacao', 'da-financeiro', 'da-confirmacao', 'da-avancado'];
+  var ABAS_CLIENTE = ['da-geral', 'da-sistema', 'da-instalacao', 'da-recursos', 'da-avancado'];
   var abaDoCliente = ligarAbas(ABAS_CLIENTE);
 
   function urlManifest() { return location.origin + '/extensao/manifest.json'; }
@@ -819,9 +819,9 @@
     var dl = $('g-recursos'), c = t.confirmacao || {};
     dl.textContent = '';
     [
-      ['Lançar cobrança', t.financeiro && t.financeiro.ativo, t.financeiro && t.financeiro.ativo ? (t.financeiro.quem === 'todos' ? 'Todos os atendentes' : 'Só administradores') : 'Desligado', 'da-financeiro'],
-      ['Confirmação de véspera', c.ativo, c.ativo ? (c.dias_antes + (c.dias_antes === 1 ? ' dia antes' : ' dias antes') + ' · ' + (c.canal === 'oficial' ? 'WhatsApp oficial' : 'WhatsApp não oficial') + (c.teste && c.teste.ativo ? ' · modo teste' : '')) : 'Desligada', 'da-confirmacao'],
-      ['URL de disparo', !!t.disparo_url, t.disparo_url ? 'Configurada' : 'Não configurada', 'da-confirmacao']
+      ['Lançar cobrança', t.financeiro && t.financeiro.ativo, t.financeiro && t.financeiro.ativo ? (t.financeiro.quem === 'todos' ? 'Todos os atendentes' : 'Só administradores') : 'Desligado', 'f-fin'],
+      ['Confirmação de véspera', c.ativo, c.ativo ? (c.dias_antes + (c.dias_antes === 1 ? ' dia antes' : ' dias antes') + ' · ' + (c.canal === 'oficial' ? 'WhatsApp oficial' : 'WhatsApp não oficial') + (c.teste && c.teste.ativo ? ' · modo teste' : '')) : 'Desligada', 'f-conf'],
+      ['URL de disparo', !!t.disparo_url, t.disparo_url ? 'Configurada' : 'Não configurada', 'f-disparo']
     ].forEach(function (r) {
       var item = el('div');
       item.appendChild(el('dt', null, r[0]));
@@ -829,7 +829,7 @@
       dd.appendChild(el('span', 'selo selo--' + (r[1] ? 'ok' : 'idle'), r[1] ? 'Ligado' : 'Desligado'));
       dd.appendChild(el('span', 'sub', r[2]));
       item.appendChild(dd);
-      var ir = botao('Abrir', 'Abrir ' + r[0], function () { abaDoCliente(r[3], true); });
+      var ir = botao('Abrir', 'Abrir ' + r[0], function () { irParaRecurso(r[3]); });
       item.appendChild(ir);
       dl.appendChild(item);
     });
@@ -897,7 +897,7 @@
   /* ---------- alterações não salvas ---------- */
   // "Foto" dos valores de cada formulário logo depois de preenchido. Diferente da foto = alteração não salva.
   // Campos vazios ficam de fora: campos de acesso que chegam depois (vazios) não contam como alteração.
-  var ABA_DO_FORM = { 'f-erp': 'da-sistema', 'f-token': 'da-sistema', 'f-d-doc': 'da-sistema', 'f-vinculo': 'da-instalacao', 'f-fin': 'da-financeiro', 'f-conf': 'da-confirmacao', 'f-disparo': 'da-confirmacao' };
+  var ABA_DO_FORM = { 'f-erp': 'da-sistema', 'f-token': 'da-sistema', 'f-d-doc': 'da-sistema', 'f-vinculo': 'da-instalacao', 'f-fin': 'da-recursos', 'f-conf': 'da-recursos', 'f-disparo': 'da-recursos' };
   var FORMS_CLIENTE = Object.keys(ABA_DO_FORM);
   var FORMS_CONECTOR = ['f-cx-dados', 'f-cx-config', 'f-cx-doc'];
   var fotos = {};
@@ -1458,7 +1458,8 @@
       var cfg = c.config_efetiva || c.config || (c.tipo === 'codigo' ? null : MODELO_CONECTOR);
       if (!kConfig) $('cx-config').value = cfg ? JSON.stringify(cfg, null, 2) : '';
       $('cx-config').disabled = c.tipo === 'codigo' || c.slug === 'padrao';
-      $('f-cx-config').querySelector('button').disabled = $('cx-config').disabled;
+      $('f-cx-config').querySelector('button[type="submit"]').disabled = $('cx-config').disabled;
+      if (!kConfig) preencherGuiado();
       $('cx-erros').textContent = '';
       ['m-cx-dados', 'm-cx-config', 'm-cx-doc', 'm-cx-teste'].forEach(function (id) { msg(id, null, ''); });
       if (!mesmo) msg('m-cx-acao', null, '');
@@ -1499,18 +1500,247 @@
     });
   }
 
+  /* ---------- Configuração do conector: formulário guiado ---------- */
+  // O formulário cobre a parte comum (endereço, acesso, campos, idempotência, especificação) e escreve no
+  // JSON; rotas, cabeçalhos e erros ficam só no JSON. O JSON é a fonte: chaves que o formulário não conhece
+  // são preservadas. Regras iguais às de validarConector (motor.ts).
+  var CHAVE_CAMPO = /^[a-z][a-z0-9_]{0,39}$/;
+  var BASE_CLINICA = '{{cred.base_url}}';
+  var AUT_PADRAO = { campo: 'token', usuario: 'usuario', senha: 'senha' };
+  var AUT_DICA = {
+    nenhuma: 'Nenhuma credencial é enviada.',
+    bearer: 'Envia Authorization: Bearer seguido do valor do campo escolhido.',
+    header: 'Envia o valor do campo escolhido no cabeçalho informado (vazio = Authorization).',
+    basic: 'Envia Authorization: Basic com usuário e senha dos campos escolhidos.',
+    query: 'Acrescenta ?parametro=valor em toda chamada (vazio = token).'
+  };
+  var AUT_ALVOS = { bearer: ['campo'], header: ['campo', 'header'], query: ['campo', 'param'], basic: ['usuario', 'senha'], nenhuma: [] };
+
+  function cfgDoJson() {
+    try {
+      var o = JSON.parse($('cx-config').value);
+      return o && typeof o === 'object' && !Array.isArray(o) ? o : null;
+    } catch (e) { return null; }
+  }
+  function escreverJson(cfg) { $('cx-config').value = JSON.stringify(cfg, null, 2); }
+
+  function linhaCampo(f) {
+    var li = el('div', 'cxg-campo');
+    function caixa(rotulo, controle, cls) {
+      var l = el('label', 'campo' + (cls ? ' ' + cls : ''));
+      l.appendChild(el('span', null, rotulo));
+      l.appendChild(controle);
+      li.appendChild(l);
+      return controle;
+    }
+    var chave = caixa('Chave', el('input'));
+    chave.className = 'mono';
+    chave.spellcheck = false;
+    chave.maxLength = 40;
+    chave.value = f.chave || '';
+    chave.setAttribute('data-k', 'chave');
+    var rot = caixa('Rótulo na tela', el('input'));
+    rot.value = f.rotulo || '';
+    rot.setAttribute('data-k', 'rotulo');
+    var tipo = el('select');
+    [['texto', 'Texto'], ['segredo', 'Segredo'], ['url', 'Endereço (URL)']].forEach(function (o) {
+      var op = el('option', null, o[1]);
+      op.value = o[0];
+      tipo.appendChild(op);
+    });
+    tipo.value = ['texto', 'segredo', 'url'].indexOf(f.tipo) >= 0 ? f.tipo : 'texto';
+    tipo.setAttribute('data-k', 'tipo');
+    caixa('Tipo', tipo);
+    var ajuda = caixa('Ajuda (opcional)', el('input'), 'cxg-campo__ajuda');
+    ajuda.value = f.ajuda || '';
+    ajuda.setAttribute('data-k', 'ajuda');
+    var ob = el('label', 'marca cxg-campo__ob');
+    var cb = el('input');
+    cb.type = 'checkbox';
+    cb.checked = !!f.obrigatorio;
+    cb.setAttribute('data-k', 'obrigatorio');
+    ob.appendChild(cb);
+    ob.appendChild(el('span', null, 'Obrigatório'));
+    li.appendChild(ob);
+    var rm = el('button', 'btn cxg-campo__rm', 'Remover');
+    rm.type = 'button';
+    rm.setAttribute('aria-label', 'Remover o campo ' + (f.chave || ''));
+    rm.addEventListener('click', function () { li.remove(); guiadoMudou(); });
+    li.appendChild(rm);
+    return li;
+  }
+
+  // Campos extras de cada item (ex.: um "padrao" que só o JSON conhece) voltam iguais.
+  var camposOriginais = [];
+  function camposDaTela() {
+    return Array.prototype.map.call($('cxg-campos').querySelectorAll('.cxg-campo'), function (li) {
+      var v = {};
+      Array.prototype.forEach.call(li.querySelectorAll('[data-k]'), function (e) {
+        v[e.getAttribute('data-k')] = e.type === 'checkbox' ? e.checked : e.value.trim();
+      });
+      var orig = camposOriginais.filter(function (o) { return o && o.chave === li.getAttribute('data-chave'); })[0] || {};
+      var f = {};
+      Object.keys(orig).forEach(function (k) { f[k] = orig[k]; });
+      f.chave = v.chave;
+      f.rotulo = v.rotulo;
+      f.tipo = v.tipo;
+      if (v.obrigatorio) f.obrigatorio = true; else delete f.obrigatorio;
+      if (v.ajuda) f.ajuda = v.ajuda; else delete f.ajuda;
+      return f;
+    });
+  }
+
+  function opcoesDeCampo(sel, chaves, atual) {
+    sel.textContent = '';
+    var lista = chaves.slice();
+    if (atual && lista.indexOf(atual) < 0) lista.push(atual);
+    if (!lista.length) lista.push('');
+    lista.forEach(function (k) {
+      var op = el('option', null, !k ? '(nenhum campo)' : chaves.indexOf(k) < 0 ? k + ' (não existe nos campos)' : k);
+      op.value = k;
+      sel.appendChild(op);
+    });
+    sel.value = atual || '';
+  }
+
+  function mostrarAut() {
+    var t = $('cxg-aut').value;
+    Array.prototype.forEach.call($('cxg').querySelectorAll('[data-aut]'), function (l) {
+      l.hidden = l.getAttribute('data-aut').split(' ').indexOf(t) < 0;
+    });
+    $('cxg-aut-dica').textContent = AUT_DICA[t] || '';
+    $('cxg-idem-nome-caixa').hidden = $('cxg-idem').value !== 'outro';
+  }
+
+  // Leva o JSON para o formulário. `campos` = false mantém a lista da tela (para não perder o foco ao digitar nela).
+  function preencherGuiado(campos) {
+    var cfg = cfgDoJson();
+    var travado = $('cx-config').disabled;
+    $('cxg-aviso').hidden = !!cfg || travado;
+    Array.prototype.forEach.call($('cxg').querySelectorAll('input, select, button'), function (e) { e.disabled = travado || !cfg; });
+    if (!cfg) return;
+    var a = cfg.autenticacao && typeof cfg.autenticacao === 'object' ? cfg.autenticacao : {};
+    var lista = Array.isArray(cfg.campos) ? cfg.campos : [];
+    var porClinica = cfg.base_url === BASE_CLINICA;
+    $('cxg-base-clinica').checked = porClinica;
+    $('cxg-base-fixo').checked = !porClinica;
+    if (!porClinica) $('cxg-base').value = typeof cfg.base_url === 'string' ? cfg.base_url : '';
+    $('cxg-base').disabled = $('cxg-base').disabled || porClinica;
+    $('cxg-aut').value = AUT_DICA[a.tipo] ? a.tipo : 'nenhuma';
+    $('cxg-aut-header').value = a.header || '';
+    $('cxg-aut-param').value = a.param || '';
+    var chaves = lista.map(function (f) { return f && f.chave; }).filter(Boolean);
+    var alvos = AUT_ALVOS[$('cxg-aut').value];
+    ['campo', 'usuario', 'senha'].forEach(function (k) {
+      opcoesDeCampo($('cxg-aut-' + k), chaves, a[k] || (alvos.indexOf(k) >= 0 ? AUT_PADRAO[k] : ''));
+    });
+    var idem = cfg.idempotencia_header;
+    $('cxg-idem').value = idem === undefined || idem === 'Idempotency-Key' ? 'padrao' : idem === null || idem === '' ? 'nenhum' : 'outro';
+    $('cxg-idem-nome').value = typeof idem === 'string' && idem !== 'Idempotency-Key' ? idem : '';
+    $('cxg-espec').checked = cfg.especificacao === true;
+    var rotas = cfg.rotas && typeof cfg.rotas === 'object' ? Object.keys(cfg.rotas) : [];
+    $('cxg-rotas').textContent = rotas.length
+      ? 'Rotas traduzidas no JSON (' + rotas.length + '): ' + rotas.join(', ') + '.'
+      : 'Nenhuma rota traduzida no JSON ainda' + (cfg.especificacao === true ? ': todas vão como estão na especificação.' : '.');
+    if (campos !== false) {
+      camposOriginais = lista;
+      var box = $('cxg-campos');
+      box.textContent = '';
+      lista.forEach(function (f) {
+        var li = linhaCampo(f || {});
+        li.setAttribute('data-chave', (f && f.chave) || '');
+        box.appendChild(li);
+      });
+      if (!lista.length) box.appendChild(el('p', 'dica cxg-vazio', 'Nenhum campo: a clínica não preenche nada.'));
+      Array.prototype.forEach.call(box.querySelectorAll('input, select, button'), function (e) { e.disabled = travado; });
+    }
+    mostrarAut();
+  }
+
+  // Formulário → JSON. Só mexe nas chaves do formulário; o resto do JSON fica como está.
+  function guiadoMudou() {
+    var cfg = cfgDoJson();
+    if (!cfg) return;
+    var campos = camposDaTela();
+    var porClinica = $('cxg-base-clinica').checked;
+    if (porClinica && !campos.some(function (f) { return f.chave === 'base_url'; })) {
+      // Endereço por clínica precisa do campo base_url: entra sozinho no topo da lista.
+      campos.unshift({ chave: 'base_url', rotulo: 'Endereço da API', tipo: 'url', obrigatorio: true, ajuda: 'Ex.: https://erp.exemplo.com/api/v1' });
+      cfg.campos = campos;
+      cfg.base_url = BASE_CLINICA;
+      escreverJson(cfg);
+      preencherGuiado();
+      return;
+    }
+    cfg.base_url = porClinica ? BASE_CLINICA : $('cxg-base').value.trim();
+    var tipo = $('cxg-aut').value, aut = { tipo: tipo };
+    AUT_ALVOS[tipo].forEach(function (k) {
+      if (k === 'header' || k === 'param') { var v = $('cxg-aut-' + k).value.trim(); if (v) aut[k] = v; }
+      else if ($('cxg-aut-' + k).value) aut[k] = $('cxg-aut-' + k).value;
+    });
+    var tipoAntes = cfg.autenticacao && cfg.autenticacao.tipo;
+    cfg.autenticacao = aut;
+    var idem = $('cxg-idem').value;
+    if (idem === 'padrao') delete cfg.idempotencia_header;
+    else if (idem === 'nenhum') cfg.idempotencia_header = null;
+    else cfg.idempotencia_header = $('cxg-idem-nome').value.trim() || 'Idempotency-Key';
+    if ($('cxg-espec').checked) cfg.especificacao = true; else delete cfg.especificacao;
+    cfg.campos = campos;
+    escreverJson(cfg);
+    // Mudou o tipo de acesso ou a lista de campos: as listas de "campo com o token" se refazem.
+    var chaves = campos.map(function (f) { return f.chave; }).filter(Boolean);
+    ['campo', 'usuario', 'senha'].forEach(function (k) {
+      var padrao = AUT_ALVOS[tipo].indexOf(k) >= 0 ? AUT_PADRAO[k] : '';
+      opcoesDeCampo($('cxg-aut-' + k), chaves, aut[k] || (tipo !== tipoAntes ? padrao : $('cxg-aut-' + k).value) || padrao);
+    });
+    $('cxg-base').disabled = porClinica;
+    mostrarAut();
+    var vazio = $('cxg-campos').querySelector('.cxg-vazio');
+    if (vazio && campos.length) vazio.remove();
+  }
+
+  // Erros que o formulário consegue apontar antes de ir ao servidor.
+  function errosDoGuiado(cfg) {
+    var erros = [], chaves = {};
+    if (typeof cfg.base_url !== 'string' || !cfg.base_url) erros.push('Informe o endereço da API (ou marque que cada clínica informa o seu).');
+    else if (cfg.base_url !== BASE_CLINICA && cfg.base_url.indexOf('{{') < 0 && !/^https?:\/\/\S+$/.test(cfg.base_url)) erros.push('Endereço da API: use um endereço completo, começando com https://.');
+    (Array.isArray(cfg.campos) ? cfg.campos : []).forEach(function (f, i) {
+      var nome = 'Campo ' + (i + 1) + (f && f.rotulo ? ' (' + f.rotulo + ')' : '');
+      if (!f || !CHAVE_CAMPO.test(String(f.chave))) erros.push(nome + ': a chave usa só letras minúsculas, dígitos e _, começando por letra.');
+      else if (chaves[f.chave]) erros.push(nome + ': a chave ' + f.chave + ' se repete.');
+      else chaves[f.chave] = true;
+      if (f && !f.rotulo) erros.push(nome + ': falta o rótulo.');
+    });
+    var a = cfg.autenticacao || {};
+    (AUT_ALVOS[a.tipo] || []).forEach(function (k) {
+      if (k === 'header' || k === 'param') return;
+      var chave = a[k] || AUT_PADRAO[k];
+      if (!chaves[chave]) erros.push('Autenticação: o campo ' + chave + ' não existe na lista de campos.');
+    });
+    if (typeof cfg.idempotencia_header === 'string' && !/^[A-Za-z0-9-]+$/.test(cfg.idempotencia_header)) erros.push('Chave de idempotência: nome de cabeçalho inválido.');
+    return erros;
+  }
+
   function salvarConfigConector(ev) {
     ev.preventDefault();
     var c = conectorAtual;
     var cfg;
     $('cx-erros').textContent = '';
-    try { cfg = JSON.parse($('cx-config').value); } catch (e) { msg('m-cx-config', 'err', 'JSON inválido: ' + e.message); return; }
+    try { cfg = JSON.parse($('cx-config').value); } catch (e) { $('cx-avancado').open = true; msg('m-cx-config', 'err', 'JSON inválido: ' + e.message); return; }
+    var locais = cfg && typeof cfg === 'object' ? errosDoGuiado(cfg) : [];
+    if (locais.length) {
+      msg('m-cx-config', 'err', 'Corrija antes de salvar:');
+      locais.forEach(function (e) { $('cx-erros').appendChild(el('li', null, e)); });
+      return;
+    }
     if (c.situacao === 'publicado' && !window.confirm('Este conector está publicado. A nova configuração vale para todas as clínicas que o usam em até 30 segundos. Salvar?')) return;
     msg('m-cx-config', null, 'Validando…');
     chamar('PUT', '/admin/conectores/' + encodeURIComponent(c.slug), { config: cfg }).then(function (r) {
       if (r.status === 422 && r.body && r.body.erros) {
         msg('m-cx-config', 'err', 'A configuração tem ' + r.body.erros.length + ' problema(s):');
         r.body.erros.forEach(function (e) { $('cx-erros').appendChild(el('li', null, e)); });
+        // Erro de rota, filtro ou regra de erro só se corrige no JSON: abre o JSON completo.
+        if (r.body.erros.some(function (e) { return !/^(versao|base_url|autenticacao|campos)/.test(e); })) $('cx-avancado').open = true;
         return;
       }
       if (r.status !== 200) { msg('m-cx-config', 'err', erroDe(r)); return; }
@@ -1732,11 +1962,12 @@
     $('c-campos').textContent = 'Nos textos, use ' + Object.keys(campos).filter(function (k) { return k !== 'texto'; }).map(function (k) { return '{' + k + '}'; }).join(', ') + '.';
     desenharParams();
     canal();
+    agendarPrevia();
   }
 
-  function salvarConfirmacao(ev) {
-    ev.preventDefault();
-    // Parte do que está gravado: o que a tela não mostra (ex.: tamanho do lote) não muda.
+  // O que a tela está editando, por cima do que está gravado: o que a tela não mostra (ex.: tamanho do lote)
+  // não muda. Serve ao salvar e à prévia.
+  function configDaTela() {
     var c = JSON.parse(JSON.stringify(atual.confirmacao));
     c.ativo = $('c-on').checked;
     c.dias_antes = Number($('c-dias').value);
@@ -1746,6 +1977,72 @@
     c.template = { nome: $('c-tpl-nome').value, parametros: params.map(function (p) { return p.campo === 'texto' ? { campo: 'texto', texto: p.texto || '' } : { campo: p.campo }; }) };
     TEXTOS.forEach(function (k) { c.textos[k] = $('c-t-' + k).value; });
     ACOES.forEach(function (a) { c.sinonimos[a] = $('c-s-' + a).value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); });
+    return c;
+  }
+
+  /* ---------- prévia da confirmação ---------- */
+  // Pede ao Conector a mensagem montada com uma consulta de exemplo (a mesma regra do envio de verdade).
+  // Espera a pessoa parar de digitar; um pedido antigo que chega depois de um novo é ignorado.
+  var previaSeq = 0, previaTimer = null;
+  var RESPOSTAS = [['confirmado', 'Quando confirma'], ['remarcar', 'Quando pede para remarcar'], ['cancelado', 'Quando cancela'], ['ja_respondido', 'Quando responde de novo'], ['indisponivel', 'Quando o sistema está fora do ar']];
+  function agendarPrevia() {
+    clearTimeout(previaTimer);
+    previaTimer = setTimeout(atualizarPrevia, 500);
+  }
+  function balao(texto) {
+    var b = el('div', 'balao' + (texto ? '' : ' balao--vazio'));
+    b.textContent = texto || '(vazio)';
+    return b;
+  }
+  function atualizarPrevia() {
+    if (!atual || !atual.confirmacao) return;
+    var s = ++previaSeq, c = configDaTela();
+    chamar('POST', rotaDo(atual.id, '/confirmacao/previa'), { config: c }).then(function (r) {
+      if (s !== previaSeq) return;
+      var box = $('c-previa-corpo');
+      if (r.status !== 200 || !r.body || !r.body.textos) { msg('m-previa', 'err', erroDe(r)); return; }
+      msg('m-previa', null, '');
+      box.textContent = '';
+      var b = r.body;
+      box.appendChild(el('h4', null, 'Lembrete'));
+      if (c.canal === 'oficial') {
+        var tpl = el('div', 'balao balao--tpl');
+        tpl.appendChild(el('strong', null, 'Template ' + (c.template.nome || '(sem nome)')));
+        var ol = el('ol', 'previa-vars');
+        (b.template || []).forEach(function (v, i) {
+          var li = el('li');
+          li.appendChild(el('code', null, '{{' + (i + 1) + '}}'));
+          li.appendChild(el('span', null, v || '(vazio)'));
+          ol.appendChild(li);
+        });
+        tpl.appendChild(ol);
+        tpl.appendChild(el('span', 'sub', 'O texto do template fica na Meta; daqui vão só as variáveis, nesta ordem.'));
+        box.appendChild(tpl);
+      } else {
+        box.appendChild(balao(b.textos.mensagem));
+      }
+      box.appendChild(el('h4', null, 'Respostas ao paciente'));
+      RESPOSTAS.forEach(function (x) {
+        var d = el('div', 'previa-resp');
+        d.appendChild(el('span', 'sub', x[1]));
+        d.appendChild(balao(b.textos[x[0]]));
+        box.appendChild(d);
+      });
+    });
+  }
+
+  // Visão geral → Recursos: abre a aba e leva até o formulário certo.
+  function irParaRecurso(form) {
+    abaDoCliente('da-recursos');
+    var f = $(form);
+    f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    var alvo = f.querySelector('input, select, textarea');
+    if (alvo) alvo.focus({ preventScroll: true });
+  }
+
+  function salvarConfirmacao(ev) {
+    ev.preventDefault();
+    var c = configDaTela();
     if (c.ativo && c.teste.ativo && !c.teste.telefones.length) { msg('m-conf', 'err', 'No modo teste, informe ao menos um telefone. Sem nenhum, nada é enviado.'); return; }
     if (c.canal === 'oficial' && c.template.parametros.some(function (p) { return p.campo === 'texto' && !p.texto.trim(); })) {
       msg('m-conf', 'err', 'Preencha o texto fixo das variáveis, ou troque o que vai nelas.');
@@ -1830,6 +2127,22 @@
   $('f-dlg-senha').addEventListener('submit', definirNovaSenha);
   $('dlg-cancelar').addEventListener('click', function () { $('dlg-senha').close(); });
   // Fechar (Esc, Cancelar ou depois de salvar) apaga o que foi digitado.
+  // "Mostrar senha": troca o tipo dos campos ligados. Ao enviar o formulário (ou fechar o diálogo) volta a esconder,
+  // para o navegador não guardar a senha como texto visível.
+  function esconderSenhas(caixa) {
+    Array.prototype.forEach.call(caixa.querySelectorAll('[data-mostrar]'), function (cb) {
+      cb.checked = false;
+      cb.getAttribute('data-mostrar').split(' ').forEach(function (id) { $(id).type = 'password'; });
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-mostrar]'), function (cb) {
+    cb.addEventListener('change', function () {
+      cb.getAttribute('data-mostrar').split(' ').forEach(function (id) { $(id).type = cb.checked ? 'text' : 'password'; });
+    });
+    var form = cb.closest('form'), dlg = cb.closest('dialog');
+    form.addEventListener('submit', function () { esconderSenhas(form); }, true);
+    if (dlg) dlg.addEventListener('close', function () { esconderSenhas(dlg); });
+  });
   $('dlg-senha').addEventListener('close', function () { $('dlg-nova').value = ''; $('dlg-nova2').value = ''; senhaDe = null; $('dlg-cancelar').textContent = 'Cancelar'; });
   $('b-sair').addEventListener('click', sair);
   // Em telas estreitas a barra lateral vira uma faixa horizontal; o leitor de tela precisa saber.
@@ -1884,11 +2197,27 @@
   ligarSeg('cx-ped-filtro', function (f) { pedFiltro = f; desenharPedidos(); });
   $('f-cx-dados').addEventListener('submit', salvarDadosConector);
   $('f-cx-config').addEventListener('submit', salvarConfigConector);
+  // Formulário guiado ↔ JSON.
+  $('cxg').addEventListener('input', function (ev) { if (ev.target.type !== 'radio' && ev.target.type !== 'checkbox' && ev.target.tagName !== 'SELECT') guiadoMudou(); });
+  $('cxg').addEventListener('change', function (ev) { if (ev.target.type === 'radio' || ev.target.type === 'checkbox' || ev.target.tagName === 'SELECT') guiadoMudou(); });
+  $('cxg-campo-add').addEventListener('click', function () {
+    var vazio = $('cxg-campos').querySelector('.cxg-vazio');
+    if (vazio) vazio.remove();
+    var li = linhaCampo({ tipo: 'texto' });
+    $('cxg-campos').appendChild(li);
+    guiadoMudou();
+    li.querySelector('input').focus();
+  });
+  $('cx-config').addEventListener('input', function () { preencherGuiado(); });
   $('f-cx-doc').addEventListener('submit', anexarDoc);
   $('f-cx-teste').addEventListener('submit', testarConector);
   $('f-fin').addEventListener('submit', salvarFinanceiro);
   $('f-conf').addEventListener('submit', salvarConfirmacao);
   $('c-canal').addEventListener('change', canal);
+  $('f-conf').addEventListener('input', agendarPrevia);
+  $('f-conf').addEventListener('change', agendarPrevia);
+  $('c-params').addEventListener('click', agendarPrevia);
+  $('c-param-add').addEventListener('click', agendarPrevia);
   $('c-param-add').addEventListener('click', function () { params.push({ campo: 'nome' }); desenharParams(); });
   $('f-disparo').addEventListener('submit', salvarDisparo);
   $('b-rotacionar').addEventListener('click', rotacionar);
@@ -1897,28 +2226,83 @@
   $('f-historico').addEventListener('submit', apagarHistorico);
   /* ---------- uso das clínicas ---------- */
   // Visão geral (totais, gráfico, alertas e cartões das clínicas) e painel de cada clínica. Nada de paciente: só contagens.
-  var usoDias = 30, usoSeq = 0, usoDados = null;
+  var usoDias = 30, usoDatas = null, usoSeq = 0, usoDados = null; // usoDatas = {inicio, fim} do período escolhido
   var NOMES_FUNCAO = { agenda: 'Marcar', presenca: 'Presença', espera: 'Tempo de espera', cobranca: 'Cobrança', confirmacao: 'Confirmação D-1', confirmacao_manual: 'Confirmação manual', busca: 'Busca de paciente', cadastro: 'Cadastro de paciente' };
 
   function num(n) { return Number(n || 0).toLocaleString('pt-BR'); }
   function reais(v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
   function pctDe(n, d) { return d ? Math.round((n / d) * 100) + '%' : '—'; }
 
+  /* ---------- período e exportação (CSV) da aba Uso ---------- */
+  function hojeIso() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
+  function somaDiasIso(iso, n) { var p = iso.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)).toISOString().slice(0, 10); }
+  function dataBr(iso) { var p = String(iso).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+  function textoPeriodo(p) {
+    if (!usoDatas) return 'nos últimos ' + p.dias + ' dias';
+    return p.inicio === p.fim ? 'em ' + dataBr(p.inicio) : 'de ' + dataBr(p.inicio) + ' a ' + dataBr(p.fim) + ' (' + p.dias + ' dias)';
+  }
+  // CSV para o Excel em português: ponto e vírgula, vírgula decimal e BOM (para os acentos).
+  function celula(v) {
+    if (v == null) return '';
+    var t = typeof v === 'number' ? String(v).replace('.', ',') : String(v);
+    return /[;"\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  }
+  function csvDe(linhas) { return '﻿' + linhas.map(function (l) { return l.map(celula).join(';'); }).join('\r\n') + '\r\n'; }
+  function dataHora(v) {
+    if (!v) return '';
+    var d = new Date(v);
+    return isNaN(d) ? '' : new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d).replace(',', '');
+  }
+  function csvClinicas(d) {
+    var cab = ['Clínica', 'Saúde', 'Situação', 'Sistema', 'Usos', 'Usos no período anterior', 'Marcações', 'Remarcações', 'Cancelamentos', 'Confirmações na agenda', 'Faltas',
+      'Ações a conferir', 'Cobranças', 'Valor cobrado (R$)', 'Atendimentos com espera', 'Confirmações D-1 enviadas', 'Respondidas', 'Confirmadas', 'Não entregues',
+      'Atendentes', 'Buscas de paciente', 'Chamadas ao sistema (ERP)', 'Falhas do sistema (ERP)', 'Versão da extensão', 'Último uso', 'Alertas'];
+    var linhas = d.clinicas.map(function (c) {
+      var a = c.acoes || {}, cf = c.confirmacoes || {}, ee = c.erros_erp || {};
+      return [c.nome, c.saude.texto, c.situacao.texto, nomeConector(c.erp), c.volume, c.volume_anterior, a.criar || 0, a.remarcar || 0, a.cancelar || 0, a.confirmar || 0, a.ausente || 0,
+        c.incertos, c.cobrancas.n, Math.round(c.cobrancas.valor * 100) / 100, c.espera.atendimentos, cf.enviadas || 0, cf.respondidas || 0, cf.confirmadas || 0, cf.falharam || 0,
+        c.usuarios, (c.eventos && c.eventos.busca_paciente) || 0, ee.chamadas || 0, ee.total || 0, (c.versao && c.versao.extensao) || '', dataHora(c.ultimo_uso_em),
+        c.alertas.map(function (x) { return x.texto; }).join(' | ')];
+    });
+    return csvDe([cab].concat(linhas));
+  }
+  // Uma linha por dia: o total e cada clínica (a mesma conta do gráfico "Uso por dia").
+  function csvDias(d) {
+    var cab = ['Dia', 'Todas as clínicas'].concat(d.clinicas.map(function (c) { return c.nome; }));
+    var linhas = d.serie.map(function (s, i) {
+      return [dataBr(s.dia), s.n].concat(d.clinicas.map(function (c) { return (c.spark && c.spark[i]) || 0; }));
+    });
+    return csvDe([cab].concat(linhas));
+  }
+  function baixarCsv(nome, p, conteudo) {
+    var url = URL.createObjectURL(new Blob([conteudo], { type: 'text/csv;charset=utf-8' }));
+    var a = el('a');
+    a.href = url;
+    a.download = 'clinfy-' + nome + '_' + p.inicio + '_a_' + p.fim + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
   function carregarUso() {
     var s = ++usoSeq;
     msg('m-uso', null, 'Carregando…');
     $('uso-lista').setAttribute('aria-busy', 'true');
-    return chamar('GET', '/admin/uso?dias=' + usoDias).then(function (r) {
+    var q = usoDatas ? 'inicio=' + usoDatas.inicio + '&fim=' + usoDatas.fim : 'dias=' + usoDias;
+    return chamar('GET', '/admin/uso?' + q).then(function (r) {
       if (s !== usoSeq) return;
       $('uso-lista').removeAttribute('aria-busy');
       if (r.status !== 200 || !r.body) {
         usoDados = null;
         $('uso-lista').textContent = '';
         $('uso-kpis').textContent = '';
-        falhou('m-uso', erroDe(r), carregarUso);
+        $('uso-exportar').hidden = true;
+        falhou('m-uso', r.body && r.body.erro === 'PERIODO_INVALIDO' ? 'Período inválido: escolha datas até hoje, de no máximo ' + r.body.max_dias + ' dias atrás.' : erroDe(r), carregarUso);
         return;
       }
       usoDados = r.body;
+      $('uso-exportar').hidden = !r.body.clinicas.length;
       desenharUso();
       msg('m-uso', null, r.body.clinicas.length ? '' : 'Nenhuma clínica cadastrada.');
     });
@@ -1931,7 +2315,7 @@
     parada: 'Parada', nunca_usou: 'Nunca usou', sem_credencial: 'Sem credencial do sistema',
     incertos_altos: 'Muitas ações a conferir', confirmacao_falhando: 'Confirmação D-1 falhando',
     confirmacao_parada: 'Confirmação D-1 sem envio', queda_uso: 'Uso em queda',
-    erp_erro_alto: 'Falhas do sistema (ERP)', versao_antiga: 'Extensão desatualizada'
+    erp_erro_alto: 'Falhas do sistema (ERP)', versao_antiga: 'Extensão desatualizada', sem_uso_expediente: 'Sem uso hoje'
   };
   var NOMES_EVENTO = { abertura: 'Aberturas do ClinFy', busca_paciente: 'Buscas de paciente', agenda_dia: 'Dias da agenda', horarios: 'Consultas de horários', painel: 'Painéis', cadastro_paciente: 'Cadastros de paciente' };
 
@@ -2145,7 +2529,7 @@
   function desenharGeral(d) {
     var t = d.totais, ta = d.totais_anterior || null, serie = d.serie || [];
     $('h-uso').textContent = 'Uso das clínicas';
-    $('uso-sub').textContent = 'O que cada clínica fez pelo ClinFy nos últimos ' + d.periodo.dias + ' dias. Clique numa clínica para ver o painel dela.';
+    $('uso-sub').textContent = 'O que cada clínica fez pelo ClinFy ' + textoPeriodo(d.periodo) + '. Clique numa clínica para ver o painel dela.';
 
     var k = $('uso-kpis');
     k.textContent = '';
@@ -2376,13 +2760,43 @@
     usoRedim = setTimeout(function () { if (!$('v-uso').hidden && usoDados) desenharUso(); }, 150);
   });
 
-  Array.prototype.forEach.call(document.querySelectorAll('#uso-periodo .seg__btn'), function (b) {
+  function marcarPeriodo(b) {
+    Array.prototype.forEach.call(document.querySelectorAll('#uso-periodo .seg__btn'), function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#uso-periodo .seg__btn[data-dias]'), function (b) {
     b.addEventListener('click', function () {
       usoDias = Number(b.getAttribute('data-dias'));
-      Array.prototype.forEach.call(document.querySelectorAll('#uso-periodo .seg__btn'), function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+      usoDatas = null;
+      marcarPeriodo(b);
+      $('f-uso-periodo').hidden = true;
+      $('uso-p-abrir').setAttribute('aria-expanded', 'false');
       carregarUso();
     });
   });
+  // Escolher datas: abre o formulário com o período que está na tela.
+  $('uso-p-abrir').addEventListener('click', function () {
+    var f = $('f-uso-periodo'), abrir = f.hidden;
+    f.hidden = !abrir;
+    this.setAttribute('aria-expanded', String(abrir));
+    if (!abrir) return;
+    var p = usoDados && usoDados.periodo, hoje = hojeIso();
+    $('uso-p-inicio').value = p ? p.inicio : somaDiasIso(hoje, -29);
+    $('uso-p-fim').value = p ? p.fim : hoje;
+    $('uso-p-inicio').min = $('uso-p-fim').min = somaDiasIso(hoje, -399);
+    $('uso-p-inicio').max = $('uso-p-fim').max = hoje;
+    $('uso-p-inicio').focus();
+  });
+  $('f-uso-periodo').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var i = $('uso-p-inicio').value, f = $('uso-p-fim').value;
+    if (!i || !f) return;
+    if (i > f) { var t = i; i = f; f = t; $('uso-p-inicio').value = i; $('uso-p-fim').value = f; }
+    usoDatas = { inicio: i, fim: f };
+    marcarPeriodo($('uso-p-abrir'));
+    carregarUso();
+  });
+  $('uso-csv-clinicas').addEventListener('click', function () { if (usoDados) baixarCsv('uso-clinicas', usoDados.periodo, csvClinicas(usoDados)); });
+  $('uso-csv-dias').addEventListener('click', function () { if (usoDados) baixarCsv('uso-por-dia', usoDados.periodo, csvDias(usoDados)); });
   $('uso-atualizar').addEventListener('click', carregarUso);
 
   conferirSessao();

@@ -7,6 +7,7 @@ import {
   hojeEm,
   lerConfig,
   preencher,
+  previaConfirmacao,
   telefoneKentro,
   variaveisTemplate,
   varsDa,
@@ -105,4 +106,15 @@ test("botão: sinônimos da clínica", () => {
   assert.equal(acaoDoBotao("Estarei lá"), null);
   assert.equal(lerConfig({ canal: "nao_oficial" }).canal, "nao_oficial");
   assert.equal(lerConfig({ canal: "x" }).canal, "oficial");
+});
+
+test("prévia da confirmação: mensagem, respostas e variáveis do template com a consulta de exemplo", () => {
+  const agora = new Date("2026-11-26T15:00:00Z"); // quinta
+  const cfg = lerConfig({ ativo: true, dias_antes: 1, canal: "nao_oficial", textos: { mensagem: "Olá {nome}, consulta {data} às {hora} com {profissional} na {clinica}.", confirmado: "Obrigado, {nome}!" } });
+  const p = previaConfirmacao(cfg, "Clínica Demo", agora);
+  assert.match(p.textos.mensagem, /^Olá Maria, consulta amanhã \(27\/11\) às 08:30 com Dra\. Ana Lima na Clínica Demo\.$/);
+  assert.equal(p.textos.confirmado, "Obrigado, Maria!");
+  assert.equal(p.template.length, cfg.template.parametros.length);
+  // Texto vazio continua vazio (a tela mostra "(vazio)").
+  assert.equal(previaConfirmacao(lerConfig({ textos: { cancelado: "" } }), "X", agora).textos.cancelado !== undefined, true);
 });

@@ -42,6 +42,7 @@ test("admin: rotas novas de configuração e saída existem e exigem a chave", a
   for (const [method, url] of [
     ["PUT", `/admin/tenants/${UUID}/confirmacao`],
     ["PUT", `/admin/tenants/${UUID}/financeiro`],
+    ["POST", `/admin/tenants/${UUID}/confirmacao/previa`],
     ["POST", `/admin/tenants/${UUID}/desligar`],
     ["DELETE", `/admin/tenants/${UUID}/historico`],
   ] as const) {

@@ -7,7 +7,7 @@ process.env.ADMIN_KEY = CHAVE;
 delete process.env.DATABASE_URL;
 delete process.env.POSTGRES_URL;
 const { adminRoutes } = await import("../src/routes/admin.js");
-const { alertasDe, emExpediente, montarUso, periodoUso, saudeDe, situacaoDe, versaoAtrasada } = await import("../src/uso.js");
+const { alertasDe, emExpediente, montarUso, periodoPersonalizado, periodoUso, saudeDe, situacaoDe, versaoAtrasada } = await import("../src/uso.js");
 
 const AGORA = new Date("2026-11-24T15:00:00Z");
 const diasAtras = (n: number) => new Date(AGORA.getTime() - n * 86400000).toISOString();
@@ -185,4 +185,18 @@ test("alerta sem uso no expediente: clínica de uso diário sem chamada hoje, de
   assert.deepEqual(tipos2(terca15h, "2026-11-19T18:00:00Z"), ["parada"]);
   assert.equal(emExpediente(new Date("2026-11-24T17:00:00Z").getTime()), true); // 14h
   assert.equal(emExpediente(new Date("2026-11-24T16:59:00Z").getTime()), false); // 13h59
+});
+
+test("período personalizado: de/até inclusive, até 400 dias atrás, nunca no futuro", () => {
+  const hoje = "2026-11-26";
+  assert.deepEqual(periodoPersonalizado(hoje, "2026-11-01", "2026-11-10"), { dias: 10, inicio: "2026-11-01", fim: "2026-11-10", anterior_inicio: "2026-10-22" });
+  assert.equal(periodoPersonalizado(hoje, "2026-11-26", "2026-11-26")?.dias, 1);
+  // Atravessa a mudança de mês e de ano.
+  assert.equal(periodoPersonalizado(hoje, "2025-12-20", "2026-01-10")?.dias, 22);
+  // 400 dias é o limite (o mais antigo que o banco guarda).
+  assert.equal(periodoPersonalizado(hoje, "2025-10-23", hoje)?.dias, 400);
+  assert.equal(periodoPersonalizado(hoje, "2025-10-22", hoje), null);
+  for (const [i, f] of [["2026-11-10", "2026-11-01"], ["2026-11-20", "2026-11-27"], ["2026-02-30", "2026-03-02"], ["01/11/2026", "2026-11-10"], [undefined, "2026-11-10"], ["2026-11-01", 5]]) {
+    assert.equal(periodoPersonalizado(hoje, i, f), null, `${i} a ${f}`);
+  }
 });

@@ -4,7 +4,7 @@ import { pool } from "../db.js";
 import { instituicaoDa, type CredencialAsa } from "../erp/asa/cliente.js";
 import { adaptadorPara, camposDe, carregarConector, type Conector } from "../erp/catalogo.js";
 import { perfilErp, tenantDaRequisicao } from "../tenant-auth.js";
-import { CAMPOS, datasAlvo, hojeEm, lerConfig, MAX_PARAMETROS, preencher, TEXTOS_PADRAO, variaveisTemplate, varsDa, varsResposta } from "../confirmacao.js";
+import { CAMPOS, lerConfig, MAX_PARAMETROS, previaConfirmacao, TEXTOS_PADRAO } from "../confirmacao.js";
 import { instituicaoConfere } from "../implantacao.js";
 import { adminAutorizado } from "./admin.js";
 import { ligarErp } from "./conectores.js";
@@ -136,18 +136,7 @@ export async function tenantRoutes(app: FastifyInstance) {
   app.post<{ Body: { config?: unknown } }>("/v1/tenant/confirmacao/previa", async (req, reply) => {
     const tenant = await tenantDaRequisicao(req, reply);
     if (!tenant) return;
-    const cfg = lerConfig(req.body?.config);
-    const hoje = hojeEm(new Date());
-    const data = datasAlvo(hoje, cfg).inicio;
-    const v = varsDa(
-      { paciente: "Maria Aparecida Souza", data, hora: "08:30", prestador: "Dra. Ana Lima", clinica: null, especialidade: "Cardiologia", procedimento: "Consulta", endereco: "Rua das Flores, 100" },
-      hoje,
-      tenant.nome,
-    );
-    // As respostas saem com os dados que a rota de resposta realmente tem.
-    const vr = varsResposta({ data, hora: "08:30", prestador: "Dra. Ana Lima" }, "Maria", hoje, tenant.nome);
-    const textos = Object.fromEntries(Object.entries(cfg.textos).map(([k, t]) => [k, preencher(t, k === "mensagem" ? v : vr)]));
-    return { config: cfg, textos, template: variaveisTemplate(v, cfg.template.parametros) };
+    return previaConfirmacao(lerConfig(req.body?.config), tenant.nome, new Date());
   });
 
   // A chave da instalação está no navegador de todo atendente: desde a 0.19.0 ela não grava a
