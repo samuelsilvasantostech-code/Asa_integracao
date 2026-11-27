@@ -14,6 +14,8 @@ const ARQUIVOS: Record<string, { arquivo: string; tipo: string }> = {
 };
 
 export async function implantacaoRoutes(app: FastifyInstance) {
+  // O endereço do Conector é o endereço da implantação: a raiz leva à página (antes, a Vercel fazia isso).
+  app.get("/", async (_req, reply) => reply.header("Cache-Control", "no-store").redirect("/implantacao", 302));
   for (const [rota, { arquivo, tipo }] of Object.entries(ARQUIVOS)) {
     app.get(rota, async (_req, reply) => {
       let conteudo: Buffer;

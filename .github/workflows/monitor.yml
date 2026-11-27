@@ -21,7 +21,6 @@ jobs:
     timeout-minutes: 5
     env:
       CONECTOR: https://clinfy-integracao-samuels.kentro.com.br
-      IMPLANTACAO: https://clinfy-implantacao.vercel.app
     steps:
       - name: Conector, extensão e implantação respondem
         id: servicos
@@ -48,8 +47,7 @@ jobs:
 
           confere "rota da agenda (sem parâmetros)" "$CONECTOR/v1/agenda/colunas" 400
           confere "site de implantação" "$CONECTOR/implantacao" 200
-          confere "implantação pela Vercel" "$IMPLANTACAO/implantacao" 200
-          confere "manifest pela Vercel" "$IMPLANTACAO/extensao/manifest.json" 200
+          confere "raiz leva à implantação" "$CONECTOR/" 302
 
           echo "falhas=$falhas" >> "$GITHUB_OUTPUT"
           [ "$falhas" = 0 ] || echo "- $falhas verificação(ões) do Conector, da extensão ou da implantação falharam." >> /tmp/problemas

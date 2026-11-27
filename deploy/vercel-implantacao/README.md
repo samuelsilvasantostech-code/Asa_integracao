@@ -1,4 +1,6 @@
-# Implantação ClinFy na Vercel
+# Implantação ClinFy na Vercel (aposentado)
+
+**Desde 27/11/2026 a implantação usa o endereço do Doca:** https://clinfy-integracao-samuels.kentro.com.br (a raiz leva a `/implantacao`). Este proxy deixou de ser conferido pelo monitor e pode ser desligado na Vercel. Enquanto estiver ligado, continua funcionando como antes.
 
 Este projeto da Vercel é **só um proxy**. Ele não tem cópia da página.
 

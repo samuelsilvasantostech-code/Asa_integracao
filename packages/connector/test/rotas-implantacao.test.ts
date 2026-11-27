@@ -87,6 +87,10 @@ test("página de implantação: servida com cabeçalhos de proteção, só os ar
   assert.doesNotMatch(html, /<script>|onclick=|style=/i, "sem script ou estilo inline (CSP)");
   const js = (await app.inject({ method: "GET", url: "/implantacao/implantacao.js" })).body;
   assert.doesNotMatch(js, /innerHTML|localStorage|sessionStorage/);
+  // A raiz do Conector leva à implantação (o endereço do Doca substitui o proxy da Vercel).
+  const raiz = await app.inject({ method: "GET", url: "/" });
+  assert.equal(raiz.statusCode, 302);
+  assert.equal(raiz.headers.location, "/implantacao");
   await app.close();
 });
 

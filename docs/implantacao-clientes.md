@@ -6,7 +6,7 @@ Aberto em **30/10/2026** como tema a desenhar; construído em **03/11/2026** (0.
 
 `https://clinfy-integracao-samuels.kentro.com.br/implantacao`
 
-- Também em https://clinfy-implantacao.vercel.app, que é só um proxy para o Doca.
+- O endereço do Conector sozinho (https://clinfy-integracao-samuels.kentro.com.br) também leva à página. O antigo proxy da Vercel (clinfy-implantacao.vercel.app) foi aposentado em 27/11.
 - **Entrada por usuário e senha** (desde 13/11/2026):
   - **Primeiro acesso:** enquanto não houver nenhum usuário, a página pede a `ADMIN_KEY` uma vez e cria o seu usuário e senha.
   - Os outros acessos são criados na aba **Usuários**. Lá também dá para desativar alguém, definir uma nova senha e trocar a própria.
